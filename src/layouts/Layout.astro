@@ -1,0 +1,647 @@
+---
+import type { Locale } from '../i18n';
+import { useTranslations } from '../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+const canonicalUrl = locale === 'en' ? 'https://vyrx.de/en/' : 'https://vyrx.de/';
+---
+
+<!DOCTYPE html>
+<html lang={locale}>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{t.siteTitle}</title>
+  <meta name="description" content={t.siteDesc} />
+  <link rel="canonical" href={canonicalUrl} />
+  <link rel="alternate" hreflang="de" href="https://vyrx.de/" />
+  <link rel="alternate" hreflang="en" href="https://vyrx.de/en/" />
+  <link rel="alternate" hreflang="x-default" href="https://vyrx.de/" />
+
+  <!-- Typography: Plus Jakarta Sans & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <style is:global>
+    :root {
+      --bg: #08080b;
+      --bg-surface: rgba(19, 19, 26, 0.8);
+      --bg-card: rgba(25, 25, 35, 0.75);
+      --bg-card-hover: rgba(33, 33, 46, 0.95);
+      --border: rgba(255, 255, 255, 0.09);
+      --border-subtle: rgba(255, 255, 255, 0.05);
+      --border-hover: rgba(255, 255, 255, 0.22);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-sub: #64748b;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-x: hidden;
+      position: relative;
+      -webkit-font-smoothing: antialiased;
+      background-color: var(--bg);
+      background-image: radial-gradient(circle at 50% 30%, #15151e 0%, #08080b 85%);
+      background-attachment: fixed;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 6.5rem 1.5rem;
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    /* Navbar */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 3.5rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .brand-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .lang-switcher {
+      display: flex;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .lang-btn {
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .lang-btn:hover {
+      color: var(--text);
+    }
+
+    .lang-btn.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+    }
+
+    .mesh-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      backdrop-filter: blur(12px);
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #34d399;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--emerald);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--emerald);
+    }
+
+    .btn-login {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.45rem 1.05rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .btn-login:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-hover);
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      max-width: 720px;
+      margin: 1.5rem auto 4.5rem auto;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-size: clamp(2.4rem, 5.2vw, 3.75rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.12;
+      margin-bottom: 1.25rem;
+      color: #ffffff;
+    }
+
+    .hero-p {
+      font-size: 1.1rem;
+      color: var(--text-muted);
+      line-height: 1.65;
+      margin-bottom: 2.25rem;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.65rem;
+      background: #ffffff;
+      color: #000000;
+      padding: 0.8rem 1.8rem;
+      border-radius: 9px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-decoration: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+    }
+
+    .btn-primary:hover {
+      background: #f1f1f5;
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(255, 255, 255, 0.22);
+    }
+
+    .auth-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.78rem;
+      color: var(--text-sub);
+      font-weight: 500;
+    }
+
+    /* Section Headers */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 1.25rem;
+      margin-top: 3.5rem;
+      padding: 0 0.25rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .section-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+
+    /* Table Component */
+    .mesh-monitor {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .monitor-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.88rem;
+    }
+
+    .monitor-table th {
+      padding: 1rem 1.25rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-sub);
+      border-bottom: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .monitor-row {
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background 0.15s ease;
+    }
+
+    .monitor-row:last-child {
+      border-bottom: none;
+    }
+
+    .monitor-row:hover {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .monitor-table td {
+      padding: 1.1rem 1.25rem;
+      vertical-align: middle;
+    }
+
+    .node-ident {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .node-status-pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .pulse-online {
+      background: var(--emerald);
+      box-shadow: 0 0 8px var(--emerald);
+    }
+
+    .node-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+
+    .node-hostname {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .node-zone-tag {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+
+    .node-role-desc {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .node-hardware {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .node-ip-badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      padding: 0.25rem 0.55rem;
+      border-radius: 6px;
+    }
+
+    .node-stack-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+    }
+
+    .stack-pill {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+
+    /* App Grid */
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .app-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.35rem;
+      text-decoration: none;
+      color: inherit;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .app-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+    }
+
+    .app-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.85rem;
+    }
+
+    .app-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    .app-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+    }
+
+    .app-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 0.25rem;
+    }
+
+    .app-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+    }
+
+    .app-footer {
+      margin-top: 1.25rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+    }
+
+    .app-url {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-sub);
+    }
+
+    .app-action {
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    /* User Profile State */
+    .user-pill {
+      display: none;
+      align-items: center;
+      gap: 0.65rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.75rem 0.35rem 0.5rem;
+      border-radius: 8px;
+      font-size: 0.82rem;
+    }
+
+    .user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+    }
+
+    .user-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .user-logout {
+      color: var(--text-sub);
+      text-decoration: none;
+      font-size: 0.75rem;
+      margin-left: 0.35rem;
+      transition: color 0.2s;
+    }
+
+    .user-logout:hover {
+      color: var(--text-muted);
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 2.2rem 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+      font-size: 0.82rem;
+      color: var(--text-sub);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+    }
+
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--text);
+    }
+
+    @media (max-width: 640px) {
+      .header-actions {
+        flex-direction: column-reverse;
+        align-items: flex-end;
+      }
+      .footer-links {
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <slot />
+
+  <!-- Progressive Client Island for Authentik SSO session detection & Mesh Probe -->
+  <script is:inline>
+    (async function initSessionAndMesh() {
+      // 1. Check Authentik Session (CORS credentials included)
+      try {
+        const res = await fetch('https://auth.vyrx.de/api/v3/core/users/me/', {
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' }
+        });
+        if (res.ok) {
+          const user = await res.json();
+          if (user && user.user && user.user.username && user.user.username !== 'anonymous') {
+            const loginBtn = document.getElementById('login-action-btn');
+            const userPill = document.getElementById('user-profile-pill');
+            const userNameEl = document.getElementById('user-display-name');
+            const userAvatarEl = document.getElementById('user-avatar-initial');
+
+            if (loginBtn && userPill && userNameEl && userAvatarEl) {
+              loginBtn.style.display = 'none';
+              userPill.style.display = 'inline-flex';
+              const name = user.user.name || user.user.username;
+              userNameEl.textContent = name;
+              userAvatarEl.textContent = name.charAt(0).toUpperCase();
+            }
+
+            // Group-based unhiding for restricted tools (e.g. wheel tools)
+            const groups = (user.user.groups || []).map(g => g.name);
+            document.querySelectorAll('[data-required-group]').forEach(el => {
+              const req = el.getAttribute('data-required-group');
+              if (req && (groups.includes(req) || groups.includes('wheel'))) {
+                el.style.display = 'flex';
+              }
+            });
+          }
+        }
+      } catch (_) {
+        // Fallback: stay in static default mode
+      }
+
+      // 2. Mesh connectivity probe
+      const meshLabel = document.getElementById('mesh-status-text');
+      if (meshLabel && window.location.hostname === 'vyrx.de') {
+        const probeImg = new Image();
+        const timeout = setTimeout(() => {
+          // Timeout reached, external access
+        }, 1200);
+        probeImg.onload = () => {
+          clearTimeout(timeout);
+          meshLabel.textContent = 'MESH 10.10.100.0/24';
+        };
+        probeImg.src = 'http://10.10.100.1/favicon.ico?r=' + Date.now();
+      }
+    })();
+  </script>
+</body>
+</html>

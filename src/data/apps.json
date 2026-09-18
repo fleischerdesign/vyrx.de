@@ -1,0 +1,92 @@
+[
+  {
+    "id": "jellyfin",
+    "name": "Jellyfin",
+    "url": "https://jellyfin.vyrx.de",
+    "badge": {
+      "de": "Medien",
+      "en": "Media"
+    },
+    "desc": {
+      "de": "Streaming von 4K-Filmen, Serien und privater Musiksammlung ohne Cloud-Abhängigkeit.",
+      "en": "Streaming of 4K movies, shows, and personal music library without cloud dependency."
+    },
+    "requiredGroups": ["media-users", "family"],
+    "icon": "media"
+  },
+  {
+    "id": "paperless",
+    "name": "Paperless-ngx",
+    "url": "https://docs.vyrx.de",
+    "badge": {
+      "de": "Dokumente",
+      "en": "Documents"
+    },
+    "desc": {
+      "de": "Zentrales Haushalts- und Dokumentenarchiv mit automatischer Texterkennung (OCR).",
+      "en": "Centralized document archive with automated optical character recognition (OCR)."
+    },
+    "requiredGroups": ["family"],
+    "icon": "document"
+  },
+  {
+    "id": "vikunja",
+    "name": "Vikunja",
+    "url": "https://tasks.vyrx.de",
+    "badge": {
+      "de": "Aufgaben",
+      "en": "Tasks"
+    },
+    "desc": {
+      "de": "Kollaborative Aufgabenlisten, Einkaufszettel und Projektboards für die Familie.",
+      "en": "Collaborative task lists, shopping lists, and project boards for the household."
+    },
+    "requiredGroups": ["family"],
+    "icon": "check"
+  },
+  {
+    "id": "openclaw",
+    "name": "OpenClaw AI",
+    "url": "https://ops.vyrx.de",
+    "badge": {
+      "de": "Automation",
+      "en": "Automation"
+    },
+    "desc": {
+      "de": "Dezentrale Multi-Agenten-KI mit sicherer lokaler Modellausführung im Mesh.",
+      "en": "Decentralized multi-agent system with secure local inference across the mesh."
+    },
+    "requiredGroups": ["family"],
+    "icon": "cpu"
+  },
+  {
+    "id": "grafana",
+    "name": "Grafana Observability",
+    "url": "https://grafana.ops.vyrx.de",
+    "badge": {
+      "de": "Monitoring",
+      "en": "Monitoring"
+    },
+    "desc": {
+      "de": "Zentrale Systemmetriken, Dashboards und Protokollanalyse aller Cluster-Nodes.",
+      "en": "Central system metrics, telemetry dashboards, and log aggregation across all cluster nodes."
+    },
+    "requiredGroups": ["wheel"],
+    "icon": "chart"
+  },
+  {
+    "id": "homeassistant",
+    "name": "Home Assistant",
+    "url": "https://hass.vyrx.de",
+    "badge": {
+      "de": "Smart Home",
+      "en": "Smart Home"
+    },
+    "desc": {
+      "de": "Lokale Hausautomation, Sensornetzwerk und Relais-Steuerung im IoT-Subnetz.",
+      "en": "Local home automation, sensor telemetry, and relay control in the IoT subnet."
+    },
+    "requiredGroups": ["family"],
+    "icon": "home"
+  }
+]
