@@ -24,12 +24,12 @@ const primary = nav.filter((item) => !item.admin);
 
 <a class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-content" href="#main">{t.skipToContent}</a>
 
-<div class="drawer" id="shell-drawer">
+<div class="drawer lg:drawer-open" id="shell-drawer">
   <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
   <div class="drawer-content flex min-h-screen flex-col">
     <header class="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/85 backdrop-blur">
       <div class="navbar-start">
-        <label for="nav-drawer" class="btn btn-square btn-ghost lg:hidden" aria-label="Navigation" data-auth="in" hidden>☰</label>
+        <label for="nav-drawer" class="btn btn-square btn-ghost hidden md:inline-flex lg:hidden" aria-label="Navigation" data-auth="in" hidden>☰</label>
         <a href={home} class="btn btn-ghost px-2 text-lg font-extrabold tracking-[0.2em]">
           VYRX<span class="text-primary">.</span>
         </a>
@@ -86,7 +86,6 @@ const primary = nav.filter((item) => !item.admin);
   <div class="drawer-side z-40">
     <label for="nav-drawer" class="drawer-overlay" aria-label="close"></label>
     <aside class="min-h-full w-64 bg-base-200 p-2">
-      <p class="menu-title px-3 text-xs tracking-widest">VYRX</p>
       <ul class="menu w-full" data-auth="in" hidden>
         {
           nav.map((item) => (

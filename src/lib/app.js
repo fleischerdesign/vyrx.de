@@ -192,9 +192,15 @@ function wireFilter() {
       if (hit) shown += 1;
     }
     for (const section of document.querySelectorAll('#services-body .section')) {
-      section.hidden = ![...section.querySelectorAll('[data-tile]')].some((t) => !t.hidden);
+      section.hidden = ![...section.querySelectorAll('[data-tile]')].some((tile) => !tile.hidden);
     }
     document.querySelector('#services-empty').hidden = shown > 0;
+    // The radios and the search box are two spellings of one filter. Without this, the chip stays
+    // selected after typing and claims a filter that no longer applies - the same defect as a
+    // checkbox whose state outlives its breakpoint.
+    for (const radio of document.querySelectorAll('input[name="category"]')) {
+      radio.checked = radio.value === input.value.trim();
+    }
   });
   // The category filter is a radio group (daisyUI `filter`); a change drives the same text filter.
   for (const radio of document.querySelectorAll('input[name="category"]')) {

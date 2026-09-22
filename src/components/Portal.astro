@@ -49,12 +49,14 @@ const t = useTranslations(locale);
 
   <script>
     import { boot } from '../lib/app.js';
-    import de from '../i18n/de.json';
-    import en from '../i18n/en.json';
+    import { useTranslations } from '../i18n';
 
     const locale = document.documentElement.lang === 'en' ? 'en' : 'de';
     boot({
-      messages: locale === 'en' ? en : de,
+      // The same accessor the markup uses: on the client too, a key missing from a table is marked in
+      // the page instead of arriving as an empty string - which is how `statusNodes` could sit blank
+      // on two views. `t` from the frontmatter is not in scope here.
+      messages: useTranslations(locale),
       locale,
       loginUrl: '/outpost.goauthentik.io/start?rd=/',
       accountUrl: 'https://auth.vyrx.de/if/user/',
