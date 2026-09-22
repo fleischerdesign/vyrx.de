@@ -34,8 +34,12 @@ export function hostAddresses(host, t) {
 
 export function hostCard(host, ctx) {
   const t = ctx.t;
-  const state = hostState(host.name, ctx.status);
+  const state = hostState(host, ctx.status);
   const label = stateLabel(state, t);
+  const stateBadge =
+    state === 'unmonitored'
+      ? `<span class="badge">${esc(t.unmonitored)}</span>`
+      : `<span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span><span class="tile__status">${esc(label)}</span>`;
   const services = host.services || [];
   const shown = services.slice(0, 8);
   const badges = [
@@ -46,9 +50,8 @@ export function hostCard(host, ctx) {
   ].filter(Boolean);
   return `<article class="tile tile--host">
     <div class="tile__top">
-      <span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span>
       <div class="tile__title">${esc(host.name)}</div>
-      <span class="tile__status">${esc(label)}</span>
+      ${stateBadge}
     </div>
     <div class="host-meta">${badges.map((b) => `<span class="badge">${esc(b)}</span>`).join('')}</div>
     <dl class="host-addr">${hostAddresses(host, t)

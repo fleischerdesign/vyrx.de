@@ -46,33 +46,54 @@ export const localized = (value, locale) =>
 // Live status, read from the one series the alerting uses. A service is `up` only when every probe
 // series the collector holds for it is 1, `down` when any is 0, and `unknown` when the collector does
 // not answer or holds no series at all - never "down" by default.
-export async function loadStatus() {
+//
+// Hosts come from `up`: a direct scrape labels `instance` with the host name, while a blackbox scrape
+// labels it with the service. Keeping only the instances the registry knows is therefore both the
+// filter and the join, and it names no service here.
+const fetchJson = async (url) => {
   try {
-    const res = await fetch('/api/status', { credentials: 'same-origin' });
-    if (!res.ok) return null;
-    const body = await res.json();
-    const services = new Map();
-    const hosts = new Map();
-    let asOf = 0;
-    for (const series of body?.data?.result || []) {
-      const [seconds, value] = series.value || [];
-      const at = Number(seconds) * 1000;
-      if (at > asOf) asOf = at;
-      const state = value === '1' ? 'up' : 'down';
-      const { service, host, probe_type: probeType } = series.metric || {};
-      if (service) {
-        const current = services.get(service);
-        services.set(service, {
-          state: current?.state === 'down' || state === 'down' ? 'down' : 'up',
-          asOf: at,
-        });
-      }
-      if (host && probeType === 'icmp_mesh') hosts.set(host, { state, asOf: at });
-    }
-    return { asOf: asOf || Date.now(), services, hosts };
+    const res = await fetch(url, { credentials: 'same-origin' });
+    return res.ok ? await res.json() : null;
   } catch {
     return null;
   }
+};
+
+export async function loadStatus(hostNames = []) {
+  const known = new Set(hostNames);
+  const [probes, scrapes] = await Promise.all([fetchJson('/api/status'), fetchJson('/api/hosts')]);
+  if (!probes && !scrapes) return null;
+  const services = new Map();
+  const hosts = new Map();
+  let asOf = 0;
+  const at = (value) => {
+    const stamp = Number(value?.[0]) * 1000;
+    if (stamp > asOf) asOf = stamp;
+    return stamp;
+  };
+  for (const series of probes?.data?.result || []) {
+    const when = at(series.value);
+    const state = series.value?.[1] === '1' ? 'up' : 'down';
+    const { service, probe_type: probeType, target_host: targetHost } = series.metric || {};
+    if (service) {
+      const current = services.get(service);
+      services.set(service, {
+        state: current?.state === 'down' || state === 'down' ? 'down' : 'up',
+        asOf: when,
+      });
+    }
+    if (probeType === 'icmp_mesh' && targetHost && known.has(targetHost)) {
+      hosts.set(targetHost, { state, asOf: when });
+    }
+  }
+  for (const series of scrapes?.data?.result || []) {
+    const when = at(series.value);
+    const { instance } = series.metric || {};
+    if (instance && known.has(instance)) {
+      hosts.set(instance, { state: series.value?.[1] === '1' ? 'up' : 'down', asOf: when });
+    }
+  }
+  return { asOf: asOf || Date.now(), services, hosts };
 }
 
 // The four states a tile can show: not monitored by contract, up, down, or unknown (no data).
@@ -83,8 +104,9 @@ export function serviceState(service, status) {
   return entry;
 }
 
-export function hostState(name, status) {
-  return status?.hosts?.get(name)?.state || 'unknown';
+export function hostState(host, status) {
+  if (host.monitored === false) return 'unmonitored';
+  return status?.hosts?.get(host.name)?.state || 'unknown';
 }
 
 // The role a host is assigned, as an i18n key. `hostType` is the inventory's own vocabulary, so the

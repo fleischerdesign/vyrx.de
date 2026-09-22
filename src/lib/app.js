@@ -108,7 +108,8 @@ function renderLandingHosts(registry, t, locale) {
 function startStatusPolling() {
   const tick = async () => {
     if (document.visibilityState !== 'visible') return;
-    const status = await loadStatus();
+    const hosts = state?.hosts || landing?.registry.hosts || [];
+    const status = await loadStatus(hosts.map((host) => host.name));
     if (!status) return;
     landingStatus = status;
     if (landing) renderLandingHosts(landing.registry, landing.t, landing.locale);
