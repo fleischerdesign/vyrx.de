@@ -16,14 +16,9 @@ import {
   loadStatus,
 } from './api.js';
 import * as views from './views.js';
-
-const NAV = [
-  { hash: '#/', name: 'overview', key: 'navOverview', icon: '◉' },
-  { hash: '#/dienste', name: 'services', key: 'navServices', icon: '▤' },
-  { hash: '#/status', name: 'status', key: 'navStatus', icon: '◍' },
-  { hash: '#/konto', name: 'account', key: 'navAccount', icon: '⚙' },
-  { hash: '#/admin', name: 'admin', key: 'navAdmin', icon: '⛨', admin: true },
-];
+// The navigation is declared once, in `lib/nav.js`. This table was a second copy of the shell's, with
+// the same five entries kept in step by hand - and its icons were never rendered here at all.
+import { NAV } from './nav.js';
 
 const go = (hash) => {
   if (location.hash === hash) render();

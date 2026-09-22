@@ -2,6 +2,9 @@
 import '../styles/daisy.css';
 import type { Locale } from '../i18n';
 import { useTranslations } from '../i18n';
+// The sprite carries every icon in this document: the shell and the client views reference the same
+// `<symbol>`s, so an icon cannot differ between the two renderers.
+import IconSprite from '../components/IconSprite.astro';
 
 interface Props {
   locale: Locale;
@@ -27,6 +30,7 @@ const canonicalUrl = locale === 'en' ? 'https://vyrx.de/en/' : 'https://vyrx.de/
   <!-- Typography comes from the platform stack until the fonts are self-hosted; daisyUI carries the rest. -->
 </head>
 <body>
+  <IconSprite />
   <slot />
 </body>
 </html>

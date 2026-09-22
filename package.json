@@ -17,5 +17,8 @@
     "daisyui": "^5.7.43",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "lucide-static": "^1.47.0"
   }
 }

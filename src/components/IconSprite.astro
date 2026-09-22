@@ -1,0 +1,41 @@
+---
+// The sprite: one `<symbol>` per declared icon, geometry read from the Lucide package at build time.
+//
+// It is inlined once per document (Layout) rather than fetched or scripted, so the client views can
+// reference the very same symbols the server-rendered shell uses. A missing file fails the build here,
+// which is the second half of the check `icon()` performs: an undeclared name is caught in the shell and
+// a name that Lucide does not have is caught while this sprite is rendered.
+import { readFileSync } from 'node:fs';
+import { ICONS } from '../lib/icons.js';
+
+const geometry = (name) => {
+  const file = new URL(`../../node_modules/lucide-static/icons/${name}.svg`, import.meta.url);
+  let svg;
+  try {
+    svg = readFileSync(file, 'utf8');
+  } catch {
+    throw new Error(
+      `lucide-static has no icon "${name}" (looked for ${file.pathname}). ` +
+        'Fix the name in src/lib/icons.js or drop it from the list.',
+    );
+  }
+  // Only the geometry: the wrapper's size, colour and stroke live in `icon()`, so an icon cannot be
+  // sized differently depending on which renderer asked for it.
+  const body = svg
+    .replace(/^[\s\S]*?<svg[^>]*>/, '')
+    .replace(/<\/svg>[\s\S]*$/, '')
+    .trim();
+  if (!body) throw new Error(`lucide-static/icons/${name}.svg carried no geometry`);
+  return body;
+};
+
+const symbols = ICONS.map((name) => ({ name, body: geometry(name) }));
+---
+
+<svg class="hidden" aria-hidden="true" data-icon-sprite>
+  {
+    symbols.map(({ name, body }) => (
+      <symbol id={`i-${name}`} viewBox="0 0 24 24" set:html={body} />
+    ))
+  }
+</svg>

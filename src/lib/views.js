@@ -2,6 +2,7 @@
 // delegates the few interactions. Views know the catalogue shape, never a service name.
 
 import { esc } from './dom.js';
+import { icon } from './icons.js';
 import { categories, localized, serviceState, hostState, ROLE_KEY } from './api.js';
 
 const SCOPE = { public: 'scopePublic', internal: 'scopeInternal', mesh: 'scopeMesh', isolated: 'scopeIsolated' };
@@ -34,7 +35,7 @@ function tile(s, ctx) {
     <div class="flex items-start gap-2">
       <h3 class="card-title mr-auto text-base leading-tight">${esc(s.name)}</h3>
       <button class="btn btn-square btn-ghost btn-xs tooltip tooltip-bottom" data-tip="${esc(label)}"
-        type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">★</button>
+        type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">${icon('star', { filled: fav, size: 'size-4' })}</button>
     </div>
     ${localized(s.description, ctx.locale) ? `<p class="text-sm opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}
     <div class="card-actions mt-auto flex-wrap items-center gap-2">
@@ -237,7 +238,7 @@ export function detail(ctx, id) {
     ${localized(s.description, ctx.locale) ? `<p class="opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}
   </div>
   <div class="flex items-center gap-2">
-    <button class="btn btn-square btn-ghost btn-sm tooltip tooltip-bottom" data-tip="${esc(label)}" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">★</button>
+    <button class="btn btn-square btn-ghost btn-sm tooltip tooltip-bottom" data-tip="${esc(label)}" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">${icon('star', { filled: fav })}</button>
     <a class="btn btn-primary btn-sm" href="${esc(s.url)}" target="_blank" rel="noreferrer" data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
   </div></div>
   <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

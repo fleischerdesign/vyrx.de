@@ -2,6 +2,8 @@
 // The one shell. Landing and app are two states of it, not two designs: `data-auth` decides which
 // chrome is visible, and `#main` holds the landing for a visitor and the views for a signed-in person.
 import { useTranslations } from '../../i18n';
+import { NAV, PRIMARY_NAV } from '../../lib/nav.js';
+import { icon } from '../../lib/icons.js';
 
 interface Props {
   locale: 'de' | 'en';
@@ -12,14 +14,10 @@ const t = useTranslations(locale);
 const home = locale === 'en' ? '/en/' : '/';
 const loginUrl = '/outpost.goauthentik.io/start?rd=/';
 
-const nav = [
-  { hash: '#/', key: 'navOverview', icon: '◉' },
-  { hash: '#/dienste', key: 'navServices', icon: '▤' },
-  { hash: '#/status', key: 'navStatus', icon: '◍' },
-  { hash: '#/konto', key: 'navAccount', icon: '⚙' },
-  { hash: '#/admin', key: 'navAdmin', icon: '⛨', admin: true },
-];
-const primary = nav.filter((item) => !item.admin);
+// Declared once in `lib/nav.js`: this table also existed in `app.js`, with the same entries, order and
+// glyphs kept in step by hand.
+const nav = NAV;
+const primary = PRIMARY_NAV;
 ---
 
 <a class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-content" href="#main">{t.skipToContent}</a>
@@ -29,7 +27,7 @@ const primary = nav.filter((item) => !item.admin);
   <div class="drawer-content flex min-h-screen flex-col">
     <header class="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/85 backdrop-blur">
       <div class="navbar-start">
-        <label for="nav-drawer" class="btn btn-square btn-ghost hidden md:inline-flex lg:hidden" aria-label="Navigation" data-auth="in" hidden>☰</label>
+        <label for="nav-drawer" class="btn btn-square btn-ghost hidden md:inline-flex lg:hidden" aria-label="Navigation" data-auth="in" hidden><Fragment set:html={icon('menu')} /></label>
         <a href={home} class="btn btn-ghost px-2 text-lg font-extrabold tracking-[0.2em]">
           VYRX<span class="text-primary">.</span>
         </a>
@@ -37,7 +35,7 @@ const primary = nav.filter((item) => !item.admin);
 
       <div class="navbar-center hidden md:flex" data-auth="in" hidden>
         <button type="button" class="btn btn-ghost w-80 justify-start font-normal" data-action="palette">
-          <span aria-hidden="true">⌕</span><span>{t.searchPlaceholder}</span>
+          <Fragment set:html={icon('search')} /><span>{t.searchPlaceholder}</span>
           <kbd class="kbd kbd-sm ml-auto">⌘K</kbd>
         </button>
       </div>
@@ -47,9 +45,6 @@ const primary = nav.filter((item) => !item.admin);
           <a href="/" class={`btn btn-sm join-item${locale === 'de' ? ' btn-active' : ''}`}>DE</a>
           <a href="/en/" class={`btn btn-sm join-item${locale === 'en' ? ' btn-active' : ''}`}>EN</a>
         </div>
-        <span class="badge badge-outline badge-sm gap-2" data-auth="out">
-          <span class="status status-success"></span><span id="mesh-status-text">MESH 10.10.100.0/24</span>
-        </span>
         <a href={loginUrl} class="btn btn-sm btn-primary" data-auth="out">{t.workspaceLogin}</a>
 
         <div class="dropdown dropdown-end" data-auth="in" hidden>
@@ -75,7 +70,7 @@ const primary = nav.filter((item) => !item.admin);
       {
         primary.map((item) => (
           <a href={item.hash} data-nav={item.name}>
-            <span aria-hidden="true">{item.icon}</span>
+            <Fragment set:html={icon(item.icon)} />
             <span class="dock-label">{t[item.key]}</span>
           </a>
         ))
@@ -91,7 +86,7 @@ const primary = nav.filter((item) => !item.admin);
           nav.map((item) => (
             <li>
               <a href={item.hash} data-nav={item.name}>
-                <span aria-hidden="true">{item.icon}</span>{t[item.key]}
+                <Fragment set:html={icon(item.icon)} />{t[item.key]}
               </a>
             </li>
           ))
