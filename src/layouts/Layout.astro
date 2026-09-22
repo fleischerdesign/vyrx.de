@@ -589,46 +589,12 @@ const canonicalUrl = locale === 'en' ? 'https://vyrx.de/en/' : 'https://vyrx.de/
 <body>
   <slot />
 
-  <!-- Progressive Client Island for Authentik SSO session detection & Mesh Probe -->
+  <!-- Mesh connectivity probe. Identity is read by the page itself from the same-origin /api/me
+       endpoint: the previous cross-origin fetch to auth.vyrx.de could never work (403, no CORS, and a
+       SameSite cookie the browser does not send cross-site). -->
   <script is:inline>
-    (async function initSessionAndMesh() {
-      // 1. Check Authentik Session (CORS credentials included)
-      try {
-        const res = await fetch('https://auth.vyrx.de/api/v3/core/users/me/', {
-          credentials: 'include',
-          headers: { 'Accept': 'application/json' }
-        });
-        if (res.ok) {
-          const user = await res.json();
-          if (user && user.user && user.user.username && user.user.username !== 'anonymous') {
-            const loginBtn = document.getElementById('login-action-btn');
-            const userPill = document.getElementById('user-profile-pill');
-            const userNameEl = document.getElementById('user-display-name');
-            const userAvatarEl = document.getElementById('user-avatar-initial');
-
-            if (loginBtn && userPill && userNameEl && userAvatarEl) {
-              loginBtn.style.display = 'none';
-              userPill.style.display = 'inline-flex';
-              const name = user.user.name || user.user.username;
-              userNameEl.textContent = name;
-              userAvatarEl.textContent = name.charAt(0).toUpperCase();
-            }
-
-            // Group-based unhiding for restricted tools (e.g. wheel tools)
-            const groups = (user.user.groups || []).map(g => g.name);
-            document.querySelectorAll('[data-required-group]').forEach(el => {
-              const req = el.getAttribute('data-required-group');
-              if (req && (groups.includes(req) || groups.includes('wheel'))) {
-                el.style.display = 'flex';
-              }
-            });
-          }
-        }
-      } catch (_) {
-        // Fallback: stay in static default mode
-      }
-
-      // 2. Mesh connectivity probe
+    (async function initMeshProbe() {
+      // Mesh connectivity probe
       const meshLabel = document.getElementById('mesh-status-text');
       if (meshLabel && window.location.hostname === 'vyrx.de') {
         const probeImg = new Image();
