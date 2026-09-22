@@ -21,6 +21,43 @@ function statusBadge(s, ctx) {
   return `<span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span><span class="tile__status">${esc(label)}</span>`;
 }
 
+// A host is not a service. Its card leads with the live state and the role, and it shows both planes it
+// lives on: `ipv4` is the zone address - the WAN address on a cloud host, `null` on a roaming notebook -
+// and `wireguardIpv4` is the overlay. One address is never the whole truth, which is why no view picks
+// "an" address any more.
+export function hostAddresses(host, t) {
+  return [
+    { label: t[host.zone === 'mesh' ? 'addrWan' : 'addrZone'], value: host.ipv4 || t.dhcp },
+    { label: t.addrMesh, value: host.wireguardIpv4 || t.dhcp },
+  ];
+}
+
+export function hostCard(host, ctx) {
+  const t = ctx.t;
+  const state = hostState(host.name, ctx.status);
+  const label = stateLabel(state, t);
+  const services = host.services || [];
+  const shown = services.slice(0, 8);
+  const badges = [
+    roleLabel(host.type, t),
+    host.zone ? `${host.zone}${host.cidr ? ` · ${host.cidr}` : ''}` : null,
+    host.relay ? t.capRelay : null,
+    host.ingress ? t.capIngress : null,
+  ].filter(Boolean);
+  return `<article class="tile tile--host">
+    <div class="tile__top">
+      <span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span>
+      <div class="tile__title">${esc(host.name)}</div>
+      <span class="tile__status">${esc(label)}</span>
+    </div>
+    <div class="host-meta">${badges.map((b) => `<span class="badge">${esc(b)}</span>`).join('')}</div>
+    <dl class="host-addr">${hostAddresses(host, t)
+      .map((row) => `<div><dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd></div>`)
+      .join('')}</dl>
+    ${services.length ? `<div class="host-meta">${shown.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}${services.length > shown.length ? `<span class="badge">+${services.length - shown.length}</span>` : ''}</div>` : ''}
+  </article>`;
+}
+
 function tile(s, ctx) {
   const t = ctx.t;
   const fav = ctx.favorites.includes(s.id);
@@ -80,8 +117,20 @@ export function services(ctx) {
   const body = categories(ctx.services)
     .map(([cat, list]) => section(cat, list.length, grid(list, ctx)))
     .join('');
+  // Categories live here, not in the sidebar: they are a property of the catalogue on this page, and a
+  // second copy in the navigation was a second way to the same place.
+  const chips = `<div class="chips" role="group" aria-label="${esc(t.navCategories)}">
+    <button class="chip" type="button" data-filter-category="">${esc(t.allCategories)}</button>
+    ${categories(ctx.services)
+      .map(
+        ([cat, list]) =>
+          `<button class="chip" type="button" data-filter-category="${esc(cat)}">${esc(cat)}<span class="chip__count">${list.length}</span></button>`,
+      )
+      .join('')}
+  </div>`;
   return (
     head(t.navServices, t.allServices, filter) +
+    chips +
     `<div id="services-body">${body}<div class="state" id="services-empty" hidden><div class="state__title">${esc(t.noResults)}</div></div></div>`
   );
 }
@@ -93,26 +142,7 @@ export function status(ctx) {
   const hosts = ctx.hosts || [];
   if (!hosts.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
   const meta = ctx.status ? ` · ${t.statusAsOf} ${new Date(ctx.status.asOf).toLocaleTimeString(ctx.locale)}` : '';
-  const hostGrid = `<div class="grid">${hosts
-    .map((host) => {
-      const state = hostState(host.name, ctx.status);
-      const label = stateLabel(state, t);
-      const badges = [
-        roleLabel(host.type, t),
-        host.zone ? `${host.zone}${host.cidr ? ` · ${host.cidr}` : ''}` : null,
-        host.relay ? t.capRelay : null,
-        host.ingress ? t.capIngress : null,
-      ].filter(Boolean);
-      return `<article class="tile">
-      <div class="tile__top"><div class="tile__icon" aria-hidden="true">${esc(host.name.charAt(0))}</div>
-        <div class="tile__title">${esc(host.name)}</div>
-        <span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span></div>
-      <div class="tile__foot" style="flex-wrap:wrap">${badges.map((b) => `<span class="badge">${esc(b)}</span>`).join('')}</div>
-      <div class="tile__foot"><span class="tile__url">${esc(host.wireguardIpv4 || host.ipv4 || '')}</span></div>
-      ${(host.services || []).length ? `<div class="tile__foot" style="flex-wrap:wrap">${host.services.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}</div>` : ''}
-    </article>`;
-    })
-    .join('')}</div>`;
+  const hostGrid = `<div class="grid grid--hosts">${hosts.map((host) => hostCard(host, ctx)).join('')}</div>`;
   return head(t.statusTitle, `${t.statusDesc}${meta}`) + section(t.statusNodes, hosts.length, hostGrid);
 }
 

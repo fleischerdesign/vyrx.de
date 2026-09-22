@@ -14,7 +14,6 @@ import {
   pushRecent,
   localized,
   loadStatus,
-  ROLE_KEY,
 } from './api.js';
 import * as views from './views.js';
 
@@ -42,6 +41,7 @@ export async function boot({ messages, locale, loginUrl, accountUrl }) {
   // answer feeds the signed-in app, so there is one fetch and one truth.
   const registry = await loadCatalog().catch(() => null);
   if (registry) renderLandingHosts(registry, messages, locale);
+  startStatusPolling();
 
   const identity = await loadIdentity();
   if (!identity) {
@@ -79,35 +79,27 @@ export async function boot({ messages, locale, loginUrl, accountUrl }) {
     render();
   });
   delegate(app, 'click', '[data-action="open"]', (_e, node) => pushRecent(state.identity.username, node.dataset.id));
+  delegate(app, 'click', '[data-filter-category]', (_e, node) => {
+    const input = app.querySelector('#service-filter');
+    if (!input) return;
+    input.value = node.dataset.filterCategory;
+    input.dispatchEvent(new Event('input'));
+  });
 
   if (registry) applyCatalog(registry);
   else {
     state.catalogError = true;
     render();
   }
-  startStatusPolling();
 }
 
-// The fleet table on the public landing. Same registry as the app, rendered for everyone: the inventory
-// is deliberately public, and it is derived, so it cannot drift from the topology.
+// The fleet cards on the public landing: the same renderer as the Status view, so the two cannot look or
+// read differently.
 function renderLandingHosts(registry, t, locale) {
-  const body = document.getElementById('hosts-body');
-  if (!body) return;
-  body.innerHTML = (registry.hosts || [])
-    .map(
-      (host) => `<tr class="monitor-row">
-      <td><div class="node-ident"><div class="node-status-pulse pulse-online"></div>
-        <div class="node-title-group">
-          <div class="node-hostname"><span>${esc(host.name)}</span>
-            <span class="node-zone-tag">${esc(t[ROLE_KEY[host.type]] || host.type)}</span></div>
-          <div class="node-role-desc">${esc(host.ingress ? t.capIngress : '')}${host.relay ? (host.ingress ? ' · ' : '') + t.capRelay : ''}</div>
-        </div></div></td>
-      <td><div class="node-hardware">${esc(host.zone || '')}${host.cidr ? ` · ${esc(host.cidr)}` : ''}</div></td>
-      <td><span class="node-ip-badge">${esc(host.ipv4 || host.wireguardIpv4 || '')}</span></td>
-      <td><div class="node-stack-pills">${(host.services || []).map((s) => `<span class="stack-pill">${esc(s)}</span>`).join('')}</div></td>
-    </tr>`,
-    )
-    .join('');
+  const grid = document.getElementById('hosts-grid');
+  if (!grid) return;
+  landing = { registry, t, locale };
+  grid.innerHTML = (registry.hosts || []).map((host) => views.hostCard(host, { t, locale, status: landingStatus })).join('');
 }
 
 // Status is live, not baked: one request to the same-origin route, refreshed while the tab is visible.
@@ -118,8 +110,12 @@ function startStatusPolling() {
     if (document.visibilityState !== 'visible') return;
     const status = await loadStatus();
     if (!status) return;
-    state.status = status;
-    render();
+    landingStatus = status;
+    if (landing) renderLandingHosts(landing.registry, landing.t, landing.locale);
+    if (state) {
+      state.status = status;
+      render();
+    }
   };
   tick();
   setInterval(tick, 20000);
@@ -135,7 +131,6 @@ function applyCatalog({ adminGroups, locales, hosts, services }) {
   state.hosts = hosts;
   state.services = visibleServices(services, state.identity.groups);
   state.isAdmin = isAdmin(state.identity, adminGroups);
-  renderCategories();
   render();
 }
 
@@ -164,31 +159,14 @@ function shell() {
     </header>
     <aside class="app__sidebar">
       <nav class="app__nav" aria-label="${esc(t.navOverview)}">${nav(primary)}</nav>
-      <div id="nav-categories"></div>
     </aside>
     <main class="app__main" id="main" tabindex="-1"></main>
     <nav class="app__bottomnav" aria-label="${esc(t.navOverview)}">${nav(primary)}</nav>`;
 }
 
-// Categories come from the catalogue, which arrives after the shell - so the shell ships an empty slot and
-// this fills it, instead of the navigation being wrong until the next full render.
-function renderCategories() {
-  const slot = app.querySelector('#nav-categories');
-  if (!slot) return;
-  const cats = categories(state.services);
-  if (!cats.length) {
-    slot.innerHTML = '';
-    return;
-  }
-  slot.innerHTML = `<div class="app__nav-label">${esc(state.t.navCategories)}</div><div class="app__nav">${cats
-    .map(
-      ([cat, list]) =>
-        `<a class="nav-item" href="#/dienste" data-category="${esc(cat)}">${esc(cat)}<span class="nav-item__count">${list.length}</span></a>`,
-    )
-    .join('')}</div>`;
-}
-
 let lastRoute = null;
+let landing = null;
+let landingStatus = null;
 
 function render() {
   if (!state) return;

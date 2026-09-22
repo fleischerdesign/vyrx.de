@@ -75,21 +75,9 @@ const accountUrl = 'https://auth.vyrx.de/if/user/';
         </div>
       </div>
 
-      <div class="mesh-monitor">
-        <table class="monitor-table">
-          <thead>
-            <tr>
-              <th>{t.tableColHost}</th>
-              <th>{t.tableColZone}</th>
-              <th>{t.tableColAddress}</th>
-              <th>{t.tableColServices}</th>
-            </tr>
-          </thead>
-          <!-- The fleet inventory is derived from the topology and rendered by the page from the same
-               registry the app reads; there is no mesh.json to drift. -->
-          <tbody id="hosts-body"></tbody>
-        </table>
-      </div>
+      <!-- The fleet is derived from the topology and rendered from the same registry the app reads,
+           with the same card and the same live state. -->
+      <div class="grid grid--hosts" id="hosts-grid"></div>
 
       <footer>
         <div>

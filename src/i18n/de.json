@@ -91,5 +91,10 @@
   "roleClient": "Client",
   "roleEmbedded": "Embedded",
   "capRelay": "Mesh-Relay",
-  "capIngress": "Ingress"
+  "capIngress": "Ingress",
+  "addrZone": "Zone",
+  "addrWan": "WAN",
+  "addrMesh": "Mesh",
+  "dhcp": "DHCP",
+  "allCategories": "Alle"
 }

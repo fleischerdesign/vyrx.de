@@ -149,6 +149,30 @@
 .tile__foot { display: flex; align-items: center; gap: var(--s2); margin-top: auto; }
 .tile__url { font-family: 'JetBrains Mono', monospace; font-size: var(--t-xs); color: var(--text-sub); }
 .tile__status { font-size: var(--t-xs); color: var(--text-muted); }
+
+/* Host cards: two address planes, labelled, never a choice between them. */
+.grid--hosts { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.tile--host { gap: var(--s4); }
+.tile--host .tile__top { gap: var(--s2); }
+.tile--host .tile__title { margin-right: auto; }
+.host-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.host-addr { display: grid; gap: 4px; margin: 0; }
+.host-addr > div { display: flex; align-items: baseline; gap: var(--s3); }
+.host-addr dt {
+  width: 46px; flex: 0 0 auto; font-size: var(--t-xs); color: var(--text-sub);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.host-addr dd { margin: 0; font-family: 'JetBrains Mono', monospace; font-size: var(--t-sm); color: var(--text-muted); }
+
+/* Category filter, on the page whose catalogue it filters. */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: var(--s4); }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted);
+  font: inherit; font-size: var(--t-sm); cursor: pointer;
+}
+.chip:hover { border-color: var(--border-hover); color: var(--text); }
+.chip__count { font-size: var(--t-xs); color: var(--text-sub); }
 .tile__actions { margin-left: auto; display: flex; align-items: center; gap: var(--s1); }
 
 /* ---------- primitives ---------- */
