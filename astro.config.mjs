@@ -16,6 +16,11 @@ export default defineConfig({
   compressHTML: true,
   vite: {
     plugins: [tailwindcss()],
+    // The server side of the build has to stand on its own. Astro's standalone output leaves
+    // dependencies external (`devalue` was the first one to fail), which expects a `node_modules`
+    // directory next to `server/entry.mjs` - and a deployment artifact that needs the build directory is
+    // not an artifact. Bundling them in makes the output self-contained, so the same files run anywhere.
+    ssr: { noExternal: true },
   },
   i18n: {
     defaultLocale: 'de',
