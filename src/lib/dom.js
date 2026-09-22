@@ -21,7 +21,7 @@ export function delegate(root, event, selector, handler) {
 export function toast(message) {
   const region = document.getElementById('toast-region');
   if (!region) return;
-  const node = el(`<div class="alert alert-sm alert-info" role="status">${esc(message)}</div>`);
+  const node = el(`<div class="alert alert-info alert-soft" role="status">${esc(message)}</div>`);
   region.append(node);
   setTimeout(() => node.remove(), 2600);
 }

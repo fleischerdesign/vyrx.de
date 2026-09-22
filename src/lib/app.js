@@ -147,7 +147,7 @@ function render() {
   let active = route.name;
   if (state.catalogError) {
     html = `<div class="state" role="alert"><div class="state__title">${esc(state.t.catalogError)}</div>
-      <div class="state__actions"><button class="btn btn--primary" data-action="retry">${esc(state.t.retry)}</button></div></div>`;
+      <div class="state__actions"><button class="btn btn-primary" data-action="retry">${esc(state.t.retry)}</button></div></div>`;
     main.innerHTML = html;
     main.querySelector('[data-action="retry"]')?.addEventListener('click', () =>
       loadCatalog().then(applyCatalog).catch(() => render()),

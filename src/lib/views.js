@@ -84,7 +84,7 @@ export function overview(ctx) {
 export function services(ctx) {
   const t = ctx.t;
   if (!ctx.services.length) return head(t.navServices, t.allServices) + empty(t.noServices, t.noServicesHint);
-  const filter = `<input class="input input-bordered w-64" id="service-filter" type="search" autocomplete="off"
+  const filter = `<input class="input w-64" id="service-filter" type="search" autocomplete="off"
     placeholder="${esc(t.searchPlaceholder)}" aria-label="${esc(t.searchPlaceholder)}">`;
   const chips = `<div class="mb-4 flex flex-wrap gap-2" role="group" aria-label="${esc(t.navCategories)}">
     <button class="btn btn-xs" type="button" data-filter-category="">${esc(t.allCategories)}</button>
