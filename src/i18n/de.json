@@ -82,5 +82,8 @@
   "serviceScope": "Erreichbar über",
   "category": "Kategorie",
   "notFound": "Diesen Dienst gibt es nicht (mehr).",
-  "skipToContent": "Zum Inhalt springen"
+  "skipToContent": "Zum Inhalt springen",
+  "unknown": "unbekannt",
+  "unmonitored": "nicht überwacht",
+  "statusAsOf": "Stand"
 }

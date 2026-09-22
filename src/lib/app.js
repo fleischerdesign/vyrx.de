@@ -13,6 +13,7 @@ import {
   toggleFavorite,
   pushRecent,
   localized,
+  loadStatus,
 } from './api.js';
 import * as views from './views.js';
 
@@ -78,6 +79,25 @@ export async function boot({ messages, locale, mesh, loginUrl, accountUrl }) {
     console.error(error);
     state.catalogError = true;
     render();
+  });
+  startStatusPolling();
+}
+
+// Status is live, not baked: one request to the same-origin route, refreshed while the tab is visible.
+// A failed read leaves the previous answer in place and the page keeps working - the state model already
+// distinguishes "no answer" from "down".
+function startStatusPolling() {
+  const tick = async () => {
+    if (document.visibilityState !== 'visible') return;
+    const status = await loadStatus();
+    if (!status) return;
+    state.status = status;
+    render();
+  };
+  tick();
+  setInterval(tick, 20000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') tick();
   });
 }
 

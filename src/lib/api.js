@@ -38,6 +38,50 @@ export const visibleServices = (services, groups) =>
 export const localized = (value, locale) =>
   typeof value === 'string' ? value : value?.[locale] || value?.de || '';
 
+// Live status, read from the one series the alerting uses. A service is `up` only when every probe
+// series the collector holds for it is 1, `down` when any is 0, and `unknown` when the collector does
+// not answer or holds no series at all - never "down" by default.
+export async function loadStatus() {
+  try {
+    const res = await fetch('/api/status', { credentials: 'same-origin' });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const services = new Map();
+    const hosts = new Map();
+    let asOf = 0;
+    for (const series of body?.data?.result || []) {
+      const [seconds, value] = series.value || [];
+      const at = Number(seconds) * 1000;
+      if (at > asOf) asOf = at;
+      const state = value === '1' ? 'up' : 'down';
+      const { service, host, probe_type: probeType } = series.metric || {};
+      if (service) {
+        const current = services.get(service);
+        services.set(service, {
+          state: current?.state === 'down' || state === 'down' ? 'down' : 'up',
+          asOf: at,
+        });
+      }
+      if (host && probeType === 'icmp_mesh') hosts.set(host, { state, asOf: at });
+    }
+    return { asOf: asOf || Date.now(), services, hosts };
+  } catch {
+    return null;
+  }
+}
+
+// The four states a tile can show: not monitored by contract, up, down, or unknown (no data).
+export function serviceState(service, status) {
+  if (service.monitored === false) return { state: 'unmonitored' };
+  const entry = status?.services?.get(service.id);
+  if (!entry) return { state: 'unknown' };
+  return entry;
+}
+
+export function hostState(name, status) {
+  return status?.hosts?.get(name)?.state || 'unknown';
+}
+
 export const isAdmin = (identity, adminGroups) =>
   Boolean(identity) && adminGroups.some((g) => identity.groups.includes(g));
 

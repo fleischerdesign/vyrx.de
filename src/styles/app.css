@@ -148,6 +148,7 @@
 .tile__desc { color: var(--text-muted); font-size: var(--t-sm); line-height: 1.5; min-height: 2.4em; }
 .tile__foot { display: flex; align-items: center; gap: var(--s2); margin-top: auto; }
 .tile__url { font-family: 'JetBrains Mono', monospace; font-size: var(--t-xs); color: var(--text-sub); }
+.tile__status { font-size: var(--t-xs); color: var(--text-muted); }
 .tile__actions { margin-left: auto; display: flex; align-items: center; gap: var(--s1); }
 
 /* ---------- primitives ---------- */

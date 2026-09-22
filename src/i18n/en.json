@@ -82,5 +82,8 @@
   "serviceScope": "Reachable via",
   "category": "Category",
   "notFound": "That service does not exist (any more).",
-  "skipToContent": "Skip to content"
+  "skipToContent": "Skip to content",
+  "unknown": "unknown",
+  "unmonitored": "not monitored",
+  "statusAsOf": "as of"
 }

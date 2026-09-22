@@ -2,10 +2,23 @@
 // the catalogue shape, never a service name.
 
 import { esc } from './dom.js';
-import { categories, localized } from './api.js';
+import { categories, localized, serviceState, hostState } from './api.js';
 
 const SCOPE = { public: 'scopePublic', internal: 'scopeInternal', mesh: 'scopeMesh', isolated: 'scopeIsolated' };
 const scopeBadge = (s, t) => `<span class="badge badge--scope">${esc(t[SCOPE[s.scope]] || t.scopeIsolated)}</span>`;
+
+const stateLabel = (state, t) =>
+  ({ up: t.online, down: t.offlineService, unknown: t.unknown, unmonitored: t.unmonitored })[state] || t.unknown;
+const stateClass = (state) => (state === 'up' ? 'ok' : state === 'down' ? 'off' : 'unknown');
+
+// Four states, never two: a service that is not probed says so, and a missing answer is `unknown` -
+// rendering it as `down` would be a different lie than rendering a constant as `up`.
+function statusBadge(s, ctx) {
+  const { state } = serviceState(s, ctx.status);
+  if (state === 'unmonitored') return `<span class="badge">${esc(ctx.t.unmonitored)}</span>`;
+  const label = stateLabel(state, ctx.t);
+  return `<span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span><span class="tile__status">${esc(label)}</span>`;
+}
 
 function tile(s, ctx) {
   const t = ctx.t;
@@ -23,6 +36,7 @@ function tile(s, ctx) {
     ${localized(s.description, ctx.locale) ? `<p class="tile__desc">${esc(localized(s.description, ctx.locale))}</p>` : ''}
     <div class="tile__foot">
       ${scopeBadge(s, t)}
+      ${statusBadge(s, ctx)}
       ${s.admin?.length ? `<span class="badge">${esc(t.navAdmin)}</span>` : ''}
       <span class="tile__url">${esc((s.url || '').replace('https://', ''))}</span>
       <a class="btn" href="${esc(s.url)}" target="_blank" rel="noreferrer" data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
@@ -75,24 +89,28 @@ export function status(ctx) {
   const t = ctx.t;
   const nodes = ctx.mesh?.nodes || [];
   if (!nodes.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
+  const meta = ctx.status ? ` · ${t.statusAsOf} ${new Date(ctx.status.asOf).toLocaleTimeString(ctx.locale)}` : '';
   const nodeGrid = `<div class="grid">${nodes
     .map(
-      (n) => `<article class="tile">
+      (n) => {
+        const label = stateLabel(hostState(n.name, ctx.status), t);
+        return `<article class="tile">
       <div class="tile__top"><div class="tile__icon" aria-hidden="true">${esc(n.name.charAt(0))}</div>
         <div class="tile__title">${esc(n.name)}</div>
-        <span class="status-dot status-dot--ok" role="img" aria-label="${esc(t.online)}"></span></div>
+        <span class="status-dot status-dot--${stateClass(hostState(n.name, ctx.status))}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span></div>
       ${n.role ? `<p class="tile__desc">${esc((n.role || {})[ctx.locale] || (n.role || {}).de || '')}</p>` : ''}
       <div class="tile__foot" style="flex-wrap:wrap">
         <span class="badge">${esc(n.zone)}</span>
         ${n.wireguardIp ? `<span class="tile__url">${esc(n.wireguardIp)}</span>` : ''}
       </div>
       ${(n.services || []).length ? `<div class="tile__foot" style="flex-wrap:wrap">${n.services.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}</div>` : ''}
-    </article>`,
+    </article>`;
+      },
     )
     .join('')}</div>`;
   // Infrastructure only: the service launcher, with its scope and audience, is the Dienste view. A
   // second grid of the same tiles here was duplication, not information.
-  return head(t.statusTitle, t.statusDesc) + section(t.statusNodes, nodes.length, nodeGrid);
+  return head(t.statusTitle, `${t.statusDesc}${meta}`) + section(t.statusNodes, nodes.length, nodeGrid);
 }
 
 export function account(ctx) {
