@@ -34,6 +34,10 @@ export async function loadCatalog() {
 export const visibleServices = (services, groups) =>
   services.filter((s) => !s.groups?.length || s.groups.some((g) => groups.includes(g)));
 
+// Copy ships bilingual in the contract; the view picks the locale, with the default locale as fallback.
+export const localized = (value, locale) =>
+  typeof value === 'string' ? value : value?.[locale] || value?.de || '';
+
 export const isAdmin = (identity, adminGroups) =>
   Boolean(identity) && adminGroups.some((g) => identity.groups.includes(g));
 

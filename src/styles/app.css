@@ -64,7 +64,8 @@
   position: sticky; top: 0; z-index: var(--z-nav);
   backdrop-filter: blur(12px);
 }
-.app__brand { font-weight: 800; letter-spacing: 0.08em; font-size: var(--t-lg); }
+.app__brand { font-weight: 800; letter-spacing: 0.08em; font-size: var(--t-lg); color: var(--text); text-decoration: none; }
+.app__brand:hover { color: var(--text); opacity: 0.85; }
 .app__brand span { color: var(--accent); }
 .app__search {
   flex: 1; max-width: 560px;

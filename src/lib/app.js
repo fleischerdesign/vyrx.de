@@ -12,6 +12,7 @@ import {
   recents,
   toggleFavorite,
   pushRecent,
+  localized,
 } from './api.js';
 import * as views from './views.js';
 
@@ -162,9 +163,9 @@ function render() {
 
 function parseHash() {
   const path = location.hash.replace(/^#\/?/, '');
-  if (path.startsWith('dienst/')) return { name: 'detail', id: path.slice('dienst/'.length) };
-  if (['dienste', 'status', 'konto', 'admin'].includes(path)) return { name: path };
-  return { name: 'overview' };
+  if (path.startsWith('dienst/')) return { name: 'detail', id: decodeURIComponent(path.slice('dienst/'.length)) };
+  const named = { '': 'overview', dienste: 'services', status: 'status', konto: 'account', admin: 'admin' };
+  return { name: named[path] || 'overview' };
 }
 
 function wireFilter() {
@@ -175,7 +176,8 @@ function wireFilter() {
     let shown = 0;
     for (const tile of app.querySelectorAll('#services-body [data-tile]')) {
       const service = state.services.find((s) => s.id === tile.dataset.tile);
-      const hit = !q || `${service?.name} ${service?.description} ${service?.category}`.toLowerCase().includes(q);
+      const text = `${service?.name} ${localized(service?.description, state.locale)} ${service?.category}`.toLowerCase();
+      const hit = !q || text.includes(q);
       tile.hidden = !hit;
       if (hit) shown += 1;
     }
@@ -220,7 +222,7 @@ function installPalette() {
     const q = query.trim().toLowerCase();
     const groups = { [t.cmdServices]: [], [t.cmdCategories]: [], [t.cmdActions]: [] };
     for (const s of state.services) {
-      if (!q || `${s.name} ${s.description} ${s.category}`.toLowerCase().includes(q))
+      if (!q || `${s.name} ${localized(s.description, state.locale)} ${s.category}`.toLowerCase().includes(q))
         groups[t.cmdServices].push({ label: s.name, hint: s.category, run: () => go(`#/dienst/${s.id}`) });
     }
     for (const [cat, list] of categories(state.services)) {

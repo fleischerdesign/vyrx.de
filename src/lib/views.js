@@ -2,7 +2,7 @@
 // the catalogue shape, never a service name.
 
 import { esc } from './dom.js';
-import { categories } from './api.js';
+import { categories, localized } from './api.js';
 
 const SCOPE = { public: 'scopePublic', internal: 'scopeInternal', mesh: 'scopeMesh', isolated: 'scopeIsolated' };
 const scopeBadge = (s, t) => `<span class="badge badge--scope">${esc(t[SCOPE[s.scope]] || t.scopeIsolated)}</span>`;
@@ -20,7 +20,7 @@ function tile(s, ctx) {
           aria-pressed="${fav}" aria-label="${esc(label)}" title="${esc(label)}">★</button>
       </div>
     </div>
-    <p class="tile__desc">${esc(s.description || '')}</p>
+    ${localized(s.description, ctx.locale) ? `<p class="tile__desc">${esc(localized(s.description, ctx.locale))}</p>` : ''}
     <div class="tile__foot">
       ${scopeBadge(s, t)}
       ${s.admin?.length ? `<span class="badge">${esc(t.navAdmin)}</span>` : ''}
@@ -74,25 +74,25 @@ export function services(ctx) {
 export function status(ctx) {
   const t = ctx.t;
   const nodes = ctx.mesh?.nodes || [];
-  const nodeGrid = nodes.length
-    ? `<div class="grid">${nodes
-        .map(
-          (n) => `<article class="tile">
+  if (!nodes.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
+  const nodeGrid = `<div class="grid">${nodes
+    .map(
+      (n) => `<article class="tile">
       <div class="tile__top"><div class="tile__icon" aria-hidden="true">${esc(n.name.charAt(0))}</div>
         <div class="tile__title">${esc(n.name)}</div>
         <span class="status-dot status-dot--ok" role="img" aria-label="${esc(t.online)}"></span></div>
-      <p class="tile__desc">${esc((n.role || {})[ctx.locale] || (n.role || {}).de || '')}</p>
-      <div class="tile__foot"><span class="badge">${esc(n.zone)}</span><span class="tile__url">${esc(n.address)}</span></div>
+      ${n.role ? `<p class="tile__desc">${esc((n.role || {})[ctx.locale] || (n.role || {}).de || '')}</p>` : ''}
+      <div class="tile__foot" style="flex-wrap:wrap">
+        <span class="badge">${esc(n.zone)}</span>
+        ${n.wireguardIp ? `<span class="tile__url">${esc(n.wireguardIp)}</span>` : ''}
+      </div>
+      ${(n.services || []).length ? `<div class="tile__foot" style="flex-wrap:wrap">${n.services.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}</div>` : ''}
     </article>`,
-        )
-        .join('')}</div>`
-    : empty(t.meshChecking);
-  const byScope = ['public', 'internal', 'mesh', 'isolated']
-    .map((sc) => [sc, ctx.services.filter((s) => s.scope === sc)])
-    .filter(([, list]) => list.length)
-    .map(([sc, list]) => section(t[SCOPE[sc]], list.length, grid(list, ctx)))
-    .join('');
-  return head(t.statusTitle, t.statusDesc) + section(t.statusNodes, nodes.length, nodeGrid) + byScope;
+    )
+    .join('')}</div>`;
+  // Infrastructure only: the service launcher, with its scope and audience, is the Dienste view. A
+  // second grid of the same tiles here was duplication, not information.
+  return head(t.statusTitle, t.statusDesc) + section(t.statusNodes, nodes.length, nodeGrid);
 }
 
 export function account(ctx) {
@@ -148,7 +148,7 @@ export function detail(ctx, id) {
   const fav = ctx.favorites.includes(s.id);
   const label = fav ? t.removeFavorite : t.addFavorite;
   return `<nav class="breadcrumb"><a href="#/dienste">${esc(t.navServices)}</a><span>/</span><span>${esc(s.name)}</span></nav>
-    <div class="view-head"><div><h2>${esc(s.name)}</h2><p>${esc(s.description || '')}</p></div>
+    <div class="view-head"><div><h2>${esc(s.name)}</h2><p>${esc(localized(s.description, ctx.locale))}</p></div>
       <div class="view-head__actions">
         <button class="icon-btn" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}" title="${esc(label)}">★</button>
         <a class="btn btn--primary" href="${esc(s.url)}" target="_blank" rel="noreferrer" data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
