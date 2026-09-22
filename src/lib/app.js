@@ -49,6 +49,9 @@ export async function boot({ messages, locale, loginUrl, accountUrl }) {
   setAuthed(true);
   for (const node of document.querySelectorAll('[data-field="username"]')) node.textContent = identity.name || identity.username;
   for (const node of document.querySelectorAll('[data-field="initial"]')) node.textContent = (identity.name || identity.username || 'U').charAt(0).toUpperCase();
+  // The catalogue is one fetch away; skeletons are honest, the landing behind the app chrome is not.
+  document.getElementById('main').innerHTML =
+    '<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">' + '<div class="skeleton h-36"></div>'.repeat(6) + '</div>';
 
   state = {
     t: messages,
@@ -77,12 +80,6 @@ export async function boot({ messages, locale, loginUrl, accountUrl }) {
     render();
   });
   delegate(document, 'click', '[data-action="open"]', (_e, node) => pushRecent(state.identity.username, node.dataset.id));
-  delegate(document, 'click', '[data-filter-category]', (_e, node) => {
-    const input = document.querySelector('#service-filter');
-    if (!input) return;
-    input.value = node.dataset.filterCategory;
-    input.dispatchEvent(new Event('input'));
-  });
 
   if (registry) applyCatalog(registry);
   else {
@@ -199,6 +196,13 @@ function wireFilter() {
     }
     document.querySelector('#services-empty').hidden = shown > 0;
   });
+  // The category filter is a radio group (daisyUI `filter`); a change drives the same text filter.
+  for (const radio of document.querySelectorAll('input[name="category"]')) {
+    radio.addEventListener('change', () => {
+      input.value = radio.value;
+      input.dispatchEvent(new Event('input'));
+    });
+  }
 }
 
 function setOffline(value) {
@@ -210,12 +214,13 @@ function setOffline(value) {
 
 function installPalette() {
   const t = state.t;
-  const palette = el(`<div class="fixed inset-0 z-50 items-start justify-center bg-black/60 pt-[12vh]" id="palette" hidden role="dialog" aria-modal="true" aria-label="${esc(t.searchPlaceholder)}">
-    <div class="w-full max-w-xl overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-2xl">
+  const palette = el(`<dialog class="modal" id="palette" aria-label="${esc(t.searchPlaceholder)}">
+    <div class="modal-box max-w-xl overflow-hidden p-0">
       <input class="input input-lg w-full rounded-none border-0 border-b border-base-300" id="palette-input" type="text" autocomplete="off" placeholder="${esc(t.searchPlaceholder)}" aria-controls="palette-list" aria-expanded="true" role="combobox">
       <ul class="menu max-h-[50vh] w-full flex-nowrap overflow-y-auto p-2" id="palette-list" role="listbox"></ul>
     </div>
-  </div>`);
+    <form method="dialog" class="modal-backdrop"><button>${esc(t.back)}</button></form>
+  </dialog>`);
   document.body.append(palette);
   const input = palette.querySelector('#palette-input');
   const list = palette.querySelector('#palette-list');
@@ -223,11 +228,11 @@ function installPalette() {
   let cursor = 0;
 
   const close = () => {
-    palette.hidden = true;
+    palette.close();
     input.value = '';
   };
   const open = () => {
-    palette.hidden = false;
+    palette.showModal();
     input.focus();
     render_items('');
   };
@@ -284,12 +289,10 @@ function installPalette() {
     const node = e.target.closest('[role="option"]');
     if (node) { cursor = Number(node.dataset.index); choose(); }
   });
-  palette.addEventListener('click', (e) => { if (e.target === palette) close(); });
-
   delegate(document, 'click', '[data-action="palette"]', () => open());
   window.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.hidden ? open() : close(); }
-    else if (e.key === '/' && !/^(input|textarea)$/i.test(document.activeElement?.tagName) && palette.hidden) { e.preventDefault(); open(); }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.open ? close() : open(); }
+    else if (e.key === '/' && !/^(input|textarea)$/i.test(document.activeElement?.tagName) && !palette.open) { e.preventDefault(); open(); }
   });
 }
 

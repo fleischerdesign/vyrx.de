@@ -20,6 +20,8 @@ const roleLabel = (type, t) => t[ROLE_KEY[type]] || type;
 function statusBadge(s, ctx) {
   const { state } = serviceState(s, ctx.status);
   if (state === 'unmonitored') return `<span class="badge badge-ghost badge-sm">${esc(ctx.t.unmonitored)}</span>`;
+  // Before the first live read there is no state to show - a spinner is honest, "unknown" is not yet true.
+  if (!ctx.status) return `<span class="loading loading-spinner loading-xs" role="status" aria-label="${esc(ctx.t.catalogLoading)}"></span>`;
   return `${stateDot(state, ctx.t)}<span class="text-xs opacity-60">${esc(stateLabel(state, ctx.t))}</span>`;
 }
 
@@ -31,8 +33,8 @@ function tile(s, ctx) {
   <div class="card-body gap-3 p-4">
     <div class="flex items-start gap-2">
       <h3 class="card-title mr-auto text-base leading-tight">${esc(s.name)}</h3>
-      <button class="btn btn-square btn-ghost btn-xs" type="button" data-action="favorite" data-id="${esc(s.id)}"
-        aria-pressed="${fav}" aria-label="${esc(label)}" title="${esc(label)}">★</button>
+      <button class="btn btn-square btn-ghost btn-xs tooltip tooltip-bottom" data-tip="${esc(label)}"
+        type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">★</button>
     </div>
     ${localized(s.description, ctx.locale) ? `<p class="text-sm opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}
     <div class="card-actions mt-auto flex-wrap items-center gap-2">
@@ -47,6 +49,8 @@ function tile(s, ctx) {
 }
 
 const grid = (list, ctx) => `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${list.map((s) => tile(s, ctx)).join('')}</div>`;
+const skeletons = (count = 6) =>
+  `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${Array.from({ length: count }, () => '<div class="skeleton h-36"></div>').join('')}</div>`;
 
 const section = (title, count, body) =>
   `<section class="section mb-8"><div class="mb-3 flex items-baseline gap-3">
@@ -59,7 +63,7 @@ const head = (title, desc, actions = '') =>
   </div>${actions}</div>`;
 
 const empty = (title, hint = '') =>
-  `<div class="alert"><div><h3 class="font-semibold">${esc(title)}</h3>${hint ? `<p class="text-sm opacity-70">${esc(hint)}</p>` : ''}</div></div>`;
+  `<div class="alert alert-soft"><div><h3 class="font-semibold">${esc(title)}</h3>${hint ? `<p class="text-sm opacity-70">${esc(hint)}</p>` : ''}</div></div>`;
 
 const stat = (value, label) =>
   `<div class="stat place-items-center"><div class="stat-value text-2xl">${esc(String(value))}</div><div class="stat-title">${esc(label)}</div></div>`;
@@ -69,7 +73,7 @@ export function overview(ctx) {
   const name = ctx.identity.name || ctx.identity.username;
   const favs = ctx.services.filter((s) => ctx.favorites.includes(s.id));
   const recent = ctx.recents.map((id) => ctx.services.find((s) => s.id === id)).filter(Boolean);
-  const up = ctx.services.filter((s) => serviceState(s, ctx.status).state === 'up').length;
+  const up = ctx.status ? ctx.services.filter((s) => serviceState(s, ctx.status).state === 'up').length : '–';
   return (
     head(`${t.userGreeting}, ${name}`, `${ctx.services.length} ${t.navServices}`) +
     `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal">
@@ -84,19 +88,20 @@ export function overview(ctx) {
 export function services(ctx) {
   const t = ctx.t;
   if (!ctx.services.length) return head(t.navServices, t.allServices) + empty(t.noServices, t.noServicesHint);
-  const filter = `<input class="input w-64" id="service-filter" type="search" autocomplete="off"
+  const search = `<input class="input w-64" id="service-filter" type="search" autocomplete="off"
     placeholder="${esc(t.searchPlaceholder)}" aria-label="${esc(t.searchPlaceholder)}">`;
-  const chips = `<div class="mb-4 flex flex-wrap gap-2" role="group" aria-label="${esc(t.navCategories)}">
-    <button class="btn btn-xs" type="button" data-filter-category="">${esc(t.allCategories)}</button>
+  // daisyUI `filter`: a radio group, which is what a single-choice filter actually is.
+  const chips = `<div class="filter mb-4" role="radiogroup" aria-label="${esc(t.navCategories)}">
+    <input class="btn btn-xs filter-reset" type="radio" name="category" value="" aria-label="${esc(t.allCategories)}" checked="">
     ${categories(ctx.services)
-      .map(([cat, list]) => `<button class="btn btn-xs" type="button" data-filter-category="${esc(cat)}">${esc(cat)} <span class="badge badge-xs">${list.length}</span></button>`)
+      .map(([cat, list]) => `<input class="btn btn-xs" type="radio" name="category" value="${esc(cat)}" aria-label="${esc(cat)} · ${list.length}">`)
       .join('')}
   </div>`;
   const body = categories(ctx.services)
     .map(([cat, list]) => section(cat, list.length, grid(list, ctx)))
     .join('');
   return (
-    head(t.navServices, t.allServices, filter) +
+    head(t.navServices, t.allServices, search) +
     chips +
     `<div id="services-body">${body}<div id="services-empty" hidden>${empty(t.noResults)}</div></div>`
   );
@@ -113,7 +118,7 @@ export function status(ctx) {
   return (
     head(t.statusTitle, `${t.statusDesc}${meta}`) +
     `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal">
-      ${stat(hosts.length, t.statusNodes)}${stat(monitored, t.unmonitored + ' ✕')}${stat(hosts.length - monitored, t.unmonitored)}
+      ${stat(hosts.length, t.statusNodes)}${stat(monitored, t.online)}${stat(hosts.length - monitored, t.unmonitored)}
     </div>` +
     section(t.statusNodes, hosts.length, `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${hosts.map((host) => hostCard(host, ctx)).join('')}</div>`)
   );
@@ -134,6 +139,7 @@ export function hostCard(host, ctx) {
   ].filter(Boolean);
   const services = host.services || [];
   const shown = services.slice(0, 6);
+  const rest = services.slice(shown.length);
   return `<article class="card border border-base-300 bg-base-200">
   <div class="card-body gap-3 p-4">
     <div class="flex items-center gap-2">
@@ -141,17 +147,25 @@ export function hostCard(host, ctx) {
       ${state === 'unmonitored' ? `<span class="badge badge-ghost badge-sm">${esc(t.unmonitored)}</span>` : `${stateDot(state, t)}<span class="text-xs opacity-60">${esc(stateLabel(state, t))}</span>`}
     </div>
     <div class="flex flex-wrap gap-1">${badges.map((b) => `<span class="badge badge-ghost badge-sm">${esc(b)}</span>`).join('')}</div>
-    <dl class="grid grid-cols-[3.5rem_1fr] gap-x-2 gap-y-1 font-mono text-sm">
+    <ul class="list">
       ${rows
         .map(
           (row) =>
-            `<dt class="text-xs uppercase tracking-wider opacity-50">${esc(row.label)}</dt><dd class="opacity-80">${esc(row.value)}</dd>`,
+            `<li class="list-row items-baseline gap-3 px-2 py-1"><span class="w-14 text-xs uppercase tracking-wider opacity-50">${esc(row.label)}</span><span class="font-mono text-sm opacity-80">${esc(row.value)}</span></li>`,
         )
         .join('')}
-    </dl>
+    </ul>
     ${
       services.length
-        ? `<div class="flex flex-wrap gap-1">${shown.map((s) => `<span class="badge badge-sm">${esc(s)}</span>`).join('')}${services.length > shown.length ? `<span class="badge badge-ghost badge-sm">+${services.length - shown.length}</span>` : ''}</div>`
+        ? `<div class="flex flex-wrap gap-1">${shown.map((s) => `<span class="badge badge-sm">${esc(s)}</span>`).join('')}</div>${
+            rest.length
+              ? `<div class="collapse collapse-arrow rounded-box bg-base-100/50">
+                   <input type="checkbox" />
+                   <div class="collapse-title min-h-0 px-3 py-2 text-xs">+${rest.length} ${esc(t.navServices)}</div>
+                   <div class="collapse-content px-3"><div class="flex flex-wrap gap-1 pb-2">${rest.map((s) => `<span class="badge badge-sm">${esc(s)}</span>`).join('')}</div></div>
+                 </div>`
+              : ''
+          }`
         : ''
     }
   </div>
@@ -223,7 +237,7 @@ export function detail(ctx, id) {
     ${localized(s.description, ctx.locale) ? `<p class="opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}
   </div>
   <div class="flex items-center gap-2">
-    <button class="btn btn-square btn-ghost btn-sm" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}" title="${esc(label)}">★</button>
+    <button class="btn btn-square btn-ghost btn-sm tooltip tooltip-bottom" data-tip="${esc(label)}" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">★</button>
     <a class="btn btn-primary btn-sm" href="${esc(s.url)}" target="_blank" rel="noreferrer" data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
   </div></div>
   <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
