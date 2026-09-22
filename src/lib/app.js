@@ -14,6 +14,7 @@ import {
   pushRecent,
   localized,
   loadStatus,
+  ROLE_KEY,
 } from './api.js';
 import * as views from './views.js';
 
@@ -33,9 +34,14 @@ const go = (hash) => {
 let app;
 let state;
 
-export async function boot({ messages, locale, mesh, loginUrl, accountUrl }) {
+export async function boot({ messages, locale, loginUrl, accountUrl }) {
   app = document.getElementById('app');
   if (!app) return;
+
+  // The registry is public and is read first: the landing shows the fleet to everyone, and the same
+  // answer feeds the signed-in app, so there is one fetch and one truth.
+  const registry = await loadCatalog().catch(() => null);
+  if (registry) renderLandingHosts(registry, messages, locale);
 
   const identity = await loadIdentity();
   if (!identity) {
@@ -47,12 +53,12 @@ export async function boot({ messages, locale, mesh, loginUrl, accountUrl }) {
   state = {
     t: messages,
     locale,
-    mesh,
     loginUrl,
     accountUrl,
     identity,
     services: [],
     allServices: [],
+    hosts: registry?.hosts || [],
     adminGroups: [],
     favorites: favorites(identity.username),
     recents: recents(identity.username),
@@ -74,13 +80,34 @@ export async function boot({ messages, locale, mesh, loginUrl, accountUrl }) {
   });
   delegate(app, 'click', '[data-action="open"]', (_e, node) => pushRecent(state.identity.username, node.dataset.id));
 
-  render(); // shell first, so the user sees navigation immediately
-  await loadCatalog().then(applyCatalog).catch((error) => {
-    console.error(error);
+  if (registry) applyCatalog(registry);
+  else {
     state.catalogError = true;
     render();
-  });
+  }
   startStatusPolling();
+}
+
+// The fleet table on the public landing. Same registry as the app, rendered for everyone: the inventory
+// is deliberately public, and it is derived, so it cannot drift from the topology.
+function renderLandingHosts(registry, t, locale) {
+  const body = document.getElementById('hosts-body');
+  if (!body) return;
+  body.innerHTML = (registry.hosts || [])
+    .map(
+      (host) => `<tr class="monitor-row">
+      <td><div class="node-ident"><div class="node-status-pulse pulse-online"></div>
+        <div class="node-title-group">
+          <div class="node-hostname"><span>${esc(host.name)}</span>
+            <span class="node-zone-tag">${esc(t[ROLE_KEY[host.type]] || host.type)}</span></div>
+          <div class="node-role-desc">${esc(host.ingress ? t.capIngress : '')}${host.relay ? (host.ingress ? ' · ' : '') + t.capRelay : ''}</div>
+        </div></div></td>
+      <td><div class="node-hardware">${esc(host.zone || '')}${host.cidr ? ` · ${esc(host.cidr)}` : ''}</div></td>
+      <td><span class="node-ip-badge">${esc(host.ipv4 || host.wireguardIpv4 || '')}</span></td>
+      <td><div class="node-stack-pills">${(host.services || []).map((s) => `<span class="stack-pill">${esc(s)}</span>`).join('')}</div></td>
+    </tr>`,
+    )
+    .join('');
 }
 
 // Status is live, not baked: one request to the same-origin route, refreshed while the tab is visible.
@@ -101,17 +128,20 @@ function startStatusPolling() {
   });
 }
 
-function applyCatalog({ adminGroups, services }) {
+function applyCatalog({ adminGroups, locales, hosts, services }) {
   state.adminGroups = adminGroups;
+  state.locales = locales;
   state.allServices = services;
+  state.hosts = hosts;
   state.services = visibleServices(services, state.identity.groups);
   state.isAdmin = isAdmin(state.identity, adminGroups);
+  renderCategories();
   render();
 }
 
 function shell() {
   const t = state.t;
-  const nav = (items, mobile = false) =>
+  const nav = (items) =>
     items
       .map(
         (item) =>
@@ -121,9 +151,6 @@ function shell() {
       )
       .join('');
   const primary = NAV.filter((n) => !n.admin || state.isAdmin);
-  const cats = categories(state.services)
-    .map(([cat, list]) => `<a class="nav-item" href="#/dienste" data-category="${esc(cat)}">${esc(cat)}<span class="nav-item__count">${list.length}</span></a>`)
-    .join('');
   const initials = esc((state.identity.name || state.identity.username || 'U').charAt(0).toUpperCase());
   return `
     <header class="app__topbar">
@@ -137,10 +164,28 @@ function shell() {
     </header>
     <aside class="app__sidebar">
       <nav class="app__nav" aria-label="${esc(t.navOverview)}">${nav(primary)}</nav>
-      ${cats ? `<div><div class="app__nav-label">${esc(t.navCategories)}</div><div class="app__nav">${cats}</div></div>` : ''}
+      <div id="nav-categories"></div>
     </aside>
     <main class="app__main" id="main" tabindex="-1"></main>
-    <nav class="app__bottomnav" aria-label="${esc(t.navOverview)}">${nav(primary).replaceAll('class="nav-item"', 'class="nav-item"')}</nav>`;
+    <nav class="app__bottomnav" aria-label="${esc(t.navOverview)}">${nav(primary)}</nav>`;
+}
+
+// Categories come from the catalogue, which arrives after the shell - so the shell ships an empty slot and
+// this fills it, instead of the navigation being wrong until the next full render.
+function renderCategories() {
+  const slot = app.querySelector('#nav-categories');
+  if (!slot) return;
+  const cats = categories(state.services);
+  if (!cats.length) {
+    slot.innerHTML = '';
+    return;
+  }
+  slot.innerHTML = `<div class="app__nav-label">${esc(state.t.navCategories)}</div><div class="app__nav">${cats
+    .map(
+      ([cat, list]) =>
+        `<a class="nav-item" href="#/dienste" data-category="${esc(cat)}">${esc(cat)}<span class="nav-item__count">${list.length}</span></a>`,
+    )
+    .join('')}</div>`;
 }
 
 let lastRoute = null;

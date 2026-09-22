@@ -85,5 +85,11 @@
   "skipToContent": "Skip to content",
   "unknown": "unknown",
   "unmonitored": "not monitored",
-  "statusAsOf": "as of"
+  "statusAsOf": "as of",
+  "roleServer": "Server",
+  "roleWorkstation": "Workstation",
+  "roleClient": "Client",
+  "roleEmbedded": "Embedded",
+  "capRelay": "Mesh relay",
+  "capIngress": "Ingress"
 }

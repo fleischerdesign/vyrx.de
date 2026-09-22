@@ -1,7 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { useTranslations } from '../i18n';
-import meshData from '../data/mesh.json';
 import '../styles/app.css';
 
 const { locale } = Astro.props;
@@ -86,37 +85,9 @@ const accountUrl = 'https://auth.vyrx.de/if/user/';
               <th>{t.tableColServices}</th>
             </tr>
           </thead>
-          <tbody>
-            {meshData.nodes.map((node) => (
-              <tr class="monitor-row">
-                <td>
-                  <div class="node-ident">
-                    <div class="node-status-pulse pulse-online" title="Online / Active"></div>
-                    <div class="node-title-group">
-                      <div class="node-hostname">
-                        <span>{node.name}</span>
-                        <span class="node-zone-tag">{node.hardware}</span>
-                      </div>
-                      <div class="node-role-desc">{node.role[locale]}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <div class="node-hardware">{node.zone}</div>
-                </td>
-                <td>
-                  <span class="node-ip-badge">{node.address}</span>
-                </td>
-                <td>
-                  <div class="node-stack-pills">
-                    {node.services.map((svc) => (
-                      <span class="stack-pill">{svc}</span>
-                    ))}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
+          <!-- The fleet inventory is derived from the topology and rendered by the page from the same
+               registry the app reads; there is no mesh.json to drift. -->
+          <tbody id="hosts-body"></tbody>
         </table>
       </div>
 
@@ -140,14 +111,12 @@ const accountUrl = 'https://auth.vyrx.de/if/user/';
     import { boot } from '../lib/app.js';
     import de from '../i18n/de.json';
     import en from '../i18n/en.json';
-    import mesh from '../data/mesh.json';
 
     const node = document.getElementById('app');
     const locale = node?.dataset.locale === 'en' ? 'en' : 'de';
     boot({
       messages: locale === 'en' ? en : de,
       locale,
-      mesh,
       loginUrl: '/outpost.goauthentik.io/start?rd=/',
       accountUrl: 'https://auth.vyrx.de/if/user/',
     });

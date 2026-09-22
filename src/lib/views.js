@@ -2,7 +2,7 @@
 // the catalogue shape, never a service name.
 
 import { esc } from './dom.js';
-import { categories, localized, serviceState, hostState } from './api.js';
+import { categories, localized, serviceState, hostState, ROLE_KEY } from './api.js';
 
 const SCOPE = { public: 'scopePublic', internal: 'scopeInternal', mesh: 'scopeMesh', isolated: 'scopeIsolated' };
 const scopeBadge = (s, t) => `<span class="badge badge--scope">${esc(t[SCOPE[s.scope]] || t.scopeIsolated)}</span>`;
@@ -10,6 +10,7 @@ const scopeBadge = (s, t) => `<span class="badge badge--scope">${esc(t[SCOPE[s.s
 const stateLabel = (state, t) =>
   ({ up: t.online, down: t.offlineService, unknown: t.unknown, unmonitored: t.unmonitored })[state] || t.unknown;
 const stateClass = (state) => (state === 'up' ? 'ok' : state === 'down' ? 'off' : 'unknown');
+const roleLabel = (type, t) => t[ROLE_KEY[type]] || type;
 
 // Four states, never two: a service that is not probed says so, and a missing answer is `unknown` -
 // rendering it as `down` would be a different lie than rendering a constant as `up`.
@@ -85,32 +86,34 @@ export function services(ctx) {
   );
 }
 
+// Infrastructure only: the service launcher, with its scope and audience, is the Dienste view. The hosts
+// come from the same registry the landing uses, and their state from the live status read.
 export function status(ctx) {
   const t = ctx.t;
-  const nodes = ctx.mesh?.nodes || [];
-  if (!nodes.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
+  const hosts = ctx.hosts || [];
+  if (!hosts.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
   const meta = ctx.status ? ` · ${t.statusAsOf} ${new Date(ctx.status.asOf).toLocaleTimeString(ctx.locale)}` : '';
-  const nodeGrid = `<div class="grid">${nodes
-    .map(
-      (n) => {
-        const label = stateLabel(hostState(n.name, ctx.status), t);
-        return `<article class="tile">
-      <div class="tile__top"><div class="tile__icon" aria-hidden="true">${esc(n.name.charAt(0))}</div>
-        <div class="tile__title">${esc(n.name)}</div>
-        <span class="status-dot status-dot--${stateClass(hostState(n.name, ctx.status))}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span></div>
-      ${n.role ? `<p class="tile__desc">${esc((n.role || {})[ctx.locale] || (n.role || {}).de || '')}</p>` : ''}
-      <div class="tile__foot" style="flex-wrap:wrap">
-        <span class="badge">${esc(n.zone)}</span>
-        ${n.wireguardIp ? `<span class="tile__url">${esc(n.wireguardIp)}</span>` : ''}
-      </div>
-      ${(n.services || []).length ? `<div class="tile__foot" style="flex-wrap:wrap">${n.services.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}</div>` : ''}
+  const hostGrid = `<div class="grid">${hosts
+    .map((host) => {
+      const state = hostState(host.name, ctx.status);
+      const label = stateLabel(state, t);
+      const badges = [
+        roleLabel(host.type, t),
+        host.zone ? `${host.zone}${host.cidr ? ` · ${host.cidr}` : ''}` : null,
+        host.relay ? t.capRelay : null,
+        host.ingress ? t.capIngress : null,
+      ].filter(Boolean);
+      return `<article class="tile">
+      <div class="tile__top"><div class="tile__icon" aria-hidden="true">${esc(host.name.charAt(0))}</div>
+        <div class="tile__title">${esc(host.name)}</div>
+        <span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span></div>
+      <div class="tile__foot" style="flex-wrap:wrap">${badges.map((b) => `<span class="badge">${esc(b)}</span>`).join('')}</div>
+      <div class="tile__foot"><span class="tile__url">${esc(host.wireguardIpv4 || host.ipv4 || '')}</span></div>
+      ${(host.services || []).length ? `<div class="tile__foot" style="flex-wrap:wrap">${host.services.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}</div>` : ''}
     </article>`;
-      },
-    )
+    })
     .join('')}</div>`;
-  // Infrastructure only: the service launcher, with its scope and audience, is the Dienste view. A
-  // second grid of the same tiles here was duplication, not information.
-  return head(t.statusTitle, `${t.statusDesc}${meta}`) + section(t.statusNodes, nodes.length, nodeGrid);
+  return head(t.statusTitle, `${t.statusDesc}${meta}`) + section(t.statusNodes, hosts.length, hostGrid);
 }
 
 export function account(ctx) {
@@ -175,7 +178,7 @@ export function detail(ctx, id) {
       <article class="tile"><div class="tile__title">${esc(t.serviceAudience)}</div>
         <div class="tile__foot" style="flex-wrap:wrap">${(s.groups || []).map((g) => `<span class="badge">${esc(g)}</span>`).join(' ') || `<span class="badge">–</span>`}</div></article>
       <article class="tile"><div class="tile__title">${esc(t.serviceScope)}</div>
-        <div class="tile__foot">${scopeBadge(s, t)}<span class="tile__url">${esc(s.url.replace('https://', ''))}</span></div></article>
+        <div class="tile__foot">${scopeBadge(s, t)}${statusBadge(s, ctx)}<span class="tile__url">${esc(s.url.replace('https://', ''))}</span></div></article>
       <article class="tile"><div class="tile__title">${esc(t.category)}</div>
         <div class="tile__foot"><span class="badge">${esc(s.category)}</span></div></article>
     </div>`;

@@ -27,8 +27,13 @@ export async function loadCatalog() {
   if (!res.ok) throw new Error(`catalog ${res.status}`);
   const data = await res.json();
   return Array.isArray(data)
-    ? { adminGroups: [], services: data }
-    : { adminGroups: data.adminGroups || [], services: data.services || [] };
+    ? { adminGroups: [], locales: ['de', 'en'], hosts: [], services: data }
+    : {
+        adminGroups: data.adminGroups || [],
+        locales: data.locales || [],
+        hosts: data.hosts || [],
+        services: data.services || [],
+      };
 }
 
 export const visibleServices = (services, groups) =>
@@ -81,6 +86,15 @@ export function serviceState(service, status) {
 export function hostState(name, status) {
   return status?.hosts?.get(name)?.state || 'unknown';
 }
+
+// The role a host is assigned, as an i18n key. `hostType` is the inventory's own vocabulary, so the
+// portal renders a role instead of inventing a hardware label it cannot derive.
+export const ROLE_KEY = {
+  server: 'roleServer',
+  workstation: 'roleWorkstation',
+  client: 'roleClient',
+  embedded: 'roleEmbedded',
+};
 
 export const isAdmin = (identity, adminGroups) =>
   Boolean(identity) && adminGroups.some((g) => identity.groups.includes(g));
