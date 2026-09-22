@@ -1,33 +1,41 @@
 ---
-// The sprite: one `<symbol>` per declared icon, geometry read from the Lucide package at build time.
+// The sprite: one `<symbol>` per declared icon, read from `src/icons/` and inlined into the document.
 //
-// It is inlined once per document (Layout) rather than fetched or scripted, so the client views can
-// reference the very same symbols the server-rendered shell uses. A missing file fails the build here,
-// which is the second half of the check `icon()` performs: an undeclared name is caught in the shell and
-// a name that Lucide does not have is caught while this sprite is rendered.
-import { readFileSync } from 'node:fs';
+// The icons are vendored instead of imported from a package, because the geometry has to be inlined at
+// build time and the previous approach read it through a filesystem path computed from `import.meta.url`.
+// That worked only by accident: since Astro 6 bundles server code, the module no longer lives next to its
+// source, so `../../node_modules/...` resolved into `dist/`. A glob is resolved by the bundler and works
+// wherever the module ends up.
+//
+// Vendoring also removes the npm dependency whose hash had to be maintained, and it puts the geometry in
+// the tree where it can be reviewed. Lucide is ISC; the notice travels inside each file.
 import { ICONS } from '../lib/icons.js';
 
+const files = import.meta.glob('../icons/*.svg', { query: '?raw', import: 'default', eager: true });
+
+// Only the geometry: size, colour and stroke live in `icon()`, so an icon cannot be rendered differently
+// depending on which renderer asked for it.
 const geometry = (name) => {
-  const file = new URL(`../../node_modules/lucide-static/icons/${name}.svg`, import.meta.url);
-  let svg;
-  try {
-    svg = readFileSync(file, 'utf8');
-  } catch {
-    throw new Error(
-      `lucide-static has no icon "${name}" (looked for ${file.pathname}). ` +
-        'Fix the name in src/lib/icons.js or drop it from the list.',
-    );
+  const raw = files[`../icons/${name}.svg`];
+  if (typeof raw !== 'string') {
+    throw new Error(`src/icons/${name}.svg is missing - declared in src/lib/icons.js, absent from the tree`);
   }
-  // Only the geometry: the wrapper's size, colour and stroke live in `icon()`, so an icon cannot be
-  // sized differently depending on which renderer asked for it.
-  const body = svg
+  const body = raw
     .replace(/^[\s\S]*?<svg[^>]*>/, '')
     .replace(/<\/svg>[\s\S]*$/, '')
     .trim();
-  if (!body) throw new Error(`lucide-static/icons/${name}.svg carried no geometry`);
+  if (!body) throw new Error(`src/icons/${name}.svg carried no geometry`);
   return body;
 };
+
+// The other direction as well: a file nobody declares is either a leftover or a forgotten entry, and both
+// are silent. `ICONS` is the declaration, the directory is the fact, and they have to agree.
+const undeclared = Object.keys(files)
+  .map((path) => path.replace('../icons/', '').replace(/\.svg$/, ''))
+  .filter((name) => !ICONS.includes(name));
+if (undeclared.length) {
+  throw new Error(`src/icons/${undeclared.join('.svg, src/icons/')}.svg is not declared in src/lib/icons.js`);
+}
 
 const symbols = ICONS.map((name) => ({ name, body: geometry(name) }));
 ---

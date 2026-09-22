@@ -1,13 +1,14 @@
 // The icon set, declared once.
 //
-// Lucide is the source of the geometry: the sprite is generated from `ICONS` at build time
-// (`components/IconSprite.astro`), and both renderers reference the same `<symbol>` by id - the Astro
-// shell for the dock and the drawer, the client views for the tiles. One geometry per icon in one
-// document, no runtime script, no per-icon request.
+// The geometry is vendored in `src/icons/` (Lucide, ISC - the notice is inside each file) and inlined
+// into the document at build time by `components/IconSprite.astro`. Both renderers reference the same
+// `<symbol>` by id - the Astro shell for the dock and the drawer, the client views for the tiles - so
+// there is one geometry per icon in one document, no runtime script and no per-icon request.
 //
 // `ICONS` is the only place that names an icon, so a name that is not declared here is a defect rather
 // than an empty square: `icon()` throws while the shell is being rendered (the build fails) and renders
-// a red marker in the browser, for the same reason the translations do.
+// a red marker in the browser, for the same reason the translations do. The sprite checks the other
+// direction too - a file in `src/icons/` that nobody declares fails the build.
 
 export const ICONS = [
   'home',
