@@ -74,7 +74,7 @@ const primary = nav.filter((item) => !item.admin);
     <nav class="dock dock-md border-t border-base-300 bg-base-100 md:hidden" aria-label={t.navOverview} data-auth="in" hidden>
       {
         primary.map((item) => (
-          <a href={item.hash} class="dock-item-removed" data-nav={item.name}>
+          <a href={item.hash} data-nav={item.name}>
             <span aria-hidden="true">{item.icon}</span>
             <span class="dock-label">{t[item.key]}</span>
           </a>
