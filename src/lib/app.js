@@ -299,4 +299,6 @@ function setAuthed(on) {
   for (const node of document.querySelectorAll('[data-auth]')) {
     node.hidden = (node.dataset.auth === 'in') !== on;
   }
+  // The navigation rail belongs to the signed-in shell; a visitor must not get an empty one.
+  document.getElementById('shell-drawer')?.classList.toggle('lg:drawer-open', on);
 }

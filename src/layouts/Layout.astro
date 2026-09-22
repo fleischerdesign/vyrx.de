@@ -24,31 +24,9 @@ const canonicalUrl = locale === 'en' ? 'https://vyrx.de/en/' : 'https://vyrx.de/
   <link rel="alternate" hreflang="en" href="https://vyrx.de/en/" />
   <link rel="alternate" hreflang="x-default" href="https://vyrx.de/" />
 
-  <!-- Typography: Plus Jakarta Sans & JetBrains Mono -->
-
+  <!-- Typography comes from the platform stack until the fonts are self-hosted; daisyUI carries the rest. -->
 </head>
 <body>
   <slot />
-
-  <!-- Mesh connectivity probe. Identity is read by the page itself from the same-origin /api/me
-       endpoint: the previous cross-origin fetch to auth.vyrx.de could never work (403, no CORS, and a
-       SameSite cookie the browser does not send cross-site). -->
-  <script is:inline>
-    (async function initMeshProbe() {
-      // Mesh connectivity probe
-      const meshLabel = document.getElementById('mesh-status-text');
-      if (meshLabel && window.location.hostname === 'vyrx.de') {
-        const probeImg = new Image();
-        const timeout = setTimeout(() => {
-          // Timeout reached, external access
-        }, 1200);
-        probeImg.onload = () => {
-          clearTimeout(timeout);
-          meshLabel.textContent = 'MESH 10.10.100.0/24';
-        };
-        probeImg.src = 'http://10.10.100.1/favicon.ico?r=' + Date.now();
-      }
-    })();
-  </script>
 </body>
 </html>
