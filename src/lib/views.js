@@ -1,171 +1,185 @@
-// One view per route. Each returns HTML; the app mounts it and delegates the few interactions. Views know
-// the catalogue shape, never a service name.
+// One view per route. Each returns markup built exclusively from daisyUI components; the app mounts it and
+// delegates the few interactions. Views know the catalogue shape, never a service name.
 
 import { esc } from './dom.js';
 import { categories, localized, serviceState, hostState, ROLE_KEY } from './api.js';
 
 const SCOPE = { public: 'scopePublic', internal: 'scopeInternal', mesh: 'scopeMesh', isolated: 'scopeIsolated' };
-const scopeBadge = (s, t) => `<span class="badge badge--scope">${esc(t[SCOPE[s.scope]] || t.scopeIsolated)}</span>`;
+const scopeBadge = (s, t) => `<span class="badge badge-ghost badge-sm">${esc(t[SCOPE[s.scope]] || t.scopeIsolated)}</span>`;
 
 const stateLabel = (state, t) =>
   ({ up: t.online, down: t.offlineService, unknown: t.unknown, unmonitored: t.unmonitored })[state] || t.unknown;
-const stateClass = (state) => (state === 'up' ? 'ok' : state === 'down' ? 'off' : 'unknown');
+// daisyUI's `status` component: a dot that carries meaning, always paired with its label.
+const stateDot = (state, t) => {
+  const label = stateLabel(state, t);
+  const tone = state === 'up' ? 'status-success' : state === 'down' ? 'status-error' : 'status-neutral';
+  return `<span class="status ${tone}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span>`;
+};
 const roleLabel = (type, t) => t[ROLE_KEY[type]] || type;
 
-// Four states, never two: a service that is not probed says so, and a missing answer is `unknown` -
-// rendering it as `down` would be a different lie than rendering a constant as `up`.
 function statusBadge(s, ctx) {
   const { state } = serviceState(s, ctx.status);
-  if (state === 'unmonitored') return `<span class="badge">${esc(ctx.t.unmonitored)}</span>`;
-  const label = stateLabel(state, ctx.t);
-  return `<span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span><span class="tile__status">${esc(label)}</span>`;
-}
-
-// A host is not a service. Its card leads with the live state and the role, and it shows both planes it
-// lives on: `ipv4` is the zone address - the WAN address on a cloud host, `null` on a roaming notebook -
-// and `wireguardIpv4` is the overlay. One address is never the whole truth, which is why no view picks
-// "an" address any more.
-export function hostAddresses(host, t) {
-  return [
-    { label: t[host.zone === 'mesh' ? 'addrWan' : 'addrZone'], value: host.ipv4 || t.dhcp },
-    { label: t.addrMesh, value: host.wireguardIpv4 || t.dhcp },
-  ];
-}
-
-export function hostCard(host, ctx) {
-  const t = ctx.t;
-  const state = hostState(host, ctx.status);
-  const label = stateLabel(state, t);
-  const stateBadge =
-    state === 'unmonitored'
-      ? `<span class="badge">${esc(t.unmonitored)}</span>`
-      : `<span class="status-dot status-dot--${stateClass(state)}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span><span class="tile__status">${esc(label)}</span>`;
-  const services = host.services || [];
-  const shown = services.slice(0, 8);
-  const badges = [
-    roleLabel(host.type, t),
-    host.zone ? `${host.zone}${host.cidr ? ` · ${host.cidr}` : ''}` : null,
-    host.relay ? t.capRelay : null,
-    host.ingress ? t.capIngress : null,
-  ].filter(Boolean);
-  return `<article class="tile tile--host">
-    <div class="tile__top">
-      <div class="tile__title">${esc(host.name)}</div>
-      ${stateBadge}
-    </div>
-    <div class="host-meta">${badges.map((b) => `<span class="badge">${esc(b)}</span>`).join('')}</div>
-    <dl class="host-addr">${hostAddresses(host, t)
-      .map((row) => `<div><dt>${esc(row.label)}</dt><dd>${esc(row.value)}</dd></div>`)
-      .join('')}</dl>
-    ${services.length ? `<div class="host-meta">${shown.map((s) => `<span class="badge">${esc(s)}</span>`).join('')}${services.length > shown.length ? `<span class="badge">+${services.length - shown.length}</span>` : ''}</div>` : ''}
-  </article>`;
+  if (state === 'unmonitored') return `<span class="badge badge-ghost badge-sm">${esc(ctx.t.unmonitored)}</span>`;
+  return `${stateDot(state, ctx.t)}<span class="text-xs opacity-60">${esc(stateLabel(state, ctx.t))}</span>`;
 }
 
 function tile(s, ctx) {
   const t = ctx.t;
   const fav = ctx.favorites.includes(s.id);
   const label = fav ? t.removeFavorite : t.addFavorite;
-  return `<article class="tile" data-tile="${esc(s.id)}">
-    <div class="tile__top">
-      <div class="tile__icon" aria-hidden="true">${esc((s.name || '?').charAt(0))}</div>
-      <div class="tile__title">${esc(s.name)}</div>
-      <div class="tile__actions">
-        <button class="icon-btn" type="button" data-action="favorite" data-id="${esc(s.id)}"
-          aria-pressed="${fav}" aria-label="${esc(label)}" title="${esc(label)}">★</button>
-      </div>
+  return `<article class="card border border-base-300 bg-base-200" data-tile="${esc(s.id)}">
+  <div class="card-body gap-3 p-4">
+    <div class="flex items-start gap-2">
+      <h3 class="card-title mr-auto text-base leading-tight">${esc(s.name)}</h3>
+      <button class="btn btn-square btn-ghost btn-xs" type="button" data-action="favorite" data-id="${esc(s.id)}"
+        aria-pressed="${fav}" aria-label="${esc(label)}" title="${esc(label)}">★</button>
     </div>
-    ${localized(s.description, ctx.locale) ? `<p class="tile__desc">${esc(localized(s.description, ctx.locale))}</p>` : ''}
-    <div class="tile__foot">
+    ${localized(s.description, ctx.locale) ? `<p class="text-sm opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}
+    <div class="card-actions mt-auto flex-wrap items-center gap-2">
       ${scopeBadge(s, t)}
+      ${s.admin?.length ? `<span class="badge badge-sm">${esc(t.navAdmin)}</span>` : ''}
       ${statusBadge(s, ctx)}
-      ${s.admin?.length ? `<span class="badge">${esc(t.navAdmin)}</span>` : ''}
-      <span class="tile__url">${esc((s.url || '').replace('https://', ''))}</span>
-      <a class="btn" href="${esc(s.url)}" target="_blank" rel="noreferrer" data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
+      <a class="btn btn-primary btn-sm ml-auto" href="${esc(s.url)}" target="_blank" rel="noreferrer"
+        data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
     </div>
-  </article>`;
+  </div>
+</article>`;
 }
 
-const grid = (list, ctx) => `<div class="grid">${list.map((s) => tile(s, ctx)).join('')}</div>`;
+const grid = (list, ctx) => `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${list.map((s) => tile(s, ctx)).join('')}</div>`;
 
 const section = (title, count, body) =>
-  `<section class="section"><div class="section__head"><h3>${esc(title)}</h3>${count ? `<span>${count}</span>` : ''}</div>${body}</section>`;
+  `<section class="section mb-8"><div class="mb-3 flex items-baseline gap-3">
+    <h2 class="text-lg font-semibold">${esc(title)}</h2>${count ? `<span class="text-sm opacity-50">${count}</span>` : ''}
+  </div>${body}</section>`;
 
 const head = (title, desc, actions = '') =>
-  `<div class="view-head"><div><h2>${esc(title)}</h2>${desc ? `<p>${esc(desc)}</p>` : ''}</div>${actions ? `<div class="view-head__actions">${actions}</div>` : ''}</div>`;
+  `<div class="mb-6 flex flex-wrap items-start gap-4"><div class="mr-auto">
+    <h1 class="text-2xl font-semibold">${esc(title)}</h1>${desc ? `<p class="opacity-60">${esc(desc)}</p>` : ''}
+  </div>${actions}</div>`;
 
 const empty = (title, hint = '') =>
-  `<div class="state"><div class="state__title">${esc(title)}</div>${hint ? `<div>${esc(hint)}</div>` : ''}</div>`;
+  `<div class="alert"><div><h3 class="font-semibold">${esc(title)}</h3>${hint ? `<p class="text-sm opacity-70">${esc(hint)}</p>` : ''}</div></div>`;
+
+const stat = (value, label) =>
+  `<div class="stat place-items-center"><div class="stat-value text-2xl">${esc(String(value))}</div><div class="stat-title">${esc(label)}</div></div>`;
 
 export function overview(ctx) {
   const t = ctx.t;
   const name = ctx.identity.name || ctx.identity.username;
   const favs = ctx.services.filter((s) => ctx.favorites.includes(s.id));
   const recent = ctx.recents.map((id) => ctx.services.find((s) => s.id === id)).filter(Boolean);
-  const top = categories(ctx.services).slice(0, 3);
+  const up = ctx.services.filter((s) => serviceState(s, ctx.status).state === 'up').length;
   return (
     head(`${t.userGreeting}, ${name}`, `${ctx.services.length} ${t.navServices}`) +
-    (favs.length
-      ? section(t.favorites, favs.length, grid(favs, ctx))
-      : section(t.favorites, 0, empty(t.noFavorites))) +
+    `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal">
+      ${stat(ctx.services.length, t.navServices)}${stat(up, t.online)}${stat(favs.length, t.favorites)}${stat(ctx.hosts.length, t.statusNodes)}
+    </div>` +
+    (favs.length ? section(t.favorites, favs.length, grid(favs, ctx)) : section(t.favorites, 0, empty(t.noFavorites))) +
     (recent.length ? section(t.recent, recent.length, grid(recent, ctx)) : '') +
-    top.map(([cat, list]) => section(cat, list.length, grid(list, ctx))).join('')
+    categories(ctx.services).slice(0, 3).map(([cat, list]) => section(cat, list.length, grid(list, ctx))).join('')
   );
 }
 
 export function services(ctx) {
   const t = ctx.t;
   if (!ctx.services.length) return head(t.navServices, t.allServices) + empty(t.noServices, t.noServicesHint);
-  const filter = `<input class="input" id="service-filter" type="search" autocomplete="off"
+  const filter = `<input class="input input-bordered w-64" id="service-filter" type="search" autocomplete="off"
     placeholder="${esc(t.searchPlaceholder)}" aria-label="${esc(t.searchPlaceholder)}">`;
+  const chips = `<div class="mb-4 flex flex-wrap gap-2" role="group" aria-label="${esc(t.navCategories)}">
+    <button class="btn btn-xs" type="button" data-filter-category="">${esc(t.allCategories)}</button>
+    ${categories(ctx.services)
+      .map(([cat, list]) => `<button class="btn btn-xs" type="button" data-filter-category="${esc(cat)}">${esc(cat)} <span class="badge badge-xs">${list.length}</span></button>`)
+      .join('')}
+  </div>`;
   const body = categories(ctx.services)
     .map(([cat, list]) => section(cat, list.length, grid(list, ctx)))
     .join('');
-  // Categories live here, not in the sidebar: they are a property of the catalogue on this page, and a
-  // second copy in the navigation was a second way to the same place.
-  const chips = `<div class="chips" role="group" aria-label="${esc(t.navCategories)}">
-    <button class="chip" type="button" data-filter-category="">${esc(t.allCategories)}</button>
-    ${categories(ctx.services)
-      .map(
-        ([cat, list]) =>
-          `<button class="chip" type="button" data-filter-category="${esc(cat)}">${esc(cat)}<span class="chip__count">${list.length}</span></button>`,
-      )
-      .join('')}
-  </div>`;
   return (
     head(t.navServices, t.allServices, filter) +
     chips +
-    `<div id="services-body">${body}<div class="state" id="services-empty" hidden><div class="state__title">${esc(t.noResults)}</div></div></div>`
+    `<div id="services-body">${body}<div id="services-empty" hidden>${empty(t.noResults)}</div></div>`
   );
 }
 
-// Infrastructure only: the service launcher, with its scope and audience, is the Dienste view. The hosts
-// come from the same registry the landing uses, and their state from the live status read.
+// Infrastructure only: the launcher, with scope and audience, is the Dienste view. Hosts come from the
+// registry and their state from the live read.
 export function status(ctx) {
   const t = ctx.t;
   const hosts = ctx.hosts || [];
   if (!hosts.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
+  const monitored = hosts.filter((h) => h.monitored !== false).length;
   const meta = ctx.status ? ` · ${t.statusAsOf} ${new Date(ctx.status.asOf).toLocaleTimeString(ctx.locale)}` : '';
-  const hostGrid = `<div class="grid grid--hosts">${hosts.map((host) => hostCard(host, ctx)).join('')}</div>`;
-  return head(t.statusTitle, `${t.statusDesc}${meta}`) + section(t.statusNodes, hosts.length, hostGrid);
+  return (
+    head(t.statusTitle, `${t.statusDesc}${meta}`) +
+    `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal">
+      ${stat(hosts.length, t.statusNodes)}${stat(monitored, t.unmonitored + ' ✕')}${stat(hosts.length - monitored, t.unmonitored)}
+    </div>` +
+    section(t.statusNodes, hosts.length, `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${hosts.map((host) => hostCard(host, ctx)).join('')}</div>`)
+  );
+}
+
+export function hostCard(host, ctx) {
+  const t = ctx.t;
+  const state = hostState(host, ctx.status);
+  const rows = [
+    { label: t[host.zone === 'mesh' ? 'addrWan' : 'addrZone'], value: host.ipv4 || t.dhcp },
+    { label: t.addrMesh, value: host.wireguardIpv4 || t.dhcp },
+  ];
+  const badges = [
+    roleLabel(host.type, t),
+    host.zone ? `${host.zone}${host.cidr ? ` · ${host.cidr}` : ''}` : null,
+    host.relay ? t.capRelay : null,
+    host.ingress ? t.capIngress : null,
+  ].filter(Boolean);
+  const services = host.services || [];
+  const shown = services.slice(0, 6);
+  return `<article class="card border border-base-300 bg-base-200">
+  <div class="card-body gap-3 p-4">
+    <div class="flex items-center gap-2">
+      <h3 class="card-title mr-auto font-mono text-base">${esc(host.name)}</h3>
+      ${state === 'unmonitored' ? `<span class="badge badge-ghost badge-sm">${esc(t.unmonitored)}</span>` : `${stateDot(state, t)}<span class="text-xs opacity-60">${esc(stateLabel(state, t))}</span>`}
+    </div>
+    <div class="flex flex-wrap gap-1">${badges.map((b) => `<span class="badge badge-ghost badge-sm">${esc(b)}</span>`).join('')}</div>
+    <dl class="grid grid-cols-[3.5rem_1fr] gap-x-2 gap-y-1 font-mono text-sm">
+      ${rows
+        .map(
+          (row) =>
+            `<dt class="text-xs uppercase tracking-wider opacity-50">${esc(row.label)}</dt><dd class="opacity-80">${esc(row.value)}</dd>`,
+        )
+        .join('')}
+    </dl>
+    ${
+      services.length
+        ? `<div class="flex flex-wrap gap-1">${shown.map((s) => `<span class="badge badge-sm">${esc(s)}</span>`).join('')}${services.length > shown.length ? `<span class="badge badge-ghost badge-sm">+${services.length - shown.length}</span>` : ''}</div>`
+        : ''
+    }
+  </div>
+</article>`;
 }
 
 export function account(ctx) {
   const t = ctx.t;
   const i = ctx.identity;
   const groups = i.groups.length
-    ? i.groups.map((g) => `<span class="badge">${esc(g)}</span>`).join(' ')
-    : `<span class="badge">–</span>`;
+    ? i.groups.map((g) => `<span class="badge badge-sm">${esc(g)}</span>`).join(' ')
+    : `<span class="badge badge-ghost badge-sm">–</span>`;
   return (
     head(t.accountTitle, t.accountDesc) +
-    `<div class="grid">
-      <article class="tile"><div class="tile__top"><div class="avatar" aria-hidden="true">${esc((i.name || i.username || 'U').charAt(0).toUpperCase())}</div>
-        <div class="tile__title">${esc(i.name || i.username)}</div></div>
-        <p class="tile__desc">${esc(i.username)}</p></article>
-      <article class="tile"><div class="tile__title">${esc(t.accountGroups)}</div>
-        <div class="tile__foot" style="flex-wrap:wrap">${groups}</div></article>
-      <article class="tile"><div class="tile__title">${esc(t.accountSecurity)}</div>
-        <p class="tile__desc">${esc(t.accountPasskeyHint)}</p>
-        <div class="tile__foot"><a class="btn" href="${esc(ctx.accountUrl)}" target="_blank" rel="noreferrer">${esc(t.accountManage)}</a></div></article>
+    `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div class="card border border-base-300 bg-base-200"><div class="card-body gap-3 p-4">
+        <div class="flex items-center gap-3">
+          <div class="avatar avatar-placeholder"><div class="w-10 rounded-full bg-primary text-primary-content"><span>${esc((i.name || i.username || 'U').charAt(0).toUpperCase())}</span></div></div>
+          <div><h2 class="font-semibold">${esc(i.name || i.username)}</h2><p class="text-sm opacity-60">${esc(i.username)}</p></div>
+        </div>
+      </div></div>
+      <div class="card border border-base-300 bg-base-200"><div class="card-body gap-3 p-4">
+        <h2 class="font-semibold">${esc(t.accountGroups)}</h2><div class="flex flex-wrap gap-1">${groups}</div>
+      </div></div>
+      <div class="card border border-base-300 bg-base-200"><div class="card-body gap-3 p-4">
+        <h2 class="font-semibold">${esc(t.accountSecurity)}</h2><p class="text-sm opacity-70">${esc(t.accountPasskeyHint)}</p>
+        <div class="card-actions"><a class="btn btn-sm" href="${esc(ctx.accountUrl)}" target="_blank" rel="noreferrer">${esc(t.accountManage)}</a></div>
+      </div></div>
     </div>`
   );
 }
@@ -174,9 +188,9 @@ export function admin(ctx) {
   const t = ctx.t;
   const rows = ctx.allServices
     .map(
-      (s) => `<tr><td>${esc(s.name)}</td><td><code>${esc(s.id)}</code></td>
-      <td>${(s.groups || []).map((g) => `<span class="badge">${esc(g)}</span>`).join(' ') || `<span class="badge">–</span>`}</td>
-      <td><code>${esc(s.scope)}</code></td></tr>`,
+      (s) => `<tr><td class="font-medium">${esc(s.name)}</td><td><code class="text-xs opacity-70">${esc(s.id)}</code></td>
+      <td>${(s.groups || []).map((g) => `<span class="badge badge-sm">${esc(g)}</span>`).join(' ') || `<span class="badge badge-ghost badge-sm">–</span>`}</td>
+      <td><code class="text-xs opacity-70">${esc(s.scope)}</code></td></tr>`,
     )
     .join('');
   const adminServices = ctx.allServices.filter((s) => s.admin?.length);
@@ -185,7 +199,9 @@ export function admin(ctx) {
     section(
       t.adminMatrix,
       ctx.allServices.length,
-      `<table class="matrix"><thead><tr><th>${esc(t.navServices)}</th><th>ID</th><th>${esc(t.serviceAudience)}</th><th>${esc(t.serviceScope)}</th></tr></thead><tbody>${rows}</tbody></table>`,
+      `<div class="overflow-x-auto rounded-box border border-base-300"><table class="table table-zebra"><thead><tr>
+        <th>${esc(t.navServices)}</th><th>ID</th><th>${esc(t.serviceAudience)}</th><th>${esc(t.serviceScope)}</th>
+      </tr></thead><tbody>${rows}</tbody></table></div>`,
     ) +
     (adminServices.length ? section(t.adminSecurity, adminServices.length, grid(adminServices, ctx)) : '')
   );
@@ -201,18 +217,27 @@ export function detail(ctx, id) {
   if (!s) return head(t.notFound) + empty(t.notFound);
   const fav = ctx.favorites.includes(s.id);
   const label = fav ? t.removeFavorite : t.addFavorite;
-  return `<nav class="breadcrumb"><a href="#/dienste">${esc(t.navServices)}</a><span>/</span><span>${esc(s.name)}</span></nav>
-    <div class="view-head"><div><h2>${esc(s.name)}</h2><p>${esc(localized(s.description, ctx.locale))}</p></div>
-      <div class="view-head__actions">
-        <button class="icon-btn" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}" title="${esc(label)}">★</button>
-        <a class="btn btn--primary" href="${esc(s.url)}" target="_blank" rel="noreferrer" data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
-      </div></div>
-    <div class="grid">
-      <article class="tile"><div class="tile__title">${esc(t.serviceAudience)}</div>
-        <div class="tile__foot" style="flex-wrap:wrap">${(s.groups || []).map((g) => `<span class="badge">${esc(g)}</span>`).join(' ') || `<span class="badge">–</span>`}</div></article>
-      <article class="tile"><div class="tile__title">${esc(t.serviceScope)}</div>
-        <div class="tile__foot">${scopeBadge(s, t)}${statusBadge(s, ctx)}<span class="tile__url">${esc(s.url.replace('https://', ''))}</span></div></article>
-      <article class="tile"><div class="tile__title">${esc(t.category)}</div>
-        <div class="tile__foot"><span class="badge">${esc(s.category)}</span></div></article>
-    </div>`;
+  return `<nav class="breadcrumbs mb-4 text-sm"><ul><li><a href="#/dienste">${esc(t.navServices)}</a></li><li>${esc(s.name)}</li></ul></nav>
+  <div class="mb-6 flex flex-wrap items-start gap-4"><div class="mr-auto">
+    <h1 class="text-2xl font-semibold">${esc(s.name)}</h1>
+    ${localized(s.description, ctx.locale) ? `<p class="opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}
+  </div>
+  <div class="flex items-center gap-2">
+    <button class="btn btn-square btn-ghost btn-sm" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}" title="${esc(label)}">★</button>
+    <a class="btn btn-primary btn-sm" href="${esc(s.url)}" target="_blank" rel="noreferrer" data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
+  </div></div>
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div class="card border border-base-300 bg-base-200"><div class="card-body gap-2 p-4">
+      <h2 class="text-sm uppercase tracking-wider opacity-50">${esc(t.serviceAudience)}</h2>
+      <div class="flex flex-wrap gap-1">${(s.groups || []).map((g) => `<span class="badge badge-sm">${esc(g)}</span>`).join(' ') || `<span class="badge badge-ghost badge-sm">–</span>`}</div>
+    </div></div>
+    <div class="card border border-base-300 bg-base-200"><div class="card-body gap-2 p-4">
+      <h2 class="text-sm uppercase tracking-wider opacity-50">${esc(t.serviceScope)}</h2>
+      <div class="flex flex-wrap items-center gap-2">${scopeBadge(s, t)}${statusBadge(s, ctx)}</div>
+    </div></div>
+    <div class="card border border-base-300 bg-base-200"><div class="card-body gap-2 p-4">
+      <h2 class="text-sm uppercase tracking-wider opacity-50">${esc(t.category)}</h2>
+      <div><span class="badge badge-sm">${esc(s.category)}</span></div>
+    </div></div>
+  </div>`;
 }

@@ -210,10 +210,10 @@ function setOffline(value) {
 
 function installPalette() {
   const t = state.t;
-  const palette = el(`<div class="palette" id="palette" hidden role="dialog" aria-modal="true" aria-label="${esc(t.searchPlaceholder)}">
-    <div class="palette__box">
-      <input class="palette__input" id="palette-input" type="text" autocomplete="off" placeholder="${esc(t.searchPlaceholder)}" aria-controls="palette-list" aria-expanded="true" role="combobox">
-      <ul class="palette__list" id="palette-list" role="listbox"></ul>
+  const palette = el(`<div class="fixed inset-0 z-50 items-start justify-center bg-black/60 pt-[12vh]" id="palette" hidden role="dialog" aria-modal="true" aria-label="${esc(t.searchPlaceholder)}">
+    <div class="w-full max-w-xl overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-2xl">
+      <input class="input input-lg w-full rounded-none border-0 border-b border-base-300" id="palette-input" type="text" autocomplete="off" placeholder="${esc(t.searchPlaceholder)}" aria-controls="palette-list" aria-expanded="true" role="combobox">
+      <ul class="menu max-h-[50vh] w-full flex-nowrap overflow-y-auto p-2" id="palette-list" role="listbox"></ul>
     </div>
   </div>`);
   document.body.append(palette);
@@ -251,9 +251,9 @@ function installPalette() {
       .map(([group, entries]) => {
         const offset = items.length;
         items.push(...entries);
-        return `<li class="palette__group" role="presentation">${esc(group)}</li>` +
+        return `<li class="px-3 pt-3 pb-1 text-xs uppercase tracking-wider opacity-50" role="presentation">${esc(group)}</li>` +
           entries
-            .map((e, i) => `<li class="palette__item" role="option" data-index="${offset + i}" aria-selected="${offset + i === 0}">${esc(e.label)}<small>${esc(e.hint || '')}</small></li>`)
+            .map((e, i) => `<li class="cursor-pointer rounded-lg px-3 py-2 aria-selected:bg-base-200" role="option" data-index="${offset + i}" aria-selected="${offset + i === 0}">${esc(e.label)}<small class="ml-auto opacity-50">${esc(e.hint || '')}</small></li>`)
             .join('');
       })
       .join('');
@@ -262,7 +262,7 @@ function installPalette() {
   const move = (delta) => {
     if (!items.length) return;
     cursor = (cursor + delta + items.length) % items.length;
-    for (const node of list.querySelectorAll('.palette__item'))
+    for (const node of list.querySelectorAll('.palette__item, [role="option"]'))
       node.setAttribute('aria-selected', String(Number(node.dataset.index) === cursor));
     list.querySelector(`[data-index="${cursor}"]`)?.scrollIntoView({ block: 'nearest' });
   };
@@ -281,7 +281,7 @@ function installPalette() {
     else if (e.key === 'Escape') close();
   });
   list.addEventListener('click', (e) => {
-    const node = e.target.closest('.palette__item');
+    const node = e.target.closest('[role="option"]');
     if (node) { cursor = Number(node.dataset.index); choose(); }
   });
   palette.addEventListener('click', (e) => { if (e.target === palette) close(); });

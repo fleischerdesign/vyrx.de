@@ -17,8 +17,11 @@ export function delegate(root, event, selector, handler) {
   });
 }
 
+// daisyUI toast: an `alert` inside the shell's toast region, which the shell owns.
 export function toast(message) {
-  const node = el(`<div class="toast" role="status">${esc(message)}</div>`);
-  document.body.append(node);
+  const region = document.getElementById('toast-region');
+  if (!region) return;
+  const node = el(`<div class="alert alert-sm alert-info" role="status">${esc(message)}</div>`);
+  region.append(node);
   setTimeout(() => node.remove(), 2600);
 }
