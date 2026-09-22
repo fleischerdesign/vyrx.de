@@ -1,0 +1,7 @@
+/* daisyUI comes first, the theme comes last.
+   Components are used exactly as shipped; the brand theme (colors, radii, density) and the self-hosted
+   fonts land in the final step, so nothing here styles a component individually. */
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: dark --default;
+}
