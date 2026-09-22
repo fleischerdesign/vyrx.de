@@ -30,12 +30,11 @@ const go = (hash) => {
   else location.hash = hash;
 };
 
-let app;
+
 let state;
 
 export async function boot({ messages, locale, loginUrl, accountUrl }) {
-  app = document.getElementById('app');
-  if (!app) return;
+  if (!document.getElementById('main')) return;
 
   // The registry is public and is read first: the landing shows the fleet to everyone, and the same
   // answer feeds the signed-in app, so there is one fetch and one truth.
@@ -44,11 +43,12 @@ export async function boot({ messages, locale, loginUrl, accountUrl }) {
   startStatusPolling();
 
   const identity = await loadIdentity();
-  if (!identity) {
-    document.getElementById('landing')?.removeAttribute('hidden');
-    return;
-  }
-  document.getElementById('landing')?.setAttribute('hidden', '');
+  if (!identity) return;
+
+  // The shell is already in the document in both states; signing in reveals its signed-in chrome.
+  setAuthed(true);
+  for (const node of document.querySelectorAll('[data-field="username"]')) node.textContent = identity.name || identity.username;
+  for (const node of document.querySelectorAll('[data-field="initial"]')) node.textContent = (identity.name || identity.username || 'U').charAt(0).toUpperCase();
 
   state = {
     t: messages,
@@ -66,21 +66,19 @@ export async function boot({ messages, locale, loginUrl, accountUrl }) {
     offline: !navigator.onLine,
   };
 
-  app.dataset.ready = '';
-  app.innerHTML = shell();
   installPalette();
   window.addEventListener('hashchange', render);
   window.addEventListener('online', () => setOffline(false));
   window.addEventListener('offline', () => setOffline(true));
-  delegate(app, 'click', '[data-action="favorite"]', (e, node) => {
+  delegate(document, 'click', '[data-action="favorite"]', (e, node) => {
     e.preventDefault();
     state.favorites = toggleFavorite(state.identity.username, node.dataset.id);
     toast(state.favorites.includes(node.dataset.id) ? state.t.addFavorite : state.t.removeFavorite);
     render();
   });
-  delegate(app, 'click', '[data-action="open"]', (_e, node) => pushRecent(state.identity.username, node.dataset.id));
-  delegate(app, 'click', '[data-filter-category]', (_e, node) => {
-    const input = app.querySelector('#service-filter');
+  delegate(document, 'click', '[data-action="open"]', (_e, node) => pushRecent(state.identity.username, node.dataset.id));
+  delegate(document, 'click', '[data-filter-category]', (_e, node) => {
+    const input = document.querySelector('#service-filter');
     if (!input) return;
     input.value = node.dataset.filterCategory;
     input.dispatchEvent(new Event('input'));
@@ -135,35 +133,6 @@ function applyCatalog({ adminGroups, locales, hosts, services }) {
   render();
 }
 
-function shell() {
-  const t = state.t;
-  const nav = (items) =>
-    items
-      .map(
-        (item) =>
-          `<a class="nav-item" href="${item.hash}" data-nav="${item.name}"><span aria-hidden="true">${item.icon}</span><span>${esc(
-            t[item.key],
-          )}</span></a>`,
-      )
-      .join('');
-  const primary = NAV.filter((n) => !n.admin || state.isAdmin);
-  const initials = esc((state.identity.name || state.identity.username || 'U').charAt(0).toUpperCase());
-  return `
-    <header class="app__topbar">
-      <a class="app__brand" href="#/">VYRX<span>.</span></a>
-      <button class="app__search" type="button" data-action="palette" aria-haspopup="dialog">
-        <span aria-hidden="true">⌕</span><span>${esc(t.searchPlaceholder)}</span><span class="kbd" style="margin-left:auto">⌘K</span>
-      </button>
-      <div class="app__topbar-right">
-        <span class="avatar" role="img" aria-label="${esc(state.identity.name || state.identity.username)}">${initials}</span>
-      </div>
-    </header>
-    <aside class="app__sidebar">
-      <nav class="app__nav" aria-label="${esc(t.navOverview)}">${nav(primary)}</nav>
-    </aside>
-    <main class="app__main" id="main" tabindex="-1"></main>
-    <nav class="app__bottomnav" aria-label="${esc(t.navOverview)}">${nav(primary)}</nav>`;
-}
 
 let lastRoute = null;
 let landing = null;
@@ -171,7 +140,7 @@ let landingStatus = null;
 
 function render() {
   if (!state) return;
-  const main = app.querySelector('#main');
+  const main = document.querySelector('#main');
   if (!main) return;
   const route = parseHash();
   let html;
@@ -196,7 +165,7 @@ function render() {
   }
   const banner = state.offline ? `<div class="banner banner--warn" role="status">${esc(state.t.offline)}</div>` : '';
   main.innerHTML = banner + html;
-  for (const node of app.querySelectorAll('[data-nav]')) {
+  for (const node of document.querySelectorAll('[data-nav]')) {
     if (node.dataset.nav === active) node.setAttribute('aria-current', 'page');
     else node.removeAttribute('aria-current');
   }
@@ -213,22 +182,22 @@ function parseHash() {
 }
 
 function wireFilter() {
-  const input = app.querySelector('#service-filter');
+  const input = document.querySelector('#service-filter');
   if (!input) return;
   input.addEventListener('input', () => {
     const q = input.value.trim().toLowerCase();
     let shown = 0;
-    for (const tile of app.querySelectorAll('#services-body [data-tile]')) {
+    for (const tile of document.querySelectorAll('#services-body [data-tile]')) {
       const service = state.services.find((s) => s.id === tile.dataset.tile);
       const text = `${service?.name} ${localized(service?.description, state.locale)} ${service?.category}`.toLowerCase();
       const hit = !q || text.includes(q);
       tile.hidden = !hit;
       if (hit) shown += 1;
     }
-    for (const section of app.querySelectorAll('#services-body .section')) {
+    for (const section of document.querySelectorAll('#services-body .section')) {
       section.hidden = ![...section.querySelectorAll('[data-tile]')].some((t) => !t.hidden);
     }
-    app.querySelector('#services-empty').hidden = shown > 0;
+    document.querySelector('#services-empty').hidden = shown > 0;
   });
 }
 
@@ -317,9 +286,17 @@ function installPalette() {
   });
   palette.addEventListener('click', (e) => { if (e.target === palette) close(); });
 
-  delegate(app, 'click', '[data-action="palette"]', () => open());
+  delegate(document, 'click', '[data-action="palette"]', () => open());
   window.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); palette.hidden ? open() : close(); }
     else if (e.key === '/' && !/^(input|textarea)$/i.test(document.activeElement?.tagName) && palette.hidden) { e.preventDefault(); open(); }
   });
+}
+
+// The shell is rendered server-side and shipped in both states; signing in only reveals the parts that
+// belong to it, so there is no second markup for the signed-in case.
+function setAuthed(on) {
+  for (const node of document.querySelectorAll('[data-auth]')) {
+    node.hidden = (node.dataset.auth === 'in') !== on;
+  }
 }

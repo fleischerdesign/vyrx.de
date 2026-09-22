@@ -1,0 +1,105 @@
+---
+// The one shell. Landing and app are two states of it, not two designs: `data-auth` decides which
+// chrome is visible, and `#main` holds the landing for a visitor and the views for a signed-in person.
+import { useTranslations } from '../../i18n';
+
+interface Props {
+  locale: 'de' | 'en';
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+const home = locale === 'en' ? '/en/' : '/';
+const loginUrl = '/outpost.goauthentik.io/start?rd=/';
+
+const nav = [
+  { hash: '#/', key: 'navOverview', icon: '◉' },
+  { hash: '#/dienste', key: 'navServices', icon: '▤' },
+  { hash: '#/status', key: 'navStatus', icon: '◍' },
+  { hash: '#/konto', key: 'navAccount', icon: '⚙' },
+  { hash: '#/admin', key: 'navAdmin', icon: '⛨', admin: true },
+];
+const primary = nav.filter((item) => !item.admin);
+---
+
+<a class="skip-link" href="#main">{t.skipToContent}</a>
+
+<div class="drawer lg:drawer-open">
+  <input id="nav-drawer" type="checkbox" class="drawer-toggle" />
+  <div class="drawer-content flex min-h-screen flex-col">
+    <header class="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/85 backdrop-blur">
+      <div class="navbar-start">
+        <label for="nav-drawer" class="btn btn-square btn-ghost lg:hidden" aria-label="Navigation">☰</label>
+        <a href={home} class="btn btn-ghost px-2 text-lg font-extrabold tracking-[0.2em]">
+          VYRX<span class="text-primary">.</span>
+        </a>
+      </div>
+
+      <div class="navbar-center hidden md:flex" data-auth="in" hidden>
+        <button type="button" class="btn btn-ghost w-80 justify-start font-normal" data-action="palette">
+          <span aria-hidden="true">⌕</span><span>{t.searchPlaceholder}</span>
+          <kbd class="kbd kbd-sm ml-auto">⌘K</kbd>
+        </button>
+      </div>
+
+      <div class="navbar-end gap-2">
+        <div class="lang-switcher" data-auth="out">
+          <a href="/" class={`lang-btn${locale === 'de' ? ' active' : ''}`}>DE</a>
+          <a href="/en/" class={`lang-btn${locale === 'en' ? ' active' : ''}`}>EN</a>
+        </div>
+        <div class="mesh-badge" data-auth="out">
+          <span class="live-dot"></span><span id="mesh-status-text">MESH 10.10.100.0/24</span>
+        </div>
+        <a href={loginUrl} class="btn btn-sm btn-primary" data-auth="out">{t.workspaceLogin}</a>
+
+        <div class="dropdown dropdown-end" data-auth="in" hidden>
+          <div tabindex="0" role="button" class="btn btn-circle btn-ghost" aria-label={t.navAccount}>
+            <span class="avatar avatar-placeholder">
+              <span class="grid w-8 place-items-center rounded-full bg-primary text-primary-content" data-field="initial">U</span>
+            </span>
+          </div>
+          <ul tabindex="0" class="dropdown-content menu z-50 mt-2 w-52 rounded-box bg-base-100 p-2 shadow-xl">
+            <li class="menu-title"><span data-field="username"></span></li>
+            <li><a href="#/konto">{t.navAccount}</a></li>
+            <li><a href="/outpost.goauthentik.io/sign_out">{t.logout}</a></li>
+          </ul>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1" class="mx-auto w-full max-w-6xl flex-1 p-4 md:p-6">
+      <slot />
+    </main>
+
+    <nav class="dock dock-md border-t border-base-300 bg-base-100 md:hidden" aria-label={t.navOverview} data-auth="in" hidden>
+      {
+        primary.map((item) => (
+          <a href={item.hash} data-nav={item.name} class="dock-item">
+            <span aria-hidden="true">{item.icon}</span>
+            <span class="dock-label">{t[item.key]}</span>
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+
+  <div class="drawer-side z-40">
+    <label for="nav-drawer" class="drawer-overlay" aria-label="close"></label>
+    <aside class="min-h-full w-64 bg-base-200 p-2">
+      <p class="menu-title px-3 text-xs tracking-widest">VYRX</p>
+      <ul class="menu w-full" data-auth="in" hidden>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.hash} data-nav={item.name}>
+                <span aria-hidden="true">{item.icon}</span>{t[item.key]}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </aside>
+  </div>
+</div>
+
+<div class="toast toast-end z-50" id="toast-region"></div>

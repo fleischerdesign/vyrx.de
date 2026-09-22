@@ -5,3 +5,6 @@
 @plugin "daisyui" {
   themes: dark --default;
 }
+
+/* The shell ships both auth states; the attribute is the switch, and it must win over daisyUI display classes. */
+[hidden] { display: none !important; }

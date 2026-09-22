@@ -1,61 +1,22 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import AppShell from './shell/AppShell.astro';
 import { useTranslations } from '../i18n';
 import '../styles/app.css';
 
 const { locale } = Astro.props;
 const t = useTranslations(locale);
-
-// Every auth entry points at the same-origin outpost, never at auth.vyrx.de: forward-auth is decided by
-// the outpost cookie on *this* host. One constant, so nothing here drifts apart.
-const loginUrl = '/outpost.goauthentik.io/start?rd=/';
-const accountUrl = 'https://auth.vyrx.de/if/user/';
 ---
 
 <Layout locale={locale}>
-  <!-- Public landing. It stays exactly as it is for anonymous visitors; the app replaces it only once
-       /api/me confirms a session, so the first paint is never a spinner. -->
-  <div id="landing">
+  <AppShell locale={locale}>
     <div class="container">
-      <header>
-        <a href={locale === 'en' ? '/en/' : '/'} class="brand">
-          <div class="brand-logo">
-            <span>VYRX</span>
-            <span class="brand-dot"></span>
-          </div>
-        </a>
-
-        <div class="header-actions">
-          <div class="lang-switcher">
-            <a href="/" class={`lang-btn${locale === 'de' ? ' active' : ''}`}>DE</a>
-            <a href="/en/" class={`lang-btn${locale === 'en' ? ' active' : ''}`}>EN</a>
-          </div>
-
-          <div class="mesh-badge">
-            <span class="live-dot"></span>
-            <span id="mesh-status-text">MESH 10.10.100.0/24</span>
-          </div>
-
-          <a href={loginUrl} class="btn-login" id="login-action-btn">
-            <span>{t.workspaceLogin}</span>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-          </a>
-        </div>
-      </header>
-
-      <main class="hero">
-        <div class="hero-eyebrow">
-          <span>{t.eyebrow}</span>
-        </div>
-
+      <section class="hero">
+        <div class="hero-eyebrow"><span>{t.eyebrow}</span></div>
         <h1>{t.heroTitlePrefix}<br>{t.heroTitleSuffix}</h1>
-
-        <p class="hero-p">
-          {t.heroDescription}
-        </p>
-
+        <p class="hero-p">{t.heroDescription}</p>
         <div class="hero-actions">
-          <a href={loginUrl} class="btn-primary">
+          <a href="/outpost.goauthentik.io/start?rd=/" class="btn-primary">
             <span>{t.openWorkspace}</span>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
           </a>
@@ -64,25 +25,18 @@ const accountUrl = 'https://auth.vyrx.de/if/user/';
             <span>{t.authProtection}</span>
           </div>
         </div>
-      </main>
+      </section>
 
       <div class="section-header">
         <div>
-          <div class="section-title">
-            <span>{t.meshSectionTitle}</span>
-          </div>
+          <div class="section-title"><span>{t.meshSectionTitle}</span></div>
           <div class="section-desc">{t.meshSectionDesc}</div>
         </div>
       </div>
-
-      <!-- The fleet is derived from the topology and rendered from the same registry the app reads,
-           with the same card and the same live state. -->
       <div class="grid grid--hosts" id="hosts-grid"></div>
 
       <footer>
-        <div>
-          {t.footerPlatform}
-        </div>
+        <div>{t.footerPlatform}</div>
         <div class="footer-links">
           <a href="https://github.com/fleischerdesign/nixfiles" target="_blank" rel="noreferrer">{t.gitopsFlake}</a>
           <a href="/.well-known/security.txt">{t.securityPolicy}</a>
@@ -90,18 +44,14 @@ const accountUrl = 'https://auth.vyrx.de/if/user/';
         </div>
       </footer>
     </div>
-  </div>
-
-  <a class="skip-link" href="#main">{t.skipToContent}</a>
-  <div class="app" id="app" data-locale={locale}></div>
+  </AppShell>
 
   <script>
     import { boot } from '../lib/app.js';
     import de from '../i18n/de.json';
     import en from '../i18n/en.json';
 
-    const node = document.getElementById('app');
-    const locale = node?.dataset.locale === 'en' ? 'en' : 'de';
+    const locale = document.documentElement.lang === 'en' ? 'en' : 'de';
     boot({
       messages: locale === 'en' ? en : de,
       locale,
