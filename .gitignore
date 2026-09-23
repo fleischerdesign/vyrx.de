@@ -7,3 +7,6 @@ dist/
 .direnv/
 result
 result-*
+
+# Notizen des Agenten gehören nicht ins Anwendungs-Repository.
+memory/
