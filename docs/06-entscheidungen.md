@@ -103,6 +103,30 @@ Verwaltung ausblenden (dann findet sie der Betreiber nicht).
 *Konsequenzen:* Adressen bekommen eine zweite Ebene, und der Aktiv-Zustand des
 Elternteils muss berechnet werden. Siehe `03-ui-ux.md` §6.
 
+### E-0009 — Ein eigener Speicher: SQLite, und nur für vier Dinge
+*Kontext:* Das Portal liest heute alles (Contracts, Prometheus, Verzeichnis,
+Kopfzeilen) und besitzt keine Daten. Mit Favoriten (D3), Vorgängen (N1),
+Protokoll (O3) und Benachrichtigungen (E2) entsteht erstmals Zustand, den
+niemand sonst führt.
+*Entscheidung:* Es gibt genau **einen** portal-eigenen Speicher: eine
+SQLite-Datei mit vier Tabellen (`favorite`, `case`, `audit`, `subscription`) und
+einer Schemaversion. Alles andere bleibt gelesen.
+*Begründung:* Das Portal ist ein Prozess (Adapter standalone), damit entfällt
+der einzige echte Nachteil von SQLite — es skaliert nicht über Prozesse. Eine
+Datei braucht keinen Dienst, keine Netzabhängigkeit und keine eigene Anmeldung;
+die Sicherung ist eine Dateikopie und lässt sich über die bestehenden Verträge
+(`storage`, `backup`) deklarieren. `node:sqlite` ist in Node 24 eingebaut (auf
+dem Host geprüft, v24.20.0) — also keine neue Abhängigkeit.
+*Alternativen:* PostgreSQL (im Haus vorhanden, aber Netzabhängigkeit,
+Migrationen und ein zweiter Betrieb für vier kleine Tabellen); JSON-Dateien
+(billig, aber ohne Transaktionen und Abfragen); Zustand im Browser (geräteweise
+und damit im Widerspruch zur Entscheidung über Favoriten).
+*Konsequenzen:* Der Speicherort kommt aus der Umgebung wie die
+Kollektor-Adresse; nur der Portalprozess öffnet die Datei, der Browser nie;
+Migrationen laufen beim Start über die Schemaversion. **Grenze, ausdrücklich:**
+Bekommen Vorgänge Kommentare, Zuständige und Fälligkeiten, entsteht ein zweites
+Aufgabensystem — dann ist der Entwurf falsch, nicht die Tabelle.
+
 ## Entscheidungen zu den offenen Fragen (2026-09-23)
 
 Diese zehn Fragen waren als offen notiert und sind am 2026-09-23 entschieden.

@@ -119,9 +119,11 @@ Flotten-Rebuild.
 - **D2 Kürzel sichtbar machen** — `idee` · `S` · `Cmd/Ctrl+K` und die übrigen
   Tasten stehen in der Palette und auf einer Hilfezeile. AC: Jede Aktion der
   Palette ist ohne Maus erreichbar.
-- **D3 Favoriten auf dem Server** — `idee` · `M` · Favoriten und Zuletzt
-  gelten geräteübergreifend. AC: Ein Wechsel des Browsers verliert nichts;
-  `localStorage` bleibt als Zwischenspeicher, nicht als Wahrheit.
+- **D3 Favoriten auf dem Server** — `idee` · `M` · Favoriten gelten
+  geräteübergreifend; der Verlauf bleibt geräteweise (Entscheidung 3 in
+  `06-entscheidungen.md`). Speicher: E-0009. Ort: Portal. Personas: alle.
+  AC: Ein Wechsel des Browsers verliert keine Favoriten; der Verlauf geht mit
+  dem Gerät und ist löschbar.
 - **D4 Nutzerpräferenzen** — `idee` · `S` · Sprache, Theme, Dichte je Benutzer.
   AC: Die Präferenz überlebt Sitzung und Gerät.
 - **D5 Merkliste** — `idee` · `S` · Dienste für später markieren. AC: Sichtbar
@@ -286,8 +288,8 @@ Freigabe-Eingang aus der Ideensammlung (ein Weg, nicht zwei).
 
 - **N1 Vorgang mit Artefakt-Abschluss** — `idee` · `L` · Ein Vorgangstyp für
   alle Anliegen; erledigt heißt, ein Artefakt liegt vor (Commit, Contract,
-  Inventareintrag). Personas: alle. AC: Kein Vorgang lässt sich ohne benanntes
-  Artefakt schließen.
+  Inventareintrag). Speicher: E-0009. Personas: alle. AC: Kein Vorgang lässt
+  sich ohne benanntes Artefakt schließen.
 - **N2 Ein Eingang für alle Quellen** — `idee` · `M` · Bericht, Reconciler,
   Ablaufregister, Inventar und Medienwunsch landen in derselben Liste. Personas:
   Administrator. AC: Jeder Vorgang nennt seine Quelle, und keine Quelle hat
