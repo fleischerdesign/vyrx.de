@@ -103,51 +103,47 @@ Verwaltung ausblenden (dann findet sie der Betreiber nicht).
 *Konsequenzen:* Adressen bekommen eine zweite Ebene, und der Aktiv-Zustand des
 Elternteils muss berechnet werden. Siehe `03-ui-ux.md` §6.
 
-## Offen
+## Entscheidungen zu den offenen Fragen (2026-09-23)
 
-1. **Umfang der Wissensbasis.** Beginnt sie mit zehn Alltagsrezepten oder mit
-   der vollständigen Dienstübersicht? *Vorschlag:* zehn Rezepte, sonst wird die
-   Struktur vor dem Inhalt verhandelt.
-2. **Wiki-Technik.** Astro-Inhaltssammlungen im selben Bau (einfach, ein
-   Bauvorgang) gegen ein eigenes System mit Redaktionsoberfläche (mehr Aufwand,
-   für Nicht-Techniker bequemer). *Vorschlag:* zuerst ersteres, weil der
-   Inhalt im Pull-Request-Verfahren prüfbar bleibt.
-3. **Favoriten server- oder clientseitig.** Heute `localStorage`, also geräteweise.
-   *Vorschlag:* Favoriten serverseitig (D3), Zuletzt-Benutztes lokal — der
-   Unterschied in der Erwartung ist real und darf sichtbar sein.
-4. **Ankündigungen.** Eigene Datenquelle im Portal oder aus dem
-   Benachrichtigungssystem des Netzes? *Vorschlag:* zuerst Datei im Repository
-   (E1 klein halten), später ersetzen.
-5. **Reichweite der Aktionen.** Bleiben Aktionen Administratoren vorbehalten,
-   oder dürfen Nutzer eigene Warteschlangen steuern? *Vorschlag:* erst nur
-   Administratoren, eigenes Recht später aus dem Verzeichnis.
-6. **Versionierung der Endpunkte.** `/api/v1/…` einführen, solange es billig ist,
-   oder stabil halten ohne Nummer? *Vorschlag:* Nummer einführen, bevor der
-   erste Automat angebunden ist (P5).
-7. **Sprache der Oberfläche.** Deutsch als Vorgabe präfixlos ist gesetzt;
-   bleibt Englisch unter `/en/` ein vollwertiger Zweig oder ein Nebenweg?
-   *Vorschlag:* vollwertig, geprüft per Paritätstest (H1).
-8. **Wo wird die Sprachvollständigkeit geprüft?** Heute erzwingt der Contract
-   Prosa in jeder Portal-Sprache (`contracts/endpoints/default.nix`), also zur
-   Auswertungszeit vor dem Ausrollen. Nach der Schichtung aus
-   `04-integrationen.md` §11 gehört die Prosa in die Darstellungsschicht, und
-   die Prüfung zöge in den Bau dieses Repositories. *Vorschlag:* Prosa und
-   Prüfung ziehen mit — eine Textänderung darf kein Flotten-Rebuild sein. Die
-   weichere Garantie („bricht beim Bauen“ statt „bricht vor dem Ausrollen“)
-   wird dafür bewusst in Kauf genommen.
+Diese zehn Fragen waren als offen notiert und sind am 2026-09-23 entschieden.
+Sie bleiben überprüfbar: Wer eine davon ablösen will, begründet es gegen den
+Eintrag, und der alte Eintrag bleibt mit Verweis stehen.
 
-9. **Ist der öffentliche Teil der Wissensbasis ohne Anmeldung erreichbar?**
-   Sie ist der einzige Eintrag, der nicht-technische Nutzer ins Portal holt;
-   hinter der Anmeldung wirkt sie auf genau diese Zielgruppe abschreckend.
-   *Vorschlag:* Ja — Artikel mit Sichtbarkeit `public` sind ohne Anmeldung
-   lesbar und aus dem Zustand `data-auth="out"` verlinkt; alles Interne bleibt
-   hinter der Anmeldung.
-
-10. **Wo lebt der eine Satz Zweck je Dienst?** („Filme und Serien im Haus“.) Im
-   Contract wäre er eine Tatsache, die auch Alarmierung, Statusseiten und
-   Übersichten lesen können — Preis: ein Satz Prosa bleibt in Nix und wird dort
-   gepflegt. Im Portal (Darstellung) bliebe Nix frei von Prosa, aber die
-   Alarmierung erführe nie, was der Dienst ist. *Vorschlag:* ein Satz Zweck in
-   den Contract, die Anleitung nie — ein Satz ist eine Aussage über den Dienst,
-   eine Anleitung eine über den Menschen davor.
-
+1. **Umfang der Wissensbasis** — *Entschieden:* zehn Alltagsrezepte zuerst, die
+   Struktur folgt dem Inhalt. *Begründung:* eine Struktur vor dem Inhalt wäre
+   Verhandlung über Kategorien statt über Nutzen.
+2. **Wiki-Technik** — *Entschieden:* Inhaltssammlung im selben Bau, Inhalte im
+   Pull-Request-Verfahren. *Begründung:* ein Bauvorgang, eine Prüfung, ein
+   Freigabeweg; ein eigenes Redaktionssystem wäre eine zweite Anwendung mit
+   eigener Anmeldung — und ohne Prüfung.
+3. **Favoriten** — *Entschieden:* Favoriten serverseitig, Verlauf lokal.
+   *Begründung:* Favoriten sind eine Erwartung an das Konto
+   (geräteübergreifend), Verlauf eine an das Gerät; der Unterschied ist real
+   und darf sichtbar sein.
+4. **Ankündigungen** — *Entschieden:* zuerst eine Datei im Repository, später
+   ersetzbar. *Begründung:* die kleinste Sache, die wirkt; ersetzt wird, wenn
+   es weh tut, nicht vorher.
+5. **Reichweite der Aktionen** — *Entschieden:* zuerst nur Administratoren, ein
+   eigenes Recht später aus dem Verzeichnis. *Begründung:* ein Recht ohne
+   Gruppe ist keine Berechtigung — erst die Gruppe, dann die Aktion.
+6. **Versionierung der Endpunkte** — *Entschieden:* `/api/v1/…` jetzt
+   einführen. *Begründung:* solange kein Automat angebunden ist, kostet es
+   nichts; danach kostet es einen Bruch.
+7. **Sprache der Oberfläche** — *Entschieden:* Englisch ist ein vollwertiger
+   Zweig, erzwungen durch den Paritätstest (H1). *Begründung:* ein Zweig, den
+   niemand prüft, ist eine Behauptung.
+8. **Ort der Sprachprüfung** — *Entschieden:* die Prüfung zieht mit der Prosa in
+   den Bau dieses Repositories (`04-integrationen.md` §11, I-2). *Begründung:*
+   eine Textänderung darf kein Flotten-Rebuild sein; der Preis (Bruch beim
+   Bauen statt vor dem Ausrollen) ist benannt.
+9. **Öffentliche Wissensbasis** — *Entschieden:* Artikel mit Sichtbarkeit
+   `public` sind ohne Anmeldung lesbar und werden aus dem Zustand
+   `data-auth="out"` verlinkt; alles Interne bleibt hinter der Anmeldung.
+   *Begründung:* die Wissensbasis ist der einzige Einstieg für nicht-technische
+   Nutzer; hinter der Anmeldung wirkt sie auf genau diese Zielgruppe
+   abschreckend.
+10. **Satz Zweck je Dienst** — *Entschieden:* der eine Satz Zweck gehört in den
+   Contract, die Anleitung ins Portal. *Begründung:* ein Satz ist eine Aussage
+   über den Dienst und für mehrere Leser nützlich (Alarmierung, Statusseiten,
+   Übersichten); eine Anleitung ist eine Aussage über den Menschen davor und
+   gehört der Darstellung.
