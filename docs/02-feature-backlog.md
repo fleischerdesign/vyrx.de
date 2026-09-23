@@ -17,6 +17,11 @@ ohnehin stattfindet:
 - **Ferne (Portal oder Telefon)** — R3 Rollback, C1 Statushistorie: das Portal
   ist der Ort, an dem man ist, wenn man nicht dort ist, wo man sonst ist
 
+**Triage.** Der erste Arbeitsblock ist entschieden und trägt den Status
+`geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
+Griffe G1, G2, G6 und G7. Alles andere bleibt `idee` und ist damit ausdrücklich
+nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
+
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
 zu einem Hub machen. C bis H sind der Rest, nach Nutzen sortiert.
 
@@ -151,9 +156,9 @@ Flotten-Rebuild.
 
 ## G. Plattform
 
-- **G1 Installierbar (PWA)** — `idee` · `M` · Manifest, Symbole, Startbild.
+- **G1 Installierbar (PWA)** — `geplant` · `M` · Manifest, Symbole, Startbild.
   AC: Kein Symbol fehlt, der Start vom Startbildschirm führt in die Anmeldung.
-- **G2 Hell und dunkel** — `idee` · `S` · Systemvorgabe plus Wahl. AC: Die Wahl
+- **G2 Hell und dunkel** — `geplant` · `S` · Systemvorgabe plus Wahl. AC: Die Wahl
   gewinnt gegen die Systemvorgabe und flackert beim Laden nicht.
 - **G3 Ansichten ohne JavaScript** — `idee` · `L` · Die Ansichten serverseitig
   ausliefern, der Client übernimmt danach. AC: `#/dienste` zeigt mit
@@ -163,10 +168,10 @@ Flotten-Rebuild.
   die Produktionsadresse zeigt alle Header, und die CSP erlaubt nichts Fremdes.
 - **G5 Schriften selbst hosten** — `idee` · `S` · Steht im Code bereits als Plan.
   AC: Keine Anfrage an fremde Herkunft beim Laden einer Seite.
-- **G6 Polling mit Bedacht** — `idee` · `S` · Nur bei sichtbarem Tab abfragen,
+- **G6 Polling mit Bedacht** — `geplant` · `S` · Nur bei sichtbarem Tab abfragen,
   längeres Intervall im Hintergrund. AC: Ein versteckter Tab erzeugt keine
   Anfragen.
-- **G7 Barrierefreiheit** — `idee` · `M` · `aria-live` für Zustandswechsel,
+- **G7 Barrierefreiheit** — `geplant` · `M` · `aria-live` für Zustandswechsel,
   Fokusfalle in der Palette, `prefers-reduced-motion`. AC: Ein Prüflauf mit
   Tastatur und Screenreader kommt durch alle Ansichten.
 - **G8 Fehler sichtbar machen** — `idee` · `S` · Fehler beim Laden nennen Grund
@@ -175,7 +180,7 @@ Flotten-Rebuild.
 
 ## H. Qualitätssicherung und Dokumentation
 
-- **H1 Übersetzungsparität als Prüfung** — `idee` · `S` · Test über die
+- **H1 Übersetzungsparität als Prüfung** — `geplant` · `S` · Test über die
   Schlüsselmengen beider Dateien. AC: Eine fehlende Übersetzung bricht den Bau.
 - **H2 Vertragstests der Endpunkte** — `idee` · `M` · `me`, `status`, `hosts`
   und der JSON-404 werden gegen feste Beispiele geprüft. AC: Die Katalogform
@@ -390,23 +395,74 @@ die ungeprüfte Oberfläche in einer Arbeit. Block A und G3 bauen darauf auf und
 würden sonst zweimal gebaut werden. Entscheidungen: `06-entscheidungen.md`
 E-0006 bis E-0008; Navigation: `03-ui-ux.md` §6.
 
-- **S1 Echte Pfade statt Raute** — `idee` · `M` · Ansichten werden Seiten unter
+- **S1 Echte Pfade statt Raute** — `geplant` · `M` · Ansichten werden Seiten unter
   `src/pages/` mit englischen Pfaden in beiden Sprachen. Ort: Portal. Personas:
   alle. AC: Jede Ansicht hat eine eigene Adresse, ein eigenes 404-Verhalten und
   Metadaten; kein Verweis im Projekt enthält noch eine Raute.
-- **S2 Hülle als Layout** — `idee` · `M` · Zeichnung, Hafen, Palette und
+- **S2 Hülle als Layout** — `geplant` · `M` · Zeichnung, Hafen, Palette und
   Sprachumschalter werden ein Layout, die Ansichten sind Seiten darin. Ort:
   Portal. Personas: alle. AC: Kein Ansichtsmodul enthält Hüllenelemente.
-- **S3 Inseln statt `innerHTML`** — `idee` · `M` · Nur das Lebendige lädt im
+- **S3 Inseln statt `innerHTML`** — `geplant` · `M` · Nur das Lebendige lädt im
   Browser (Status, Palette, Aktionen), alles andere kommt als HTML. Ort: Portal.
   Personas: alle. AC: Ohne JavaScript zeigen alle Ansichten Inhalt statt einer
   leeren Fläche (erfüllt G3).
-- **S4 Ansichten typgeprüft** — `idee` · `S` · Ansichtsmodule nach TypeScript
+- **S4 Ansichten typgeprüft** — `geplant` · `S` · Ansichtsmodule nach TypeScript
   mit Prüfung; heute sieht der Prüflauf rund 27 KB Oberflächenlogik nicht
   (`src/lib/*.js` ohne `checkJs`). Ort: Prüflauf. Personas: Technisch.
   AC: Ein Typfehler in einer Ansicht lässt `astro check` fehlschlagen.
-- **S5 Dienstseiten statt Detailansicht** — `idee` · `M` · Je Dienst eine
+- **S5 Dienstseiten statt Detailansicht** — `geplant` · `M` · Je Dienst eine
   vorgerenderte Seite (`/services/<id>`) mittels `getStaticPaths`. Ort: Portal.
   Personas: Technisch, Automat. AC: Die Seite existiert als Datei und ist ohne
   JavaScript lesbar und verlinkbar.
+
+## T. Netzblick (Betrieb)
+
+Belegt am 2026-09-23 gegen `fleischerdesign/nixfiles`: **Kea** deklariert kein
+`monitoring` (kein Scrape), **Knot** setzt `monitoring.http.enable = false`,
+**WireGuard** und **nftables** haben keinen Zählerabgriff. **CrowdSec**
+deklariert `scrape.enable = true` (Port 6060) — das fließt bereits. Die Lücke
+ist also die Sammelstrecke, nicht die Oberfläche.
+
+Zwei Regeln für den ganzen Block: es entsteht **keine zweite Sammelstrecke**
+(Kennzahlen über Prometheus wie der Dienststatus, Ausdrücke serverseitig), und
+**Grafana bleibt für Kurven** — das Portal beantwortet Fragen.
+
+- **T1 Adressen und Geräte** — `idee` · `M` · Wer hat welche Adresse, in welcher
+  Zone, seit wann, mit welchem Namen; neue und namenlose Geräte. Quelle:
+  Kea-Steuerschnittstelle (Zustandsliste) plus Inventar. Ort: Portal. Personas:
+  Administrator. AC: Jede Zeile nennt Lease, Zone und Alter; ein Gerät ohne
+  Namen ist sichtbar, nie unsichtbar.
+- **T2 Namen und Anfragen** — `idee` · `M` · Was wird aufgelöst, was scheitert,
+  welche Ebene, welche Blockliste greift. Quelle: Knot-Statistikmodul. Ort:
+  Portal. Personas: Administrator. AC: Die Ansicht nennt die Quelle ihrer Zahlen
+  und bleibt ohne Datenquelle ehrlich leer statt null.
+- **T3 Mesh** — `idee` · `S` · Welcher Peer ist wach, wann zuletzt gesehen,
+  welche Menge. Quelle: WireGuard-Zähler über einen kleinen Sammler. Ort:
+  Portal. Personas: Administrator. AC: Ein toter Peer ist ohne Aufklappen
+  erkennbar.
+- **T4 Regeln und Abweisungen** — `idee` · `M` · Welche Regel greift, was wird
+  abgewiesen. Quelle: nftables-Zähler über einen kleinen Sammler. Ort: Portal.
+  Personas: Administrator. AC: Zähler sind je Regel benannt, nicht aggregiert.
+- **T5 Anmeldungen und Sperren** — `idee` · `S` · Fehlgeschlagene Anmeldungen,
+  aktive Sitzungen, Sperren mit Ablauf. Quelle: Authentik und CrowdSec (letztere
+  liefert bereits Kennzahlen). Ort: Portal. Personas: Administrator. AC: Eine
+  Sperre nennt Grund, Zeitpunkt und Ablauf.
+
+## Verworfen (mit Begründung)
+
+Diese Einträge bleiben stehen, damit sie nicht in drei Monaten neu vorgeschlagen
+werden. Wer sie wieder aufnehmen will, widerlegt zuerst die Begründung.
+
+- **V1 Startseite „Was willst du tun?“** — `verworfen` (2026-09-23). Ein zweiter
+  Einstieg neben dem Katalog zahlt sich nur aus, solange die Kacheln
+  nichtssagend sind. Mit den Integrationen (Block B) ist die Kachel die Einheit;
+  ein zweiter Einstieg wäre eine Station zu viel. *Was bleibt:* ein
+  Klartext-Untertitel je Kachel und die Reihenfolge nach Nutzung.
+- **V2 Eingriffe aus dem Portal (sperren, entfernen, freigeben)** — `verworfen`
+  (2026-09-23). Ein Portal, das Dauerzustand ändert, erzeugt eine zweite
+  Wahrheit neben der Konfiguration und macht die Konsistenzprüfung wertlos; für
+  „sofort“ bräuchte es befristete Aktionen mit eigenem Rechte- und
+  Protokollapparat — teurer als Wiki und Integrationen zusammen. *Was bleibt:*
+  Notfallwege, die Zustand statt Deklaration ändern (R3 Rollback), und das
+  Register für Fernhilfe (R8).
 
