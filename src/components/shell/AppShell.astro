@@ -10,6 +10,7 @@ import { useTranslations } from '../../i18n';
 import type { Locale } from '../../i18n';
 import { NAV, PRIMARY_NAV } from '../../lib/nav.ts';
 import { icon } from '../../lib/icons.ts';
+import { geometryOf } from '../../lib/brand.ts';
 import { LOCALES, loginPathFor, pathFor } from '../../lib/routes.ts';
 import type { Route } from '../../lib/routes.ts';
 
@@ -30,6 +31,16 @@ const home = pathFor(locale, 'overview');
 // One address per language, the same view in each - and a service page carries its own name, because now
 // it has one. Switching the language is not going home, and it is not losing the service either.
 const addressIn = (target: Locale) => pathFor(target, id ? 'detail' : route ?? 'overview', id ?? undefined);
+
+// The mark, from the brand's own artwork: the same file the symbols are built from, sized here and coloured
+// by the theme. The letters used to be typed - "VYRX" in the nearest bold system font - which is why the
+// header did not show the brand. The dot after it is gone too: it was the shell's flourish, not the drawing.
+const wordmark = geometryOf(
+  (import.meta.glob('../../brand/wordmark.svg', { query: '?raw', import: 'default', eager: true }) as Record<
+    string,
+    string
+  >)['../../brand/wordmark.svg'] ?? '',
+);
 ---
 
 <a class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-content" href="#main">{t.skipToContent}</a>
@@ -40,8 +51,16 @@ const addressIn = (target: Locale) => pathFor(target, id ? 'detail' : route ?? '
     <header class="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/85 backdrop-blur">
       <div class="navbar-start">
         <label for="nav-drawer" class="btn btn-square btn-ghost hidden md:inline-flex lg:hidden" aria-label={t.navOverview} data-auth="in" hidden><Fragment set:html={icon('menu')} /></label>
-        <a href={home} class="btn btn-ghost px-2 text-lg font-extrabold tracking-[0.2em]">
-          VYRX<span class="text-primary">.</span>
+        <a href={home} class="btn btn-ghost px-2" aria-label="VYRX">
+          <svg
+            class="h-5 w-auto"
+            viewBox={wordmark.viewBox}
+            fill="currentColor"
+            role="img"
+            aria-label="VYRX"
+          >
+            <Fragment set:html={wordmark.body} />
+          </svg>
         </a>
       </div>
 
