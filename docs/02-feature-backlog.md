@@ -21,8 +21,7 @@ ohnehin stattfindet:
 `geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
 Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2, S3, S4, S5, G2 und G3 inzwischen
 `umgesetzt` (Belege bei den Einträgen; E-0010 bis E-0014) — vom S-Block und den
-kleinen Griffen fehlen nur noch G1 (wartet auf die Zeichen) und G6/G7, deren
-Akzeptanz der Code bereits erfüllt. Alles andere bleibt `idee` und ist damit ausdrücklich
+kleinen Griffen fehlt nur noch **G1**, und das wartet auf die Zeichen. Alles andere bleibt `idee` und ist damit ausdrücklich
 nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
@@ -186,12 +185,25 @@ Flotten-Rebuild.
   die Produktionsadresse zeigt alle Header, und die CSP erlaubt nichts Fremdes.
 - **G5 Schriften selbst hosten** — `idee` · `S` · Steht im Code bereits als Plan.
   AC: Keine Anfrage an fremde Herkunft beim Laden einer Seite.
-- **G6 Polling mit Bedacht** — `geplant` · `S` · Nur bei sichtbarem Tab abfragen,
+- **G6 Polling mit Bedacht** — `umgesetzt` · `S` · Nur bei sichtbarem Tab abfragen,
   längeres Intervall im Hintergrund. AC: Ein versteckter Tab erzeugt keine
   Anfragen.
-- **G7 Barrierefreiheit** — `geplant` · `M` · `aria-live` für Zustandswechsel,
+  *Beleg:* `tick()` steigt bei `document.visibilityState !== 'visible'` sofort aus
+  (`app.ts`, eingebaut mit `504f254`), und die Kontoseite fragt gar nicht erst:
+  nur Seiten mit lebendigen Zahlen starten den Takt.
+- **G7 Barrierefreiheit** — `umgesetzt` · `M` · `aria-live` für Zustandswechsel,
   Fokusfalle in der Palette, `prefers-reduced-motion`. AC: Ein Prüflauf mit
   Tastatur und Screenreader kommt durch alle Ansichten.
+  *Beleg:* Zustandswechsel werden angesagt (`#live-region`, belegt im Browser mit
+  erzwungenem Ausfall: „Jellyfin ist nicht mehr erreichbar.“); die Palette ist ein
+  natives `<dialog>` und fängt den Fokus selbst; `prefers-reduced-motion` schaltet
+  Skeletons und Spinner ab; die drei Zustandsfarben sind geprüft (`npm run
+  verify`, Teil des Baus: `light` 5,3–6,1:1, `dark` 4,9–8,5:1 gegen die Fläche,
+  vorher 1,26–2,87:1); ein Fokusverlust beim Favorisieren ist behoben, und die
+  Steuerung der Darstellung erscheint nur, wo Skripte laufen.
+  *Grenze, ausdrücklich:* Der im Kriterium genannte Durchgang mit Tastatur und
+  Screenreader ist ein menschlicher; belegt sind hier die Bausteine, nicht der
+  Durchgang.
 - **G8 Fehler sichtbar machen** — `idee` · `S` · Fehler beim Laden nennen Grund
   und Erholungsschritt, nicht nur „Fehler“. AC: Kollektor aus — die Oberfläche
   sagt es und bietet erneut versuchen an.
