@@ -1,0 +1,55 @@
+---
+// The landing: what a visitor sees before signing in, and the same page a signed-in reader gets replaced
+// at (the shell reveals its own chrome, the client fills the slot with the views).
+//
+// It is content, not chrome: hero, fleet and footer belong to the start page, which is why they live here
+// and not in the shell. Both languages render this component - there is one landing, not one per language.
+import { useTranslations } from '../../i18n';
+import type { Locale } from '../../i18n';
+import { icon } from '../../lib/icons.ts';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+const loginUrl = '/outpost.goauthentik.io/start?rd=/';
+---
+
+<section class="hero rounded-box border border-base-300 bg-base-200 py-14">
+  <div class="hero-content text-center">
+    <div class="max-w-2xl">
+      <span class="badge badge-ghost mb-4">{t.eyebrow}</span>
+      <h1 class="text-4xl font-bold sm:text-5xl">
+        {t.heroTitlePrefix}<br /><span class="text-primary">{t.heroTitleSuffix}</span>
+      </h1>
+      <p class="py-6 opacity-70">{t.heroDescription}</p>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <a href={loginUrl} class="btn btn-primary">
+          {t.openWorkspace}
+          <Fragment set:html={icon('arrow-right', { size: 'size-4' })} />
+        </a>
+        <span class="badge badge-outline badge-lg gap-2">
+          <Fragment set:html={icon('lock', { size: 'size-4' })} />
+          {t.authProtection}
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="mt-10 mb-3 flex flex-wrap items-baseline gap-3">
+  <h2 class="text-lg font-semibold">{t.meshSectionTitle}</h2>
+  <span class="text-sm opacity-50">{t.meshSectionDesc}</span>
+</div>
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="hosts-grid"></div>
+
+<footer class="footer footer-horizontal mt-12 border-t border-base-300 pt-6 text-sm">
+  <aside><p class="opacity-60">{t.footerPlatform}</p></aside>
+  <nav>
+    <a class="link link-hover" href="https://github.com/fleischerdesign/nixfiles" target="_blank" rel="noreferrer">{t.gitopsFlake}</a>
+    <a class="link link-hover" href="/.well-known/security.txt">{t.securityPolicy}</a>
+    <a class="link link-hover" href="https://auth.vyrx.de">{t.ssoPortal}</a>
+  </nav>
+</footer>

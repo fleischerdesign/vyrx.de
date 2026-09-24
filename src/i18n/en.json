@@ -82,5 +82,8 @@
   "addrWan": "WAN",
   "addrMesh": "Mesh",
   "dhcp": "DHCP",
-  "allCategories": "All"
+  "allCategories": "All",
+  "signedOutTitle": "Not signed in",
+  "signedOutHint": "This view shows what belongs to your account. Sign in and it appears here.",
+  "noscriptHint": "This view is built in the browser and needs JavaScript. Without scripts only the start page is readable - until the views arrive from the server (G3)."
 }

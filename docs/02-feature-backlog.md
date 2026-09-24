@@ -19,8 +19,8 @@ ohnehin stattfindet:
 
 **Triage.** Der erste Arbeitsblock ist entschieden und trägt den Status
 `geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
-Griffe G1, G2, G6 und G7. Davon sind H1 und S4 inzwischen `umgesetzt` (E-0010;
-`contract.ts`). Alles andere bleibt `idee` und ist damit ausdrücklich
+Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2 und S4 inzwischen `umgesetzt`
+(E-0010, E-0011; `src/lib/contract.ts`). Alles andere bleibt `idee` und ist damit ausdrücklich
 nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
@@ -164,7 +164,7 @@ Flotten-Rebuild.
 - **G2 Hell und dunkel** — `geplant` · `S` · Systemvorgabe plus Wahl. AC: Die Wahl
   gewinnt gegen die Systemvorgabe und flackert beim Laden nicht.
 - **G3 Ansichten ohne JavaScript** — `idee` · `L` · Die Ansichten serverseitig
-  ausliefern, der Client übernimmt danach. AC: `#/dienste` zeigt mit
+  ausliefern, der Client übernimmt danach. AC: `/services/` zeigt mit
   abgeschaltetem JavaScript Inhalt statt einer leeren Fläche.
 - **G4 Sicherheits-Header nachweisen** — `idee` · `S` · CSP, `Referrer-Policy`,
   `Permissions-Policy`, `X-Content-Type-Options`, HSTS. AC: Ein Prüflauf gegen
@@ -402,13 +402,23 @@ die ungeprüfte Oberfläche in einer Arbeit. Block A und G3 bauen darauf auf und
 würden sonst zweimal gebaut werden. Entscheidungen: `06-entscheidungen.md`
 E-0006 bis E-0008; Navigation: `03-ui-ux.md` §6.
 
-- **S1 Echte Pfade statt Raute** — `geplant` · `M` · Ansichten werden Seiten unter
+- **S1 Echte Pfade statt Raute** — `umgesetzt` · `M` · Ansichten werden Seiten unter
   `src/pages/` mit englischen Pfaden in beiden Sprachen. Ort: Portal. Personas:
   alle. AC: Jede Ansicht hat eine eigene Adresse, ein eigenes 404-Verhalten und
   Metadaten; kein Verweis im Projekt enthält noch eine Raute.
-- **S2 Hülle als Layout** — `geplant` · `M` · Zeichnung, Hafen, Palette und
+  *Beleg:* `src/lib/routes.ts` ist die eine Quelle der Adressen; `/services/`,
+  `/status/`, `/account/`, `/admin/` und die englischen Zwillinge liegen als
+  Dateien im Bau, jede mit eigenem Titel, eigener Beschreibung, `canonical` und
+  `hreflang` (de, en, x-default); die 404-Seiten tragen `noindex` und keinen
+  `canonical`. Raute nur noch dort, wo sie hingehört: die Sprungmarke `#main`
+  und die Symbolverweise `#i-*` des Sprites.
+- **S2 Hülle als Layout** — `umgesetzt` · `M` · Zeichnung, Hafen, Palette und
   Sprachumschalter werden ein Layout, die Ansichten sind Seiten darin. Ort:
   Portal. Personas: alle. AC: Kein Ansichtsmodul enthält Hüllenelemente.
+  *Beleg:* `src/layouts/AppLayout.astro` setzt Dokument, Hülle und Startskript
+  zusammen; jede Seite darunter ist eine Zeile. Die Startseite füllt den Platz
+  mit `src/components/landing/Landing.astro` (Inhalt, nicht Hülle), jede
+  Ansichtsseite mit ihrem Ladezustand.
 - **S3 Inseln statt `innerHTML`** — `geplant` · `M` · Nur das Lebendige lädt im
   Browser (Status, Palette, Aktionen), alles andere kommt als HTML. Ort: Portal.
   Personas: alle. AC: Ohne JavaScript zeigen alle Ansichten Inhalt statt einer
@@ -424,6 +434,10 @@ E-0006 bis E-0008; Navigation: `03-ui-ux.md` §6.
   vorgerenderte Seite (`/services/<id>`) mittels `getStaticPaths`. Ort: Portal.
   Personas: Technisch, Automat. AC: Die Seite existiert als Datei und ist ohne
   JavaScript lesbar und verlinkbar.
+  *Vorbedingung:* Der Katalog muss ein **Bau-Eingang** werden — er entsteht heute
+  außerhalb dieses Repositories. Bis dahin hängt die Auswahl als Abfrage an der
+  Katalogseite (`/services/?service=<id>`, E-0012); die Adresse `/services/<id>/`
+  entsteht mit diesem Eintrag, und dann ändert sich eine Zeile in `routes.ts`.
 
 ## T. Netzblick (Betrieb)
 

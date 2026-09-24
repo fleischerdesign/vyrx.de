@@ -151,6 +151,51 @@ Ein späterer Wechsel des Läufers kostet die Testdateien, nicht die Absicht. Un
 eine Prüfung, die niemand anstößt, ist keine Prüfung — im Repository stößt sie
 `npm run check` an, im Änderungsvorschlag noch niemand (H3).
 
+### E-0011 — Adressen statt Router
+*Kontext:* Die Ansichten lagen hinter einer Raute (`#/dienste`), und ein eigener
+Router im Browser entschied, was zu sehen ist. Die Adresse war damit für niemand
+sonst lesbar: nicht für den Server, nicht für einen Verweis, nicht für ein
+Lesezeichen ohne Skripte. Vier Dateien nannten dieselbe Adresse — `nav.ts`,
+`app.ts`, `views.ts` und die Hülle.
+*Entscheidung:* Jede Ansicht ist eine Seite mit einer Adresse aus
+`src/lib/routes.ts`, und Navigation ist Navigation: ein Verweis, ein
+Seitenaufruf. Der Router im Browser entfällt; die Seite erklärt dem Startskript,
+welche Ansicht sie ist, und das Skript liest Sprache und Auswahl aus derselben
+Tabelle.
+*Begründung:* Ein Pfad ist ein Bezeichner (E-0006). Wer ihn in zwei Sprachen und
+mehreren Werkzeugen selbst zusammensetzt, pflegt eine Tatsache mehrfach — und
+eine Ansicht, die nur nach dem Skript existiert, ist der Zustand, den S3 und G3
+beenden sollen.
+*Alternativen:* Router behalten (billiger heute, aber G3 und A1 bleiben
+unerreichbar); die Raute durch Pfade ersetzen und weiter im Browser routen (dann
+sähe der Server die Seiten nie — genau der Zustand, den S1 beendet).
+*Konsequenzen:* Ein Seitenwechsel lädt die Seite neu. `aria-current`, Titel,
+Beschreibung, `canonical` und `hreflang` entstehen serverseitig aus der Tabelle.
+Der Sprachumschalter führt auf dieselbe Ansicht statt auf die Startseite. Der
+Bau erzeugt Verzeichnisadressen, deshalb schreiben die Adressen den
+abschließenden Schrägstrich mit.
+
+### E-0012 — Die Auswahl eines Dienstes bleibt eine Abfrage, bis S5 die Datei baut
+*Kontext:* `03-ui-ux.md` §6.3 nennt `/services/<id>` als Adresse je Dienst. Eine
+dynamische Route erzeugt in Astro Dateien zur Bauzeit, und dafür braucht der Bau
+den Katalog — der entsteht heute außerhalb dieses Repositories. Die Alternative
+wäre, die Detailseite serverseitig zu rendern; damit hinge eine Ansicht am
+laufenden Prozess und die Zusage aus `01-ist-analyse.md` §1 fiele („die Seiten
+bleiben abrufbar, auch wenn der Node-Prozess steht“).
+*Entscheidung:* Vorläufig hängt die Auswahl als Abfrage an der Katalogseite
+(`/services/?service=<id>`) — eine echte, teilbare Adresse ohne Raute.
+`canonical` bleibt die Katalogseite, damit 21 Dienste nicht 21 kanonische
+Adressen werden. S5 löst sie durch die Datei `/services/<id>/` ab.
+*Begründung:* Kein neuer Auslieferungsweg, kein Bau-Eingang, den es noch nicht
+gibt — und die Ansicht, die die Kachel nicht zeigt (Zielgruppe, Sichtbarkeit),
+bleibt erreichbar.
+*Alternativen:* Die Detailansicht bis S5 entfernen (verliert einen Zustand, den
+die Oberfläche schon hat); `/services/<id>` serverseitig rendern (ein zweiter
+Auslieferungsweg für eine Seite, gegen die Zusage oben).
+*Konsequenzen:* Die Abfrage kennt nur der Browser, die vorgerenderte Datei nicht —
+deshalb trägt der Sprachumschalter sie clientseitig mit. Verweise auf die
+Adresse gibt es nur in `routes.ts`, also ist der Wechsel mit S5 eine Zeile.
+
 ## Entscheidungen zu den offenen Fragen (2026-09-23)
 
 Diese zehn Fragen waren als offen notiert und sind am 2026-09-23 entschieden.

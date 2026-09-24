@@ -1,23 +1,30 @@
 ---
-// The one shell. Landing and app are two states of it, not two designs: `data-auth` decides which
-// chrome is visible, and `#main` holds the landing for a visitor and the views for a signed-in person.
+// The one shell. Landing and app are two states of it, not two designs: `data-auth` decides which chrome
+// is visible, and the slot holds the landing for a visitor and the views for a signed-in person.
+//
+// Every address in here comes from the route table, and every entry that is the page's own carries
+// `aria-current` from the server - a client that has not run yet cannot be the only thing that knows where
+// the reader is. The language switch points at the *same view* in the other language, so switching a
+// language is not going home; a selected service is carried into that address by the client, because a
+// prerendered file cannot know the query it was opened with.
 import { useTranslations } from '../../i18n';
+import type { Locale } from '../../i18n';
 import { NAV, PRIMARY_NAV } from '../../lib/nav.ts';
 import { icon } from '../../lib/icons.ts';
+import { LOCALES, pathFor } from '../../lib/routes.ts';
+import type { Route } from '../../lib/routes.ts';
 
 interface Props {
-  locale: 'de' | 'en';
+  locale: Locale;
+  /** The view this page is. Absent on a miss, which is why nothing is marked as current there. */
+  route?: Route['name'];
 }
 
-const { locale } = Astro.props;
+const { locale, route } = Astro.props;
 const t = useTranslations(locale);
-const home = locale === 'en' ? '/en/' : '/';
 const loginUrl = '/outpost.goauthentik.io/start?rd=/';
 
-// Declared once in `lib/nav.ts`: this table also existed in `app.ts`, with the same entries, order and
-// glyphs kept in step by hand.
-const nav = NAV;
-const primary = PRIMARY_NAV;
+const home = pathFor(locale, 'overview');
 ---
 
 <a class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-content" href="#main">{t.skipToContent}</a>
@@ -27,7 +34,7 @@ const primary = PRIMARY_NAV;
   <div class="drawer-content flex min-h-screen flex-col">
     <header class="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/85 backdrop-blur">
       <div class="navbar-start">
-        <label for="nav-drawer" class="btn btn-square btn-ghost hidden md:inline-flex lg:hidden" aria-label="Navigation" data-auth="in" hidden><Fragment set:html={icon('menu')} /></label>
+        <label for="nav-drawer" class="btn btn-square btn-ghost hidden md:inline-flex lg:hidden" aria-label={t.navOverview} data-auth="in" hidden><Fragment set:html={icon('menu')} /></label>
         <a href={home} class="btn btn-ghost px-2 text-lg font-extrabold tracking-[0.2em]">
           VYRX<span class="text-primary">.</span>
         </a>
@@ -36,14 +43,24 @@ const primary = PRIMARY_NAV;
       <div class="navbar-center hidden md:flex" data-auth="in" hidden>
         <button type="button" class="btn btn-ghost w-80 justify-start font-normal" data-action="palette">
           <Fragment set:html={icon('search')} /><span>{t.searchPlaceholder}</span>
-          <kbd class="kbd kbd-sm ml-auto">⌘K</kbd>
+          <kbd class="kbd kbd-sm ml-auto" aria-hidden="true">⌘K</kbd>
         </button>
       </div>
 
       <div class="navbar-end gap-2">
         <div class="join" data-auth="out">
-          <a href="/" class={`btn btn-sm join-item${locale === 'de' ? ' btn-active' : ''}`}>DE</a>
-          <a href="/en/" class={`btn btn-sm join-item${locale === 'en' ? ' btn-active' : ''}`}>EN</a>
+          {
+            LOCALES.map((target) => (
+              <a
+                href={pathFor(target, route ?? 'overview')}
+                hreflang={target}
+                data-locale-switch={target}
+                class={`btn btn-sm join-item${target === locale ? ' btn-active' : ''}`}
+                aria-current={target === locale ? 'true' : undefined}
+                >{target.toUpperCase()}</a
+              >
+            ))
+          }
         </div>
         <a href={loginUrl} class="btn btn-sm btn-primary" data-auth="out">{t.workspaceLogin}</a>
 
@@ -55,7 +72,7 @@ const primary = PRIMARY_NAV;
           </div>
           <ul tabindex="0" class="dropdown-content menu z-50 mt-2 w-52 rounded-box bg-base-100 p-2 shadow-xl">
             <li class="menu-title"><span data-field="username"></span></li>
-            <li><a href="#/konto">{t.navAccount}</a></li>
+            <li><a href={pathFor(locale, 'account')}>{t.navAccount}</a></li>
             <li><a href="/outpost.goauthentik.io/sign_out">{t.logout}</a></li>
           </ul>
         </div>
@@ -68,8 +85,8 @@ const primary = PRIMARY_NAV;
 
     <nav class="dock dock-md border-t border-base-300 bg-base-100 md:hidden" aria-label={t.navOverview} data-auth="in" hidden>
       {
-        primary.map((item) => (
-          <a href={item.hash} data-nav={item.name}>
+        PRIMARY_NAV.map((item) => (
+          <a href={pathFor(locale, item.name)} aria-current={route === item.name ? 'page' : undefined}>
             <Fragment set:html={icon(item.icon)} />
             <span class="dock-label">{t[item.key]}</span>
           </a>
@@ -79,13 +96,13 @@ const primary = PRIMARY_NAV;
   </div>
 
   <div class="drawer-side z-40">
-    <label for="nav-drawer" class="drawer-overlay" aria-label="close"></label>
+    <label for="nav-drawer" class="drawer-overlay" aria-label={t.back}></label>
     <aside class="min-h-full w-64 bg-base-200 p-2">
       <ul class="menu w-full" data-auth="in" hidden>
         {
-          nav.map((item) => (
+          NAV.map((item) => (
             <li>
-              <a href={item.hash} data-nav={item.name}>
+              <a href={pathFor(locale, item.name)} aria-current={route === item.name ? 'page' : undefined}>
                 <Fragment set:html={icon(item.icon)} />{t[item.key]}
               </a>
             </li>

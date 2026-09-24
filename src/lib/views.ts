@@ -4,6 +4,7 @@
 import { esc } from './dom.ts';
 import { icon } from './icons.ts';
 import { categories, localized, serviceState, hostState, ROLE_KEY } from './api.ts';
+import { pathFor, selectedPathFor } from './routes.ts';
 import type { AppState, Host, HostType, HostView, Messages, Scope, Service, ServiceState } from './contract.ts';
 
 const SCOPE: Readonly<Record<Scope, string>> = {
@@ -41,7 +42,9 @@ function tile(s: Service, ctx: AppState) {
   return `<article class="card border border-base-300 bg-base-200" data-tile="${esc(s.id)}">
   <div class="card-body gap-3 p-4">
     <div class="flex items-start gap-2">
-      <h3 class="card-title mr-auto text-base leading-tight">${esc(s.name)}</h3>
+      <h3 class="card-title mr-auto text-base leading-tight">
+        <a class="link link-hover" href="${selectedPathFor(ctx.locale, s.id)}">${esc(s.name)}</a>
+      </h3>
       <button class="btn btn-square btn-ghost btn-xs tooltip tooltip-bottom" data-tip="${esc(label)}"
         type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">${icon('star', { filled: fav, size: 'size-4' })}</button>
     </div>
@@ -240,6 +243,21 @@ export function forbidden(ctx: AppState): string {
   return head(ctx.t.forbidden, '') + empty(ctx.t.adminOnly);
 }
 
+/**
+ * What a view page shows when nobody is signed in: the same shell, and a sentence instead of an empty
+ * area. The sign-in button lives in the shell above; this explains why the area is bare - and it is the
+ * page's own state, not a claim about permission, which the ingress decides (A4).
+ */
+export function signedOut(t: Messages, loginUrl: string): string {
+  return (
+    head(t.signedOutTitle, t.signedOutHint) +
+    `<div class="card max-w-lg border border-base-300 bg-base-200"><div class="card-body gap-3">
+      <p class="text-sm opacity-70">${esc(t.siteDesc)}</p>
+      <div class="card-actions"><a class="btn btn-primary btn-sm" href="${esc(loginUrl)}">${esc(t.workspaceLogin)}</a></div>
+    </div></div>`
+  );
+}
+
 export function detail(ctx: AppState, id: string): string {
   const t = ctx.t;
   // A service the viewer cannot see stays "not found": the portal does not confirm what it does not show.
@@ -247,7 +265,7 @@ export function detail(ctx: AppState, id: string): string {
   if (!s) return head(t.notFound, '') + empty(t.notFound);
   const fav = ctx.favorites.includes(s.id);
   const label = fav ? t.removeFavorite : t.addFavorite;
-  return `<nav class="breadcrumbs mb-4 text-sm"><ul><li><a href="#/dienste">${esc(t.navServices)}</a></li><li>${esc(s.name)}</li></ul></nav>
+  return `<nav class="breadcrumbs mb-4 text-sm"><ul><li><a href="${pathFor(ctx.locale, 'services')}">${esc(t.navServices)}</a></li><li>${esc(s.name)}</li></ul></nav>
   <div class="mb-6 flex flex-wrap items-start gap-4"><div class="mr-auto">
     <h1 class="text-2xl font-semibold">${esc(s.name)}</h1>
     ${localized(s.description, ctx.locale) ? `<p class="opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}

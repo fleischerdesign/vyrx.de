@@ -142,6 +142,13 @@ Die Raute entfällt.
 Regel: Ein Pfad ist ein Bezeichner, ein Text ist eine Übersetzung. Der Pfad
 wechselt nie mit der Sprache, die Beschriftung schon.
 
+Die Adressen tragen den abschließenden Schrägstrich, den der Bau erzeugt
+(`/services/`, `/en/services/`) — dieselbe Schreibweise, die `canonical` und
+`hreflang` nennen. Eine Auswahl ist noch keine eigene Adresse: sie hängt als
+Abfrage an der Katalogseite (`/services/?service=<id>`) und wird mit S5 eine
+Seite je Dienst (`/services/<id>/`). Die Hülle trägt einen solchen Zustand mit —
+wer die Sprache wechselt, bleibt auf demselben Dienst.
+
 ### 6.4 Was keinen Eintrag bekommt
 
 Kein Eintrag je Integration (sie gehören in den Katalog), keiner für die Suche
