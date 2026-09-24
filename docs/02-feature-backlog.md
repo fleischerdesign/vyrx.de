@@ -19,8 +19,8 @@ ohnehin stattfindet:
 
 **Triage.** Der erste Arbeitsblock ist entschieden und trägt den Status
 `geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
-Griffe G1, G2, G6 und G7. Von diesen elf Einträgen ist H1 inzwischen
-`umgesetzt` (E-0010). Alles andere bleibt `idee` und ist damit ausdrücklich
+Griffe G1, G2, G6 und G7. Davon sind H1 und S4 inzwischen `umgesetzt` (E-0010;
+`contract.ts`). Alles andere bleibt `idee` und ist damit ausdrücklich
 nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
@@ -413,10 +413,13 @@ E-0006 bis E-0008; Navigation: `03-ui-ux.md` §6.
   Browser (Status, Palette, Aktionen), alles andere kommt als HTML. Ort: Portal.
   Personas: alle. AC: Ohne JavaScript zeigen alle Ansichten Inhalt statt einer
   leeren Fläche (erfüllt G3).
-- **S4 Ansichten typgeprüft** — `geplant` · `S` · Ansichtsmodule nach TypeScript
-  mit Prüfung; heute sieht der Prüflauf rund 27 KB Oberflächenlogik nicht
-  (`src/lib/*.js` ohne `checkJs`). Ort: Prüflauf. Personas: Technisch.
+- **S4 Ansichten typgeprüft** — `umgesetzt` · `S` · Ansichtsmodule nach TypeScript
+  mit Prüfung. Ort: Prüflauf. Personas: Technisch.
   AC: Ein Typfehler in einer Ansicht lässt `astro check` fehlschlagen.
+  *Beleg:* die sechs Module in `src/lib/` sind `.ts`, die Formen stehen in
+  `src/lib/contract.ts`; belegt mit einer Probe - ein falscher Argumenttyp in
+  `views.ts` lässt `astro check` mit Exit 1 abbrechen. Vorher sah der Prüflauf
+  rund 27 KB Oberflächenlogik nicht.
 - **S5 Dienstseiten statt Detailansicht** — `geplant` · `M` · Je Dienst eine
   vorgerenderte Seite (`/services/<id>`) mittels `getStaticPaths`. Ort: Portal.
   Personas: Technisch, Automat. AC: Die Seite existiert als Datei und ist ohne

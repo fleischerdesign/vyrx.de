@@ -5,10 +5,9 @@
 // `<symbol>` by id - the Astro shell for the dock and the drawer, the client views for the tiles - so
 // there is one geometry per icon in one document, no runtime script and no per-icon request.
 //
-// `ICONS` is the only place that names an icon, so a name that is not declared here is a defect rather
-// than an empty square: `icon()` throws while the shell is being rendered (the build fails) and renders
-// a red marker in the browser, for the same reason the translations do. The sprite checks the other
-// direction too - a file in `src/icons/` that nobody declares fails the build.
+// `ICONS` is the only place that names an icon, and it is the type as well: `IconName` is derived from
+// it, so a name that is not declared here is a compile error before it is a defect. The sprite checks
+// the other direction too - a file in `src/icons/` that nobody declares fails the build.
 
 export const ICONS = [
   'home',
@@ -19,18 +18,29 @@ export const ICONS = [
   'menu',
   'search',
   'star',
-];
+] as const;
 
-const MARKER = (name) =>
+/** Every declared icon, by name. Derived, never repeated. */
+export type IconName = (typeof ICONS)[number];
+
+export interface IconOptions {
+  /** A Tailwind size class; the wrapper carries presentation, never the geometry. */
+  readonly size?: string;
+  readonly filled?: boolean;
+  /** A label makes the icon meaningful; without one it is decorative and hidden from assistive tech. */
+  readonly label?: string | null;
+}
+
+const MARKER = (name: string) =>
   `<span class="badge badge-error badge-xs" role="img" aria-label="undeclared icon ${name}">${name}</span>`;
 
 // The wrapper carries the presentation - size, colour (`currentColor`), stroke - so every icon is
 // consistent and the symbol itself stays pure geometry. A decorative icon is `aria-hidden`; a
 // meaningful one gets a label, because a glyph alone is not a name.
-export function icon(name, { size = 'size-5', filled = false, label = null } = {}) {
+export function icon(name: IconName, { size = 'size-5', filled = false, label = null }: IconOptions = {}): string {
   if (!ICONS.includes(name)) {
     if (typeof document === 'undefined') {
-      throw new Error(`icon "${name}" is not declared in src/lib/icons.js`);
+      throw new Error(`icon "${name}" is not declared in src/lib/icons.ts`);
     }
     return MARKER(name);
   }

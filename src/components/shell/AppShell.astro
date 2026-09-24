@@ -2,8 +2,8 @@
 // The one shell. Landing and app are two states of it, not two designs: `data-auth` decides which
 // chrome is visible, and `#main` holds the landing for a visitor and the views for a signed-in person.
 import { useTranslations } from '../../i18n';
-import { NAV, PRIMARY_NAV } from '../../lib/nav.js';
-import { icon } from '../../lib/icons.js';
+import { NAV, PRIMARY_NAV } from '../../lib/nav.ts';
+import { icon } from '../../lib/icons.ts';
 
 interface Props {
   locale: 'de' | 'en';
@@ -14,7 +14,7 @@ const t = useTranslations(locale);
 const home = locale === 'en' ? '/en/' : '/';
 const loginUrl = '/outpost.goauthentik.io/start?rd=/';
 
-// Declared once in `lib/nav.js`: this table also existed in `app.js`, with the same entries, order and
+// Declared once in `lib/nav.ts`: this table also existed in `app.ts`, with the same entries, order and
 // glyphs kept in step by hand.
 const nav = NAV;
 const primary = PRIMARY_NAV;

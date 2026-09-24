@@ -16,9 +16,10 @@ auch wenn der Node-Prozess steht.
 | Schicht | Ort | Aufgabe |
 |---|---|---|
 | Hülle (SSR) | `src/components/shell/AppShell.astro`, `src/layouts/Layout.astro` | **Ein** Shell für zwei Zustände (`data-auth="in|out"`), Navigation, Sprachumschalter, Sprungmarke `#main` |
-| Daten | `src/lib/api.js` | einziger Ort mit `fetch`; Identität, Katalog, Status, Favoriten |
-| Darstellung | `src/lib/views.js` | reine Renderfunktionen; „kennen die Katalogform, nie einen Dienstnamen“ |
-| Verhalten | `src/lib/app.js` | Router (`hashchange`), Ereignisdelegation, Favoriten, Befehlspalette, Offline-Zustand |
+| Verträge | `src/lib/contract.ts` | die Formen, einmal aufgeschrieben: Katalog, Identität, Status, Ansichtsform — Formen, nie Werte |
+| Daten | `src/lib/api.ts` | einziger Ort mit `fetch`; Identität, Katalog, Status, Favoriten |
+| Darstellung | `src/lib/views.ts` | reine Renderfunktionen; „kennen die Katalogform, nie einen Dienstnamen“ |
+| Verhalten | `src/lib/app.ts` | Router (`hashchange`), Ereignisdelegation, Favoriten, Befehlspalette, Offline-Zustand |
 | Betrieb | `src/pages/api/*` | `me` (Identität aus Proxy-Headern), `status` (Prometheus), `hosts` (Registry), `[...path]` (JSON-404) |
 | Gestaltung | `src/styles/daisy.css` | Tailwind 4 + daisyUI 5, ein dunkles Theme als Vorgabe |
 
@@ -50,7 +51,7 @@ auch wenn der Node-Prozess steht.
    keine beliebige Abfrage stellen. Antwort mit `cache-control: public, max-age=10`
    und ein 502 mit sprechender Fehlermeldung, wenn der Kollektor schweigt.
 5. **Sauber abgeleitete Struktur statt Doppelpflege.** `NAV` existiert genau
-   einmal (`src/lib/nav.js`); die frühere zweite Tabelle in `app.js` ist
+   einmal (`src/lib/nav.ts`); die frühere zweite Tabelle in `app.ts` ist
    entfernt, die Begründung steht als Kommentar dort. Der Icon-Sprite wird
    serverseitig ausgegeben und von Hülle und Client gemeinsam genutzt, damit
    ein Icon nicht auseinanderlaufen kann.
@@ -93,7 +94,7 @@ auch wenn der Node-Prozess steht.
   nicht das Portal.
 - **Polling statt Bedarf.** Ein `setInterval` von 20 s läuft immer, auch wenn
   der Tab im Hintergrund ist oder niemand hinsieht.
-- **Kein Timeout, kein Abbruch.** `fetch` in `api.js` hat weder `AbortController`
+- **Kein Timeout, kein Abbruch.** `fetch` in `api.ts` hat weder `AbortController`
   noch Zeitlimit; ein hängender Kollektor bleibt ein hängender Skeleton.
 - **Kein `favicon`, kein `manifest`, kein Vorschaubild.** `public/` enthält nur
   `.well-known/security.txt` und `robots.txt`; Lesezeichen und Teilen sehen
@@ -112,12 +113,15 @@ auch wenn der Node-Prozess steht.
   fehlen Fokusfalle und Rückgabe des Fokus beim Schließen.
 
 ### 3.5 Qualitätssicherung
-- **Keine Tests, keine Prüfung, keine Formatierung.** Kein Testframework, kein
-  Linter, keine Formatregeln, keine CI. `astro check` läuft nur im `build`.
-- **Parität der Übersetzungen ist Zufall.** Sie stimmt heute; erzwungen wird
-  sie nicht. Ein Skript oder Test würde den Zustand sichern.
-- **Datenverträge sind ungeschrieben.** Katalogform, Statusform und die
-  Prometheus-Ausdrücke existieren nur als Code und Kommentar.
+- **Keine Formatierung, kein Prüflauf im Änderungsvorschlag.** Seit H1 gibt es
+  einen Läufer (`test/`, E-0010) und `npm run check` fährt Typen und Prüfungen;
+  es fehlen weiterhin Linter, Formatregeln und ein Lauf je Änderungsvorschlag
+  (H3).
+- **Parität der Übersetzungen ist geprüft** (H1): die Mengen beider Tabellen
+  müssen gleich sein, sonst bricht der Bau.
+- **Die Datenverträge stehen geschrieben** (`src/lib/contract.ts`): Katalogform,
+  Identität und Statusform sind Typen, nicht nur Kommentare. Die
+  Prometheus-Ausdrücke leben weiterhin in den Routen.
 
 ## 4. Reifegrad
 
@@ -130,5 +134,5 @@ auch wenn der Node-Prozess steht.
 | Zugänglichkeit | mittel | Skip-Link und `aria` vorhanden, Fokusführung und `aria-live` fehlen |
 | Randfall ohne JavaScript | schwach | Ansichten sind ausschließlich client-gerendert |
 | Inhalt | schwach | keine Wissensbasis, kein Ankündigungsweg |
-| Qualitätssicherung | schwach | keine Tests, keine CI |
+| Qualitätssicherung | schwach | eine Prüfung und `npm run check` (H1, E-0010); kein Lauf je Änderungsvorschlag, keine Formatregeln |
 | Dokumentation | schwach | dieser Ordner ist der Anfang |
