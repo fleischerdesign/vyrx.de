@@ -1,24 +1,32 @@
 // One view per route. Each returns markup built exclusively from daisyUI components; the app mounts it and
 // delegates the few interactions. Views know the catalogue shape, never a service name.
 
-import { esc } from './dom.js';
-import { icon } from './icons.js';
-import { categories, localized, serviceState, hostState, ROLE_KEY } from './api.js';
+import { esc } from './dom.ts';
+import { icon } from './icons.ts';
+import { categories, localized, serviceState, hostState, ROLE_KEY } from './api.ts';
+import type { AppState, Host, HostType, HostView, Messages, Scope, Service, ServiceState } from './contract.ts';
 
-const SCOPE = { public: 'scopePublic', internal: 'scopeInternal', mesh: 'scopeMesh', isolated: 'scopeIsolated' };
-const scopeBadge = (s, t) => `<span class="badge badge-ghost badge-sm">${esc(t[SCOPE[s.scope]] || t.scopeIsolated)}</span>`;
+const SCOPE: Readonly<Record<Scope, string>> = {
+  public: 'scopePublic',
+  internal: 'scopeInternal',
+  mesh: 'scopeMesh',
+  isolated: 'scopeIsolated',
+};
+const scopeBadge = (s: Service, t: Messages) => `<span class="badge badge-ghost badge-sm">${esc(t[SCOPE[s.scope]] || t.scopeIsolated)}</span>`;
 
-const stateLabel = (state, t) =>
+const stateLabel = (state: ServiceState, t: Messages): string =>
   ({ up: t.online, down: t.offlineService, unknown: t.unknown, unmonitored: t.unmonitored })[state] || t.unknown;
 // daisyUI's `status` component: a dot that carries meaning, always paired with its label.
-const stateDot = (state, t) => {
+const stateDot = (state: ServiceState, t: Messages) => {
   const label = stateLabel(state, t);
   const tone = state === 'up' ? 'status-success' : state === 'down' ? 'status-error' : 'status-neutral';
   return `<span class="status ${tone}" role="img" aria-label="${esc(label)}" title="${esc(label)}"></span>`;
 };
-const roleLabel = (type, t) => t[ROLE_KEY[type]] || type;
+// The inventory's vocabulary is optional: a host without a role renders no badge instead of the marker for
+// a missing translation, which is what `t[ROLE_KEY[undefined]]` used to produce.
+const roleLabel = (type: HostType | undefined, t: Messages): string => (type ? t[ROLE_KEY[type]] || type : '');
 
-function statusBadge(s, ctx) {
+function statusBadge(s: Service, ctx: AppState) {
   const { state } = serviceState(s, ctx.status);
   if (state === 'unmonitored') return `<span class="badge badge-ghost badge-sm">${esc(ctx.t.unmonitored)}</span>`;
   // Before the first live read there is no state to show - a spinner is honest, "unknown" is not yet true.
@@ -26,7 +34,7 @@ function statusBadge(s, ctx) {
   return `${stateDot(state, ctx.t)}<span class="text-xs opacity-60">${esc(stateLabel(state, ctx.t))}</span>`;
 }
 
-function tile(s, ctx) {
+function tile(s: Service, ctx: AppState) {
   const t = ctx.t;
   const fav = ctx.favorites.includes(s.id);
   const label = fav ? t.removeFavorite : t.addFavorite;
@@ -49,34 +57,37 @@ function tile(s, ctx) {
 </article>`;
 }
 
-const grid = (list, ctx) => `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${list.map((s) => tile(s, ctx)).join('')}</div>`;
+const grid = (list: readonly Service[], ctx: AppState) =>
+  `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${list.map((s) => tile(s, ctx)).join('')}</div>`;
 // The loading state, declared once: the shell shows it before the catalogue arrives, the views show it
 // before the first live read. It used to exist twice - here (dead, never called) and as a string literal in
-// `app.js` - which is the kind of duplicate that drifts the day one of them gets a different height.
-export const skeletonGrid = (count = 6) =>
+// `app.ts` - which is the kind of duplicate that drifts the day one of them gets a different height.
+export const skeletonGrid = (count = 6): string =>
   `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${Array.from({ length: count }, () => '<div class="skeleton h-36"></div>').join('')}</div>`;
 
-const section = (title, count, body) =>
+const section = (title: string, count: number, body: string) =>
   `<section class="section mb-8"><div class="mb-3 flex items-baseline gap-3">
     <h2 class="text-lg font-semibold">${esc(title)}</h2>${count ? `<span class="text-sm opacity-50">${count}</span>` : ''}
   </div>${body}</section>`;
 
-const head = (title, desc, actions = '') =>
+const head = (title: string, desc: string, actions = '') =>
   `<div class="mb-6 flex flex-wrap items-start gap-4"><div class="mr-auto">
     <h1 class="text-2xl font-semibold">${esc(title)}</h1>${desc ? `<p class="opacity-60">${esc(desc)}</p>` : ''}
   </div>${actions}</div>`;
 
-const empty = (title, hint = '') =>
+const empty = (title: string, hint = '') =>
   `<div class="alert alert-soft"><div><h3 class="font-semibold">${esc(title)}</h3>${hint ? `<p class="text-sm opacity-70">${esc(hint)}</p>` : ''}</div></div>`;
 
-const stat = (value, label) =>
+const stat = (value: number | string, label: string) =>
   `<div class="stat place-items-center"><div class="stat-value text-2xl">${esc(String(value))}</div><div class="stat-title">${esc(label)}</div></div>`;
 
-export function overview(ctx) {
+export function overview(ctx: AppState): string {
   const t = ctx.t;
   const name = ctx.identity.name || ctx.identity.username;
   const favs = ctx.services.filter((s) => ctx.favorites.includes(s.id));
-  const recent = ctx.recents.map((id) => ctx.services.find((s) => s.id === id)).filter(Boolean);
+  const recent = ctx.recents
+    .map((id) => ctx.services.find((service) => service.id === id))
+    .filter((service): service is Service => service !== undefined);
   const up = ctx.status ? ctx.services.filter((s) => serviceState(s, ctx.status).state === 'up').length : '–';
   return (
     head(`${t.userGreeting}, ${name}`, `${ctx.services.length} ${t.navServices}`) +
@@ -89,7 +100,7 @@ export function overview(ctx) {
   );
 }
 
-export function services(ctx) {
+export function services(ctx: AppState): string {
   const t = ctx.t;
   if (!ctx.services.length) return head(t.navServices, t.allServices) + empty(t.noServices, t.noServicesHint);
   const search = `<input class="input w-64" id="service-filter" type="search" autocomplete="off"
@@ -113,7 +124,7 @@ export function services(ctx) {
 
 // Infrastructure only: the launcher, with scope and audience, is the Dienste view. Hosts come from the
 // registry and their state from the live read.
-export function status(ctx) {
+export function status(ctx: AppState): string {
   const t = ctx.t;
   const hosts = ctx.hosts || [];
   if (!hosts.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
@@ -128,9 +139,9 @@ export function status(ctx) {
   );
 }
 
-export function hostCard(host, ctx) {
+export function hostCard(host: Host, ctx: HostView): string {
   const t = ctx.t;
-  const state = hostState(host, ctx.status);
+  const { state } = hostState(host, ctx.status);
   const rows = [
     { label: t[host.zone === 'mesh' ? 'addrWan' : 'addrZone'], value: host.ipv4 || t.dhcp },
     { label: t.addrMesh, value: host.wireguardIpv4 || t.dhcp },
@@ -176,7 +187,7 @@ export function hostCard(host, ctx) {
 </article>`;
 }
 
-export function account(ctx) {
+export function account(ctx: AppState): string {
   const t = ctx.t;
   const i = ctx.identity;
   const groups = i.groups.length
@@ -202,7 +213,7 @@ export function account(ctx) {
   );
 }
 
-export function admin(ctx) {
+export function admin(ctx: AppState): string {
   const t = ctx.t;
   const rows = ctx.allServices
     .map(
@@ -225,14 +236,15 @@ export function admin(ctx) {
   );
 }
 
-export function forbidden(ctx) {
-  return head(ctx.t.forbidden) + empty(ctx.t.adminOnly);
+export function forbidden(ctx: AppState): string {
+  return head(ctx.t.forbidden, '') + empty(ctx.t.adminOnly);
 }
 
-export function detail(ctx, id) {
+export function detail(ctx: AppState, id: string): string {
   const t = ctx.t;
+  // A service the viewer cannot see stays "not found": the portal does not confirm what it does not show.
   const s = ctx.services.find((x) => x.id === id);
-  if (!s) return head(t.notFound) + empty(t.notFound);
+  if (!s) return head(t.notFound, '') + empty(t.notFound);
   const fav = ctx.favorites.includes(s.id);
   const label = fav ? t.removeFavorite : t.addFavorite;
   return `<nav class="breadcrumbs mb-4 text-sm"><ul><li><a href="#/dienste">${esc(t.navServices)}</a></li><li>${esc(s.name)}</li></ul></nav>

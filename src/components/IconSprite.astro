@@ -9,7 +9,7 @@
 //
 // Vendoring also removes the npm dependency whose hash had to be maintained, and it puts the geometry in
 // the tree where it can be reviewed. Lucide is ISC; the notice travels inside each file.
-import { ICONS } from '../lib/icons.js';
+import { ICONS } from '../lib/icons.ts';
 
 const files = import.meta.glob('../icons/*.svg', { query: '?raw', import: 'default', eager: true });
 
@@ -18,7 +18,7 @@ const files = import.meta.glob('../icons/*.svg', { query: '?raw', import: 'defau
 const geometry = (name: string) => {
   const raw = files[`../icons/${name}.svg`];
   if (typeof raw !== 'string') {
-    throw new Error(`src/icons/${name}.svg is missing - declared in src/lib/icons.js, absent from the tree`);
+    throw new Error(`src/icons/${name}.svg is missing - declared in src/lib/icons.ts, absent from the tree`);
   }
   const body = raw
     .replace(/^[\s\S]*?<svg[^>]*>/, '')
@@ -32,9 +32,11 @@ const geometry = (name: string) => {
 // are silent. `ICONS` is the declaration, the directory is the fact, and they have to agree.
 const undeclared: string[] = Object.keys(files)
   .map((path) => path.replace('../icons/', '').replace(/\.svg$/, ''))
-  .filter((name) => !ICONS.includes(name));
+  // Here the question runs the other way: the list is the declaration and the directory is the fact, so a
+  // file name is compared against the declared names as a string.
+  .filter((name: string) => !(ICONS as readonly string[]).includes(name));
 if (undeclared.length) {
-  throw new Error(`src/icons/${undeclared.join('.svg, src/icons/')}.svg is not declared in src/lib/icons.js`);
+  throw new Error(`src/icons/${undeclared.join('.svg, src/icons/')}.svg is not declared in src/lib/icons.ts`);
 }
 
 const symbols = ICONS.map((name) => ({ name, body: geometry(name) }));
