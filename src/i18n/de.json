@@ -83,7 +83,8 @@
   "addrMesh": "Mesh",
   "dhcp": "DHCP",
   "allCategories": "Alle",
-  "signedOutTitle": "Nicht angemeldet",
-  "signedOutHint": "Diese Ansicht zeigt, was zu deinem Konto gehört. Melde dich an, dann steht sie hier.",
-  "noscriptHint": "Diese Ansicht wird im Browser aufgebaut und braucht JavaScript. Ohne Skripte bleibt nur die Startseite lesbar – bis die Ansichten vom Server kommen (G3)."
+  "noscriptHint": "Konto und Verwaltung baut der Browser nach der Anmeldung auf; ohne Skripte bleibt sichtbar, was allen gehört.",
+  "catalogueAbsentTitle": "Kein Katalog im Bau",
+  "catalogueAbsentHint": "Diese Fassung wurde ohne Katalog gebaut; sie kann deshalb nicht sagen, was das Portal anbietet. Im Browser lädt sie den Katalog selbst.",
+  "needsBrowserTitle": "Diese Ansicht braucht den Browser"
 }

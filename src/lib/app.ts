@@ -32,7 +32,6 @@ export interface BootOptions {
   readonly route: Route['name'];
   /** The service the catalogue page has selected, if the address carried one. */
   readonly selected: string | null;
-  readonly loginUrl: string;
   readonly accountUrl: string;
 }
 
@@ -60,7 +59,7 @@ let state: AppState | undefined;
 /** The page this document is: the view and, for the catalogue, the selection it was opened with. */
 let page: { route: Route['name']; selected: string | null } | undefined;
 
-export async function boot({ messages, locale, route, selected, loginUrl, accountUrl }: BootOptions): Promise<void> {
+export async function boot({ messages, locale, route, selected, accountUrl }: BootOptions): Promise<void> {
   const main = document.getElementById('main');
   if (!main) return;
   page = { route, selected };
@@ -76,12 +75,9 @@ export async function boot({ messages, locale, route, selected, loginUrl, accoun
   if (showsLiveState) startStatusPolling();
 
   const identity = await loadIdentity();
-  if (!identity) {
-    // A view page without an identity is not an empty page: it is a page with nothing to show yet, and
-    // it says so. The start page keeps its own prerendered landing, which needs no identity.
-    if (route !== 'overview') main.innerHTML = views.signedOut(messages, loginUrl);
-    return;
-  }
+  // A reader without an identity already has the view in front of them: the build rendered it, and it is
+  // what belongs to everyone. There is nothing to replace and nothing to claim.
+  if (!identity) return;
 
   // The shell is already in the document in both states; signing in reveals its signed-in chrome.
   setAuthed(true);
@@ -95,7 +91,6 @@ export async function boot({ messages, locale, route, selected, loginUrl, accoun
   state = {
     t: messages,
     locale,
-    loginUrl,
     accountUrl,
     identity,
     services: [],

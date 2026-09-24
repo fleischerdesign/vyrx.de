@@ -196,6 +196,32 @@ Auslieferungsweg für eine Seite, gegen die Zusage oben).
 deshalb trägt der Sprachumschalter sie clientseitig mit. Verweise auf die
 Adresse gibt es nur in `routes.ts`, also ist der Wechsel mit S5 eine Zeile.
 
+### E-0013 — Der Katalog ist ein Bau-Eingang, und die Datei trägt, was allen gehört
+*Kontext:* Jede Ansicht entstand im Browser, weil der Katalog nur dort gelesen
+wurde (`/portal.json`). Ohne Skripte blieb deshalb eine leere Fläche (S3, G3).
+Die naheliegende Alternative — jede Seite bei jeder Anfrage rendern — hieße, dass
+die Seiten am laufenden Prozess hängen; die Zusage aus `01-ist-analyse.md` §1
+fiele.
+*Entscheidung:* Der Bau liest den Katalog **einmal** (`src/lib/catalogue.ts`, aus
+`PORTAL_CATALOGUE` oder `./portal.json`) und rendert damit, was allen gehört: die
+Dienste ohne Gruppenanforderung — `visibleServices(services, [])`, dieselbe
+Funktion, die der Browser benutzt — und die Knoten. Was dem Leser gehört
+(Favoriten, seine zusätzlichen Dienste, der lebende Zustand) bleibt beim Browser,
+der die Datei nach der Anmeldung ersetzt. Fehlt der Katalog beim Bau, steht der
+benannte Zustand („Kein Katalog im Bau“) statt einer leeren Fläche.
+*Begründung:* Eine Datei kann nicht wissen, wer liest; sie kann wissen, was allen
+gehört. Damit halten beide Zusagen gleichzeitig: die Seiten bleiben abrufbar,
+wenn der Prozess steht, und sie zeigen Inhalt ohne Skripte.
+*Alternativen:* serverseitig rendern, um die Identität zu kennen (ein zweiter
+Auslieferungsweg, Seiten am Prozess); den Katalog in dieses Repository legen
+(zwei Wahrheiten über die Flotte, ein zweiter Pflegeort); nur die Hülle
+vorgerendern und den Inhalt leer lassen (genau der Zustand, den S3 beendet).
+*Konsequenzen:* Der Bau braucht den Katalog als Eingang — die Bereitstellung muss
+die Datei dort ablegen, wo `readCatalogue()` sie liest, sonst erscheint der
+benannte Zustand statt Inhalt. **S5 baut darauf auf** (eine Seite je Dienst).
+Konto und Verwaltung bleiben Browser-Ansichten mit erklärendem Satz: für sie gilt
+„ohne Skripte sichtbar“ nicht, und das steht dort auch so.
+
 ## Entscheidungen zu den offenen Fragen (2026-09-23)
 
 Diese zehn Fragen waren als offen notiert und sind am 2026-09-23 entschieden.

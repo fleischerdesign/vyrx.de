@@ -67,6 +67,17 @@ export const selectedPathFor = (locale: Locale, id: string): string =>
 /** The selected service, as the catalogue page reads it out of its own query. */
 export const selectedFrom = (search: string): string | null => new URLSearchParams(search).get('service');
 
+/** Where the outpost starts a sign-in, and where the account itself is kept. */
+const LOGIN = '/outpost.goauthentik.io/start';
+export const ACCOUNT_URL = 'https://auth.vyrx.de/if/user/';
+
+/**
+ * Signing in should return to the page that asked for it, not to the start page - the return address is
+ * part of knowing where the reader is. The outpost reads `rd`.
+ */
+export const loginPathFor = (locale: Locale, route: Route['name'] = 'overview', selected: string | null = null): string =>
+  `${LOGIN}?rd=${selected ? selectedPathFor(locale, selected) : pathFor(locale, route)}`;
+
 /**
  * Which language and which view an address asks for. The client derives it from the address alone - the
  * browser knows nothing else - and it derives it through this table, so the two sides cannot disagree

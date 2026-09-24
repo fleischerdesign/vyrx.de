@@ -1,0 +1,42 @@
+---
+// The view as a *file*: what every reader gets from the document itself - script or no script, identity or
+// none.
+//
+// It exists because a prerendered page cannot know who is reading it: there is no identity, no favourites
+// and no live read at build time. So this component renders exactly what belongs to everyone - the
+// catalogue's services without a group requirement, and the hosts, both from the build's catalogue - and
+// the browser replaces it with the viewer's own view once it knows who that is.
+//
+// For the two views that are *about* the reader (Konto, Verwaltung) there is nothing to render for
+// everyone. They get the sentence that is true of the file instead of an empty area.
+import { useTranslations } from '../../i18n';
+import type { Locale } from '../../i18n';
+import { ACCOUNT_URL } from '../../lib/routes.ts';
+import type { Route } from '../../lib/routes.ts';
+import { readCatalogue, viewForEveryone } from '../../lib/catalogue.ts';
+import * as views from '../../lib/views.ts';
+
+interface Props {
+  locale: Locale;
+  route: Route['name'];
+}
+
+const { locale, route } = Astro.props;
+const t = useTranslations(locale);
+const catalogue = readCatalogue();
+
+const body = (() => {
+  if (!catalogue) return views.catalogueAbsent(t);
+  const ctx = viewForEveryone({ t, locale, accountUrl: ACCOUNT_URL, catalogue });
+  switch (route) {
+    case 'services':
+      return views.services(ctx, { interactive: false });
+    case 'status':
+      return views.status(ctx);
+    default:
+      return views.needsBrowser(t);
+  }
+})();
+---
+
+<Fragment set:html={body} />

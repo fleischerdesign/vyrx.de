@@ -7,6 +7,7 @@
 import { useTranslations } from '../../i18n';
 import type { Locale } from '../../i18n';
 import { icon } from '../../lib/icons.ts';
+import { loginPathFor } from '../../lib/routes.ts';
 
 interface Props {
   locale: Locale;
@@ -14,7 +15,7 @@ interface Props {
 
 const { locale } = Astro.props;
 const t = useTranslations(locale);
-const loginUrl = '/outpost.goauthentik.io/start?rd=/';
+const loginUrl = loginPathFor(locale, 'overview');
 ---
 
 <section class="hero rounded-box border border-base-300 bg-base-200 py-14">

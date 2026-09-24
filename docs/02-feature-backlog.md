@@ -19,8 +19,8 @@ ohnehin stattfindet:
 
 **Triage.** Der erste Arbeitsblock ist entschieden und trägt den Status
 `geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
-Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2 und S4 inzwischen `umgesetzt`
-(E-0010, E-0011; `src/lib/contract.ts`). Alles andere bleibt `idee` und ist damit ausdrücklich
+Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2, S3, S4 und G3 inzwischen
+`umgesetzt` (Belege bei den Einträgen; E-0010 bis E-0013). Alles andere bleibt `idee` und ist damit ausdrücklich
 nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
@@ -163,9 +163,13 @@ Flotten-Rebuild.
   AC: Kein Symbol fehlt, der Start vom Startbildschirm führt in die Anmeldung.
 - **G2 Hell und dunkel** — `geplant` · `S` · Systemvorgabe plus Wahl. AC: Die Wahl
   gewinnt gegen die Systemvorgabe und flackert beim Laden nicht.
-- **G3 Ansichten ohne JavaScript** — `idee` · `L` · Die Ansichten serverseitig
+- **G3 Ansichten ohne JavaScript** — `umgesetzt` · `L` · Die Ansichten serverseitig
   ausliefern, der Client übernimmt danach. AC: `/services/` zeigt mit
   abgeschaltetem JavaScript Inhalt statt einer leeren Fläche.
+  *Beleg:* siehe S3 — die Datei trägt Katalog und Knoten, ohne Skripte lesbar,
+  nachgewiesen mit blockierten Skriptdateien. Grenze, benannt: Konto und
+  Verwaltung braucht der Browser weiterhin (eine Datei kennt keine Identität);
+  dort steht der erklärende Satz statt einer leeren Fläche.
 - **G4 Sicherheits-Header nachweisen** — `idee` · `S` · CSP, `Referrer-Policy`,
   `Permissions-Policy`, `X-Content-Type-Options`, HSTS. AC: Ein Prüflauf gegen
   die Produktionsadresse zeigt alle Header, und die CSP erlaubt nichts Fremdes.
@@ -419,10 +423,18 @@ E-0006 bis E-0008; Navigation: `03-ui-ux.md` §6.
   zusammen; jede Seite darunter ist eine Zeile. Die Startseite füllt den Platz
   mit `src/components/landing/Landing.astro` (Inhalt, nicht Hülle), jede
   Ansichtsseite mit ihrem Ladezustand.
-- **S3 Inseln statt `innerHTML`** — `geplant` · `M` · Nur das Lebendige lädt im
+- **S3 Inseln statt `innerHTML`** — `umgesetzt` · `M` · Nur das Lebendige lädt im
   Browser (Status, Palette, Aktionen), alles andere kommt als HTML. Ort: Portal.
   Personas: alle. AC: Ohne JavaScript zeigen alle Ansichten Inhalt statt einer
   leeren Fläche (erfüllt G3).
+  *Beleg:* Der Bau liest den Katalog (`src/lib/catalogue.ts`) und rendert damit
+  die Datei (`components/view/StaticView.astro`): `/services/` trägt die Dienste
+  ohne Gruppenanforderung, `/status/` die Knoten, jeweils mit „unbekannt“ statt
+  eines Spinners und ohne Stern, den niemand drücken kann; `/account/` und
+  `/admin/` tragen den erklärenden Satz. Belegt mit blockierten Skripten: der
+  Katalog und der Status sind ohne ein einziges Skript lesbar, mit Skript und
+  Anmeldung kommt die Ansicht des Lesers (11 statt 5 Kacheln). G3 ist damit
+  erfüllt.
 - **S4 Ansichten typgeprüft** — `umgesetzt` · `S` · Ansichtsmodule nach TypeScript
   mit Prüfung. Ort: Prüflauf. Personas: Technisch.
   AC: Ein Typfehler in einer Ansicht lässt `astro check` fehlschlagen.
@@ -434,10 +446,11 @@ E-0006 bis E-0008; Navigation: `03-ui-ux.md` §6.
   vorgerenderte Seite (`/services/<id>`) mittels `getStaticPaths`. Ort: Portal.
   Personas: Technisch, Automat. AC: Die Seite existiert als Datei und ist ohne
   JavaScript lesbar und verlinkbar.
-  *Vorbedingung:* Der Katalog muss ein **Bau-Eingang** werden — er entsteht heute
-  außerhalb dieses Repositories. Bis dahin hängt die Auswahl als Abfrage an der
-  Katalogseite (`/services/?service=<id>`, E-0012); die Adresse `/services/<id>/`
-  entsteht mit diesem Eintrag, und dann ändert sich eine Zeile in `routes.ts`.
+  *Vorbedingung erfüllt:* Der Katalog ist ein Bau-Eingang (E-0013, S3). Offen ist
+  nur noch, dass die Bereitstellung die Datei dort ablegt, wo `readCatalogue()`
+  sie liest. Bis dahin hängt die Auswahl als Abfrage an der Katalogseite
+  (`/services/?service=<id>`, E-0012); die Adresse `/services/<id>/` entsteht mit
+  diesem Eintrag — eine Zeile in `routes.ts`.
 
 ## T. Netzblick (Betrieb)
 

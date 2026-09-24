@@ -83,7 +83,8 @@
   "addrMesh": "Mesh",
   "dhcp": "DHCP",
   "allCategories": "All",
-  "signedOutTitle": "Not signed in",
-  "signedOutHint": "This view shows what belongs to your account. Sign in and it appears here.",
-  "noscriptHint": "This view is built in the browser and needs JavaScript. Without scripts only the start page is readable - until the views arrive from the server (G3)."
+  "noscriptHint": "Account and administration are built in the browser after signing in; without scripts what remains is what belongs to everyone.",
+  "catalogueAbsentTitle": "No catalogue in this build",
+  "catalogueAbsentHint": "This build was made without the catalogue, so it cannot say what the portal offers. In a browser it loads the catalogue itself.",
+  "needsBrowserTitle": "This view needs the browser"
 }
