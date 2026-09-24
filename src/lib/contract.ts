@@ -132,7 +132,6 @@ export type Route = { readonly name: Exclude<RouteName, 'detail'> } | { readonly
 export interface AppState {
   readonly t: Messages;
   readonly locale: Locale;
-  readonly loginUrl: string;
   readonly accountUrl: string;
   readonly identity: Identity;
   services: readonly Service[];

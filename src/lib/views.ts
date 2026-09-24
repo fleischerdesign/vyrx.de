@@ -27,32 +27,48 @@ const stateDot = (state: ServiceState, t: Messages) => {
 // a missing translation, which is what `t[ROLE_KEY[undefined]]` used to produce.
 const roleLabel = (type: HostType | undefined, t: Messages): string => (type ? t[ROLE_KEY[type]] || type : '');
 
-function statusBadge(s: Service, ctx: AppState) {
+// Every view takes the same option: whether a browser is going to answer the live questions. Without a
+// browser, "unknown" is a state and can be said; a spinner would be a promise nobody keeps - and a star
+// button that cannot be pressed is worse than no star. So the option is not decoration, it is the
+// difference between a file and a page.
+interface RenderOptions {
+  /** `false` renders the file: no control that needs a script, no question left to the browser. */
+  readonly interactive?: boolean;
+}
+
+function statusBadge(s: Service, ctx: AppState, interactive: boolean) {
   const { state } = serviceState(s, ctx.status);
   if (state === 'unmonitored') return `<span class="badge badge-ghost badge-sm">${esc(ctx.t.unmonitored)}</span>`;
-  // Before the first live read there is no state to show - a spinner is honest, "unknown" is not yet true.
-  if (!ctx.status) return `<span class="loading loading-spinner loading-xs" role="status" aria-label="${esc(ctx.t.catalogLoading)}"></span>`;
+  // Before the first live read there is no state to show. A spinner is honest while the browser is about to
+  // answer; where nothing is going to answer, "unknown" is the truth.
+  if (!ctx.status && interactive) return `<span class="loading loading-spinner loading-xs" role="status" aria-label="${esc(ctx.t.catalogLoading)}"></span>`;
+  if (!ctx.status) return `${stateDot('unknown', ctx.t)}<span class="text-xs opacity-60">${esc(ctx.t.unknown)}</span>`;
   return `${stateDot(state, ctx.t)}<span class="text-xs opacity-60">${esc(stateLabel(state, ctx.t))}</span>`;
 }
 
-function tile(s: Service, ctx: AppState) {
+const favoriteButton = (s: Service, ctx: AppState): string => {
   const t = ctx.t;
   const fav = ctx.favorites.includes(s.id);
   const label = fav ? t.removeFavorite : t.addFavorite;
+  return `<button class="btn btn-square btn-ghost btn-xs tooltip tooltip-bottom" data-tip="${esc(label)}"
+        type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">${icon('star', { filled: fav, size: 'size-4' })}</button>`;
+};
+
+function tile(s: Service, ctx: AppState, interactive: boolean) {
+  const t = ctx.t;
   return `<article class="card border border-base-300 bg-base-200" data-tile="${esc(s.id)}">
   <div class="card-body gap-3 p-4">
     <div class="flex items-start gap-2">
       <h3 class="card-title mr-auto text-base leading-tight">
         <a class="link link-hover" href="${selectedPathFor(ctx.locale, s.id)}">${esc(s.name)}</a>
       </h3>
-      <button class="btn btn-square btn-ghost btn-xs tooltip tooltip-bottom" data-tip="${esc(label)}"
-        type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">${icon('star', { filled: fav, size: 'size-4' })}</button>
+      ${interactive ? favoriteButton(s, ctx) : ''}
     </div>
     ${localized(s.description, ctx.locale) ? `<p class="text-sm opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}
     <div class="card-actions mt-auto flex-wrap items-center gap-2">
       ${scopeBadge(s, t)}
       ${s.admin?.length ? `<span class="badge badge-sm">${esc(t.navAdmin)}</span>` : ''}
-      ${statusBadge(s, ctx)}
+      ${statusBadge(s, ctx, interactive)}
       <a class="btn btn-primary btn-sm ml-auto" href="${esc(s.url)}" target="_blank" rel="noreferrer"
         data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
     </div>
@@ -60,8 +76,8 @@ function tile(s: Service, ctx: AppState) {
 </article>`;
 }
 
-const grid = (list: readonly Service[], ctx: AppState) =>
-  `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${list.map((s) => tile(s, ctx)).join('')}</div>`;
+const grid = (list: readonly Service[], ctx: AppState, interactive: boolean) =>
+  `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${list.map((s) => tile(s, ctx, interactive)).join('')}</div>`;
 // The loading state, declared once: the shell shows it before the catalogue arrives, the views show it
 // before the first live read. It used to exist twice - here (dead, never called) and as a string literal in
 // `app.ts` - which is the kind of duplicate that drifts the day one of them gets a different height.
@@ -84,7 +100,7 @@ const empty = (title: string, hint = '') =>
 const stat = (value: number | string, label: string) =>
   `<div class="stat place-items-center"><div class="stat-value text-2xl">${esc(String(value))}</div><div class="stat-title">${esc(label)}</div></div>`;
 
-export function overview(ctx: AppState): string {
+export function overview(ctx: AppState, { interactive = true }: RenderOptions = {}): string {
   const t = ctx.t;
   const name = ctx.identity.name || ctx.identity.username;
   const favs = ctx.services.filter((s) => ctx.favorites.includes(s.id));
@@ -97,16 +113,18 @@ export function overview(ctx: AppState): string {
     `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal">
       ${stat(ctx.services.length, t.navServices)}${stat(up, t.online)}${stat(favs.length, t.favorites)}${stat(ctx.hosts.length, t.statusNodes)}
     </div>` +
-    (favs.length ? section(t.favorites, favs.length, grid(favs, ctx)) : section(t.favorites, 0, empty(t.noFavorites))) +
-    (recent.length ? section(t.recent, recent.length, grid(recent, ctx)) : '') +
-    categories(ctx.services).slice(0, 3).map(([cat, list]) => section(cat, list.length, grid(list, ctx))).join('')
+    (favs.length ? section(t.favorites, favs.length, grid(favs, ctx, interactive)) : section(t.favorites, 0, empty(t.noFavorites))) +
+    (recent.length ? section(t.recent, recent.length, grid(recent, ctx, interactive)) : '') +
+    categories(ctx.services).slice(0, 3).map(([cat, list]) => section(cat, list.length, grid(list, ctx, interactive))).join('')
   );
 }
 
-export function services(ctx: AppState): string {
+export function services(ctx: AppState, { interactive = true }: RenderOptions = {}): string {
   const t = ctx.t;
   if (!ctx.services.length) return head(t.navServices, t.allServices) + empty(t.noServices, t.noServicesHint);
-  const search = `<input class="input w-64" id="service-filter" type="search" autocomplete="off"
+  // A search box that filters nothing is a lie about the file, so the file renders it disabled - and the
+  // browser, which is the thing that can wire it, removes the attribute when it renders its own view.
+  const search = `<input class="input w-64" id="service-filter" type="search" autocomplete="off"${interactive ? '' : ' disabled'}
     placeholder="${esc(t.searchPlaceholder)}" aria-label="${esc(t.searchPlaceholder)}">`;
   // daisyUI `filter`: a radio group, which is what a single-choice filter actually is.
   const chips = `<div class="filter mb-4" role="radiogroup" aria-label="${esc(t.navCategories)}">
@@ -116,7 +134,7 @@ export function services(ctx: AppState): string {
       .join('')}
   </div>`;
   const body = categories(ctx.services)
-    .map(([cat, list]) => section(cat, list.length, grid(list, ctx)))
+    .map(([cat, list]) => section(cat, list.length, grid(list, ctx, interactive)))
     .join('');
   return (
     head(t.navServices, t.allServices, search) +
@@ -132,11 +150,14 @@ export function status(ctx: AppState): string {
   const hosts = ctx.hosts || [];
   if (!hosts.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
   const monitored = hosts.filter((h) => h.monitored !== false).length;
+  // The middle figure was the count of *monitored* hosts under the label "online", so a host that was down
+  // counted as online. The three figures are three different things now: nodes, up, not monitored.
+  const up = ctx.status ? hosts.filter((h) => hostState(h, ctx.status).state === 'up').length : '–';
   const meta = ctx.status ? ` · ${t.statusAsOf} ${new Date(ctx.status.asOf).toLocaleTimeString(ctx.locale)}` : '';
   return (
     head(t.statusTitle, `${t.statusDesc}${meta}`) +
     `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal">
-      ${stat(hosts.length, t.statusNodes)}${stat(monitored, t.online)}${stat(hosts.length - monitored, t.unmonitored)}
+      ${stat(hosts.length, t.statusNodes)}${stat(up, t.online)}${stat(hosts.length - monitored, t.unmonitored)}
     </div>` +
     section(t.statusNodes, hosts.length, `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${hosts.map((host) => hostCard(host, ctx)).join('')}</div>`)
   );
@@ -216,7 +237,7 @@ export function account(ctx: AppState): string {
   );
 }
 
-export function admin(ctx: AppState): string {
+export function admin(ctx: AppState, { interactive = true }: RenderOptions = {}): string {
   const t = ctx.t;
   const rows = ctx.allServices
     .map(
@@ -235,7 +256,7 @@ export function admin(ctx: AppState): string {
         <th>${esc(t.navServices)}</th><th>ID</th><th>${esc(t.serviceAudience)}</th><th>${esc(t.serviceScope)}</th>
       </tr></thead><tbody>${rows}</tbody></table></div>`,
     ) +
-    (adminServices.length ? section(t.adminSecurity, adminServices.length, grid(adminServices, ctx)) : '')
+    (adminServices.length ? section(t.adminSecurity, adminServices.length, grid(adminServices, ctx, interactive)) : '')
   );
 }
 
@@ -244,21 +265,27 @@ export function forbidden(ctx: AppState): string {
 }
 
 /**
- * What a view page shows when nobody is signed in: the same shell, and a sentence instead of an empty
- * area. The sign-in button lives in the shell above; this explains why the area is bare - and it is the
- * page's own state, not a claim about permission, which the ingress decides (A4).
+ * What stands in a view when the build had no catalogue: the honest state, not an empty one.
+ *
+ * A build without the catalogue is a build that cannot say what the portal offers - and an empty grid would
+ * look like a portal that offers nothing. The browser never uses this: it fetches the catalogue itself and
+ * replaces the whole view as soon as it has it.
  */
-export function signedOut(t: Messages, loginUrl: string): string {
-  return (
-    head(t.signedOutTitle, t.signedOutHint) +
-    `<div class="card max-w-lg border border-base-300 bg-base-200"><div class="card-body gap-3">
-      <p class="text-sm opacity-70">${esc(t.siteDesc)}</p>
-      <div class="card-actions"><a class="btn btn-primary btn-sm" href="${esc(loginUrl)}">${esc(t.workspaceLogin)}</a></div>
-    </div></div>`
-  );
+export function catalogueAbsent(t: Messages): string {
+  return head(t.catalogueAbsentTitle, '') + empty(t.catalogueAbsentHint);
 }
 
-export function detail(ctx: AppState, id: string): string {
+/**
+ * The two views that are *about* the reader (Konto, Verwaltung) cannot be rendered by a file: they need an
+ * identity, and a prerendered page has none. An empty area would be a state nobody designed, and "not
+ * signed in" would be a claim the file cannot make - so it says what is true of the file: this view is
+ * built in the browser, and without scripts what remains is what belongs to everyone.
+ */
+export function needsBrowser(t: Messages): string {
+  return head(t.needsBrowserTitle, '') + empty(t.noscriptHint);
+}
+
+export function detail(ctx: AppState, id: string, { interactive = true }: RenderOptions = {}): string {
   const t = ctx.t;
   // A service the viewer cannot see stays "not found": the portal does not confirm what it does not show.
   const s = ctx.services.find((x) => x.id === id);
@@ -271,7 +298,7 @@ export function detail(ctx: AppState, id: string): string {
     ${localized(s.description, ctx.locale) ? `<p class="opacity-70">${esc(localized(s.description, ctx.locale))}</p>` : ''}
   </div>
   <div class="flex items-center gap-2">
-    <button class="btn btn-square btn-ghost btn-sm tooltip tooltip-bottom" data-tip="${esc(label)}" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">${icon('star', { filled: fav })}</button>
+    ${interactive ? `<button class="btn btn-square btn-ghost btn-sm tooltip tooltip-bottom" data-tip="${esc(label)}" type="button" data-action="favorite" data-id="${esc(s.id)}" aria-pressed="${fav}" aria-label="${esc(label)}">${icon('star', { filled: fav })}</button>` : ''}
     <a class="btn btn-primary btn-sm" href="${esc(s.url)}" target="_blank" rel="noreferrer" data-action="open" data-id="${esc(s.id)}">${esc(t.open)}</a>
   </div></div>
   <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -281,7 +308,7 @@ export function detail(ctx: AppState, id: string): string {
     </div></div>
     <div class="card border border-base-300 bg-base-200"><div class="card-body gap-2 p-4">
       <h2 class="text-sm uppercase tracking-wider opacity-50">${esc(t.serviceScope)}</h2>
-      <div class="flex flex-wrap items-center gap-2">${scopeBadge(s, t)}${statusBadge(s, ctx)}</div>
+      <div class="flex flex-wrap items-center gap-2">${scopeBadge(s, t)}${statusBadge(s, ctx, interactive)}</div>
     </div></div>
     <div class="card border border-base-300 bg-base-200"><div class="card-body gap-2 p-4">
       <h2 class="text-sm uppercase tracking-wider opacity-50">${esc(t.category)}</h2>

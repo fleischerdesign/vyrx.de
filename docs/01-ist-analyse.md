@@ -16,8 +16,9 @@ auch wenn der Node-Prozess steht.
 | Schicht | Ort | Aufgabe |
 |---|---|---|
 | Hülle (SSR) | `src/components/shell/AppShell.astro`, `src/layouts/Layout.astro`, `src/layouts/AppLayout.astro` | **Ein** Shell für zwei Zustände (`data-auth="in|out"`), Navigation, Sprachumschalter, Sprungmarke `#main`; `AppLayout` setzt Dokument, Hülle und Startskript zusammen |
-| Inhalt | `src/components/landing/Landing.astro` | die Landing für Besucher — Inhalt der Startseite, nicht Teil der Hülle |
+| Inhalt | `src/components/landing/Landing.astro`, `src/components/view/StaticView.astro` | die Landing für Besucher und die Datei-Fassung jeder Ansicht (was allen gehört) — Inhalt, nicht Hülle |
 | Verträge | `src/lib/contract.ts` | die Formen, einmal aufgeschrieben: Katalog, Identität, Status, Ansichtsform — Formen, nie Werte |
+| Katalog (Bau) | `src/lib/catalogue.ts` | liest den Katalog beim Bau (`PORTAL_CATALOGUE` oder `./portal.json`) und gibt die Ansicht zurück, die allen gehört |
 | Daten | `src/lib/api.ts` | einziger Ort mit `fetch`; Identität, Katalog, Status, Favoriten |
 | Darstellung | `src/lib/views.ts` | reine Renderfunktionen; „kennen die Katalogform, nie einen Dienstnamen“ |
 | Verhalten | `src/lib/app.ts` | Router (`hashchange`), Ereignisdelegation, Favoriten, Befehlspalette, Offline-Zustand |
@@ -105,11 +106,13 @@ auch wenn der Node-Prozess steht.
   dadurch beliebig aus.
 
 ### 3.4 Zugänglichkeit und Randfälle der Darstellung
-- **`innerHTML` als alleiniger Rendering-Pfad.** Ohne JavaScript bleiben die
-  Ansichten leer — die Landing ist vorgerendert, die Ansichten nicht. An ihrer
-  Stelle steht jetzt ein Ladezustand und ein Satz für Browser ohne Skripte
-  (`AppLayout`), aber der Inhalt fehlt: Nicht-technische Nutzer auf fremden
-  Geräten oder mit Blockern verlieren die Hälfte.
+- **Der Browser baut die Ansicht des Lesers.** Die Datei trägt, was allen gehört
+  (Katalog, Knoten); was dem Leser gehört — Favoriten, seine Dienste, der lebende
+  Zustand — rendert der Browser nach der Anmeldung und ersetzt dabei die Ansicht.
+  Ohne Skripte bleiben Konto und Verwaltung bei einem erklärenden Satz; die
+  übrigen Ansichten zeigen Inhalt. Nicht-technische Nutzer auf fremden Geräten
+  mit Blockern verlieren also nichts mehr, außer den zwei Ansichten über sie
+  selbst.
 - **Nur ein Theme.** `themes: dark --default`; kein heller Modus, keine
   Nutzerpräferenz, kein `prefers-color-scheme` (im Client nicht verwendet).
 - **Statuswechsel sind nicht hörbar.** Änderungen an Zustands-Punkten werden

@@ -11,7 +11,7 @@ import { useTranslations } from '../../i18n';
 import type { Locale } from '../../i18n';
 import { NAV, PRIMARY_NAV } from '../../lib/nav.ts';
 import { icon } from '../../lib/icons.ts';
-import { LOCALES, pathFor } from '../../lib/routes.ts';
+import { LOCALES, loginPathFor, pathFor } from '../../lib/routes.ts';
 import type { Route } from '../../lib/routes.ts';
 
 interface Props {
@@ -22,7 +22,8 @@ interface Props {
 
 const { locale, route } = Astro.props;
 const t = useTranslations(locale);
-const loginUrl = '/outpost.goauthentik.io/start?rd=/';
+// Signing in returns to this page, not to the start page.
+const loginUrl = loginPathFor(locale, route);
 
 const home = pathFor(locale, 'overview');
 ---
