@@ -86,5 +86,8 @@
   "noscriptHint": "Konto und Verwaltung baut der Browser nach der Anmeldung auf; ohne Skripte bleibt sichtbar, was allen gehört.",
   "catalogueAbsentTitle": "Kein Katalog im Bau",
   "catalogueAbsentHint": "Diese Fassung wurde ohne Katalog gebaut; sie kann deshalb nicht sagen, was das Portal anbietet. Im Browser lädt sie den Katalog selbst.",
-  "needsBrowserTitle": "Diese Ansicht braucht den Browser"
+  "needsBrowserTitle": "Diese Ansicht braucht den Browser",
+  "themeLabel": "Darstellung",
+  "themeLight": "Hell",
+  "themeDark": "Dunkel"
 }

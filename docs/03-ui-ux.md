@@ -26,8 +26,9 @@ Grundsätze, die für jede Änderung gelten — und danach konkrete Verbesserung
 ## 2. Verbesserungen, nach Wirkung sortiert
 
 ### Zuerst (klein, große Wirkung)
-- **Hell und dunkel** mit Systemvorgabe plus Wahl, gespeichert je Benutzer.
-  Heute ist `dark` fest vorgegeben.
+- **Hell und dunkel** mit Systemvorgabe plus Wahl (G2, umgesetzt): die Wahl
+  schlägt die Systemvorgabe, sie wird vor dem ersten Bild gesetzt und je Gerät
+  gemerkt (E-0014); benutzerweise braucht sie den Speicher aus D4.
 - **`aria-live` für Zustandswechsel.** Eine Region (`polite`) meldet „Dienst x
   ist ausgefallen“, damit die Aussage nicht nur visuell existiert.
 - **Fokusführung in der Palette.** Beim Öffnen Fokus in das Eingabefeld, in der

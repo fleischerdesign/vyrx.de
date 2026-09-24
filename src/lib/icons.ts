@@ -20,6 +20,8 @@ export const ICONS = [
   'star',
   'arrow-right',
   'lock',
+  'sun',
+  'moon',
 ] as const;
 
 /** Every declared icon, by name. Derived, never repeated. */

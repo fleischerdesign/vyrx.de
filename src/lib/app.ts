@@ -20,6 +20,7 @@ import * as views from './views.ts';
 // cannot name an address the routing does not serve.
 import { NAV } from './nav.ts';
 import { pathFor } from './routes.ts';
+import { wireThemeSwitch } from './theme.ts';
 import type { Route } from './routes.ts';
 import type { AppState, Catalog, Messages, StatusSnapshot } from './contract.ts';
 import type { Locale } from '../i18n/index.ts';
@@ -52,6 +53,9 @@ export async function boot({ messages, locale, route, id, accountUrl }: BootOpti
   const main = document.getElementById('main');
   if (!main) return;
   page = { route, id };
+  // The appearance control is shell behaviour and belongs to both states, so it is wired before anything
+  // that depends on an identity - a visitor gets it too.
+  wireThemeSwitch();
 
   // The registry is public and is read first: the landing shows the fleet to everyone, and the same
   // answer feeds the signed-in app, so there is one fetch and one truth.

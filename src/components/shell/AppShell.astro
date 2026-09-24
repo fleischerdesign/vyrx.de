@@ -53,6 +53,35 @@ const addressIn = (target: Locale) => pathFor(target, id ? 'detail' : route ?? '
       </div>
 
       <div class="navbar-end gap-2">
+        {
+          /* The appearance control (G2): two states, each button says which one it is. A script switches it
+             and stores the choice, so it is only shown where a script runs (`html.js` in `daisy.css`) - the
+             system preference answers otherwise. The active state is marked by the client, which is why the
+             buttons carry `aria-pressed` and let CSS do the looking. */
+        }
+        <div class="theme-switch join" role="group" aria-label={t.themeLabel}>
+          <button
+            type="button"
+            class="btn btn-sm join-item aria-pressed:btn-active"
+            data-theme-choice="light"
+            aria-pressed="false"
+            aria-label={t.themeLight}
+            title={t.themeLight}
+          >
+            <Fragment set:html={icon('sun', { size: 'size-4' })} />
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm join-item aria-pressed:btn-active"
+            data-theme-choice="dark"
+            aria-pressed="false"
+            aria-label={t.themeDark}
+            title={t.themeDark}
+          >
+            <Fragment set:html={icon('moon', { size: 'size-4' })} />
+          </button>
+        </div>
+
         <div class="join" data-auth="out">
           {
             LOCALES.map((target) => (

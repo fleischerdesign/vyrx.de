@@ -19,9 +19,10 @@ ohnehin stattfindet:
 
 **Triage.** Der erste Arbeitsblock ist entschieden und trägt den Status
 `geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
-Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2, S3, S4, S5 und G3 inzwischen
-`umgesetzt` (Belege bei den Einträgen; E-0010 bis E-0013) — der S-Block ist
-vollständig. Alles andere bleibt `idee` und ist damit ausdrücklich
+Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2, S3, S4, S5, G2 und G3 inzwischen
+`umgesetzt` (Belege bei den Einträgen; E-0010 bis E-0014) — vom S-Block und den
+kleinen Griffen fehlen nur noch G1 (wartet auf die Zeichen) und G6/G7, deren
+Akzeptanz der Code bereits erfüllt. Alles andere bleibt `idee` und ist damit ausdrücklich
 nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
@@ -162,8 +163,17 @@ Flotten-Rebuild.
 
 - **G1 Installierbar (PWA)** — `geplant` · `M` · Manifest, Symbole, Startbild.
   AC: Kein Symbol fehlt, der Start vom Startbildschirm führt in die Anmeldung.
-- **G2 Hell und dunkel** — `geplant` · `S` · Systemvorgabe plus Wahl. AC: Die Wahl
+- **G2 Hell und dunkel** — `umgesetzt` · `S` · Systemvorgabe plus Wahl. AC: Die Wahl
   gewinnt gegen die Systemvorgabe und flackert beim Laden nicht.
+  *Beleg:* zwei Themes in `daisy.css` (`light --default, dark --prefersdark`), die
+  Wahl im Gerätespeicher, gesetzt von einem Kopfskript **vor** dem Stylesheet und
+  dem ersten Bild (`Layout.astro`); die Steuerung sitzt in der Hülle und ist nur
+  mit Skript sichtbar (`html.js`). Mit headless Chromium belegt: ohne Wahl folgt
+  die Steuerung der Systemvorgabe (hell → hell, dunkel → dunkel); mit
+  gespeicherter Wahl „hell“ bei dunkler Systemvorgabe bleibt
+  `data-theme="light"` — die Wahl gewinnt. Ohne die `js`-Klasse fehlt die
+  Steuerung im gerenderten Kopf (Bildvergleich). Grenze: die Wahl gilt je Gerät
+  (E-0014); benutzerweise braucht sie den Speicher aus D4.
 - **G3 Ansichten ohne JavaScript** — `umgesetzt` · `L` · Die Ansichten serverseitig
   ausliefern, der Client übernimmt danach. AC: `/services/` zeigt mit
   abgeschaltetem JavaScript Inhalt statt einer leeren Fläche.

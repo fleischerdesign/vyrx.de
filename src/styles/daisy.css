@@ -3,8 +3,17 @@
    fonts land in the final step, so nothing here styles a component individually. */
 @import "tailwindcss";
 @plugin "daisyui" {
-  themes: dark --default;
+  /* Two states of one design (G2). Without a stored choice, `prefers-color-scheme` decides: light is the
+     default, dark is what a system asking for dark gets. A stored choice is written onto `<html>` as
+     `data-theme` before the first paint and beats both - see `lib/theme.ts`. */
+  themes: light --default, dark --prefersdark;
 }
 
 /* The shell ships both auth states; the attribute is the switch, and it must win over daisyUI display classes. */
 [hidden] { display: none !important; }
+
+/* The appearance control is switched by a script, so it is only shown where a script runs. The head
+   script marks the document (`html.js`) before anything is painted; without that mark the control stays
+   out of the way and the system preference is the whole answer. No button that does nothing. */
+.theme-switch { display: none; }
+html.js .theme-switch { display: inline-flex; }
