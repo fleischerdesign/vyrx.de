@@ -127,6 +127,30 @@ Migrationen laufen beim Start über die Schemaversion. **Grenze, ausdrücklich:*
 Bekommen Vorgänge Kommentare, Zuständige und Fälligkeiten, entsteht ein zweites
 Aufgabensystem — dann ist der Entwurf falsch, nicht die Tabelle.
 
+### E-0010 — Geprüft wird mit `node --test`, ohne neues Paket
+*Kontext:* H1 verlangt eine Prüfung der Übersetzungsparität. Das Repository hatte
+keinen Testläufer, keine Testdatei und keinen Lauf, der eine Prüfung anstößt; die
+Parität hielt, weil jemand nachgesehen hatte (84 Schlüssel je Sprache, gemessen
+am 2026-09-24).
+*Entscheidung:* `node --test` — der Läufer, der in Node 24 enthalten ist — ist
+der Läufer. `npm run test` läuft allein, `npm run check` ist `astro check` plus
+Tests, und `npm run build` beginnt mit `check`. Eine fehlende Übersetzung bricht
+damit den Bau, wie H1 es verlangt.
+*Begründung:* Dieselbe Abwägung wie bei E-0009: was die Laufzeit mitbringt,
+braucht kein Paket. Die Prüfungen liegen als TypeScript in `test/` und werden von
+Node direkt gelesen (Typen werden entfernt, nicht übersetzt) — keine zweite
+Konfiguration, kein Übersetzungsschritt vor dem Prüfen, keine zusätzliche
+Abhängigkeit in einem Baum, der bewusst schlank ist.
+*Alternativen:* Vitest (kann mehr — Browserumgebung, Schnappschüsse, Abdeckung —
+kostet aber ein Paket, eine eigene Konfiguration und eine zweite Meinung dazu,
+was ein Test ist); kein Läufer (dann bleibt eine Prüfung eine Behauptung, und H2
+und H3 stehen ohne Grundlage); ein Skript im `build` ohne Rahmen (billiger, aber
+ohne Einzelergebnis und ohne Namen für den Fehler).
+*Konsequenzen:* `test/` ist der Ort für Prüfungen, H2 und H3 setzen darauf auf.
+Ein späterer Wechsel des Läufers kostet die Testdateien, nicht die Absicht. Und:
+eine Prüfung, die niemand anstößt, ist keine Prüfung — im Repository stößt sie
+`npm run check` an, im Änderungsvorschlag noch niemand (H3).
+
 ## Entscheidungen zu den offenen Fragen (2026-09-23)
 
 Diese zehn Fragen waren als offen notiert und sind am 2026-09-23 entschieden.
