@@ -1,6 +1,11 @@
 # 01 — Ist-Analyse
 
 Stand: 2026-09-22, Branch `main`, Repository `github.com/fleischerdesign/vyrx.de`.
+Nachtrag 2026-09-24: Die Grundlage (S1–S5), die Übersetzungsparität (H1), die
+Darstellung (G2), die Dateien ohne Skripte (S3, G3) und die Barrierefreiheit (G7)
+sind umgesetzt — `06-entscheidungen.md` E-0010 bis E-0014, `02-feature-backlog.md`
+trägt den Stand bei jedem Eintrag. Was dieser Bericht beschreibt, bleibt der
+Ausgangspunkt; die Abschnitte, die diese Arbeit berichtigt hat, sagen es jetzt.
 Gegenstück für den Betrieb: `fleischerdesign/nixfiles` (Caddy, Outpost, Kollektor).
 
 ## 1. Was das Portal heute ist
@@ -97,10 +102,12 @@ auch wenn der Node-Prozess steht.
   nachweisbar machen und im Portal-Dokument dokumentieren.
 - **Kein Health-Endpunkt des Portals selbst.** `/api/status` misst die Flotte,
   nicht das Portal.
-- **Polling statt Bedarf.** Ein `setInterval` von 20 s läuft immer, auch wenn
-  der Tab im Hintergrund ist oder niemand hinsieht.
-- **Kein Timeout, kein Abbruch.** `fetch` in `api.ts` hat weder `AbortController`
-  noch Zeitlimit; ein hängender Kollektor bleibt ein hängender Skeleton.
+- **Polling mit Bedacht.** *(berichtigt: erfüllt G6)* `tick()` steigt bei
+  verstecktem Tab sofort aus, und nur Seiten mit lebendigen Zahlen fragen
+  überhaupt — die Kontoseite tut es nicht.
+- **Zeitlimit statt hängender Anzeige.** *(berichtigt)* Jeder Abruf in `api.ts`
+  trägt `AbortSignal.timeout(8000)`; die Route gibt dem Kollektor fünf Sekunden,
+  der Browser wartet etwas länger als das, was er gefragt hat.
 - **Kein `favicon`, kein `manifest`, kein Vorschaubild.** `public/` enthält nur
   `.well-known/security.txt` und `robots.txt`; Lesezeichen und Teilen sehen
   dadurch beliebig aus.
@@ -117,11 +124,13 @@ auch wenn der Node-Prozess steht.
   gesetzt vor dem ersten Bild; ohne Wahl entscheidet das System, und der
   Umschalter erscheint nur, wo ein Skript läuft (G2, E-0014). Benutzerweise statt
   geräteweise wird die Wahl erst mit dem eigenen Speicher (D4, E-0009).
-- **Statuswechsel sind nicht hörbar.** Änderungen an Zustands-Punkten werden
-  nicht über `aria-live` gemeldet; für Screenreader passiert nichts.
-- **Doppelte Bedienwege, aber keine Tastenkürzel-Anzeige.** Es gibt eine
-  Befehlspalette; `Cmd/Ctrl+K` und die weiteren Tasten stehen nirgends, ebenso
-  fehlen Fokusfalle und Rückgabe des Fokus beim Schließen.
+- **Statuswechsel sind hörbar.** *(berichtigt)* Die Hülle trägt eine höfliche
+  Region (`#live-region`); ein Takt sagt, was sich geändert hat — und nur echte
+  Änderungen zwischen zwei Antworten, höchstens drei auf einmal.
+- **Bedienwege ohne Maus.** *(berichtigt)* `⌘K` steht im Kopf der Befehlspalette,
+  `/` öffnet sie ebenfalls; den Fokus fängt das native `<dialog>` und gibt ihn
+  beim Schließen zurück. Eine Favoriten-Wahl ersetzt nur den Stern, nicht die
+  Ansicht — der Fokus bleibt, wo er war.
 
 ### 3.5 Qualitätssicherung
 - **Keine Formatierung, kein Prüflauf im Änderungsvorschlag.** Seit H1 gibt es
@@ -142,8 +151,8 @@ auch wenn der Node-Prozess steht.
 | Internationalisierung | stark | volle Parität, saubere Umschaltung |
 | Authentifizierung | stark | Token bleibt aus dem Browser |
 | Beobachtbarkeit | mittel | nur Prometheus-Serien, kein Portal-Health, kein Verlauf |
-| Zugänglichkeit | mittel | Skip-Link und `aria` vorhanden, Fokusführung und `aria-live` fehlen |
-| Randfall ohne JavaScript | schwach | Ansichten sind ausschließlich client-gerendert |
+| Zugänglichkeit | stark | Sprungmarke, `aria`, Ansagen für Zustandswechsel, `prefers-reduced-motion`, geprüfte Zustandsfarben; ein Durchgang mit Screenreader steht aus |
+| Randfall ohne JavaScript | stark | die Datei trägt Katalog und Knoten (S3, G3); Konto und Verwaltung brauchen den Browser und sagen es |
 | Inhalt | schwach | keine Wissensbasis, kein Ankündigungsweg |
-| Qualitätssicherung | schwach | eine Prüfung und `npm run check` (H1, E-0010); kein Lauf je Änderungsvorschlag, keine Formatregeln |
+| Qualitätssicherung | mittel | elf Prüfungen, `npm run check` und eine Kontrastprüfung des gebauten CSS im Bau; kein Lauf je Änderungsvorschlag, keine Formatregeln |
 | Dokumentation | schwach | dieser Ordner ist der Anfang |
