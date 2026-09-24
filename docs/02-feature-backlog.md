@@ -17,11 +17,11 @@ ohnehin stattfindet:
 - **Ferne (Portal oder Telefon)** — R3 Rollback, C1 Statushistorie: das Portal
   ist der Ort, an dem man ist, wenn man nicht dort ist, wo man sonst ist
 
-**Triage.** Der erste Arbeitsblock ist entschieden und trägt den Status
-`geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
-Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2, S3, S4, S5, G2 und G3 inzwischen
-`umgesetzt` (Belege bei den Einträgen; E-0010 bis E-0014) — vom S-Block und den
-kleinen Griffen fehlt nur noch **G1**, und das wartet auf die Zeichen. Alles andere bleibt `idee` und ist damit ausdrücklich
+**Triage.** Der erste Arbeitsblock ist entschieden und **vollständig
+`umgesetzt`**: die Grundlage S1–S5, die Übersetzungsparität H1 und die kleinen
+Griffe G1, G2, G6 und G7 — Belege stehen bei jedem Eintrag, die Entscheidungen in
+`06-entscheidungen.md` (E-0010 bis E-0014). Es steht kein Eintrag mehr auf
+`geplant`. Alles andere bleibt `idee` und ist damit ausdrücklich
 nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
@@ -160,8 +160,19 @@ Flotten-Rebuild.
 
 ## G. Plattform
 
-- **G1 Installierbar (PWA)** — `geplant` · `M` · Manifest, Symbole, Startbild.
+- **G1 Installierbar (PWA)** — `umgesetzt` · `M` · Manifest, Symbole, Startbild.
   AC: Kein Symbol fehlt, der Start vom Startbildschirm führt in die Anmeldung.
+  *Beleg:* `public/` trägt `favicon.ico` (16/32/48), `favicon.svg`,
+  `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png`,
+  `icon-maskable-512.png` und `site.webmanifest` (`start_url` ist der
+  Anmeldeweg, `scope` die Seite); der Kopf verweist auf alle, dazu
+  `theme-color` je Systemvorgabe. Vier Anordnungen aus **einem** Werk
+  (`docs/brand/build.py`, keine Buchstabe nachgezeichnet): Wortmarke einzeilig
+  für breite Plätze, VY/RX zweizeilig ab ~48 px, ein Buchstabe bei 16 px, die
+  Kachel für die Sichtbarkeit in hellem und dunklem Reiter. Gemessen: bei 16 px
+  liefert die einzeilige Wortmarke 0 Pixel Tinte, die zweizeilige 25 (Striche),
+  ein einzelner Buchstabe 30 und ist lesbar — deshalb die Staffelung. Das
+  Bauskript prüft am Ende, dass die Tinte in jeder Kachel mittig sitzt.
 - **G2 Hell und dunkel** — `umgesetzt` · `S` · Systemvorgabe plus Wahl. AC: Die Wahl
   gewinnt gegen die Systemvorgabe und flackert beim Laden nicht.
   *Beleg:* zwei Themes in `daisy.css` (`light --default, dark --prefersdark`), die

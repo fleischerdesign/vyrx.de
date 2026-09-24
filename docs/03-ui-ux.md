@@ -36,8 +36,9 @@ Grundsätze, die für jede Änderung gelten — und danach konkrete Verbesserung
 - **Kürzel sichtbar.** `?` für eine Übersicht, die Palette nennt ihre Tasten.
 - **Fehler- und Leerzustände vereinheitlichen.** Ein Muster für alle Ansichten:
   Was ist passiert, was bedeutet es, was kann ich tun.
-- **Symbole und Manifest.** Ohne `favicon` und `manifest` wirkt das Portal in
-  Lesezeichen und auf dem Startbildschirm unfertig.
+- **Symbole und Manifest.** *(erledigt, G1)* Sieben Dateien aus einer Zeichnung,
+  gestaffelt nach Größe: ein Buchstabe bei 16 px, VY/RX zweizeilig ab ~48 px,
+  Wortmarke einzeilig für breite Plätze (`docs/brand/`).
 - **Polling nur bei sichtbarem Tab** (`visibilitychange`), längeres Intervall
   im Hintergrund.
 
