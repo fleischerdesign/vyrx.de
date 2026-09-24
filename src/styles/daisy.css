@@ -12,8 +12,42 @@
 /* The shell ships both auth states; the attribute is the switch, and it must win over daisyUI display classes. */
 [hidden] { display: none !important; }
 
+/* Three values, because they are the only place where colour carries a state: the dot in `statusBadge`
+   and `hostCard`. WCAG 1.4.11 asks 3:1 for a graphical object, and daisyUI's defaults do not hold it in
+   either theme - light success 1.96 and error 2.87 against the surface, dark neutral 1.26, which is a dot
+   nobody can see. The values below stay on daisyUI's hue and pass in both surfaces (base-100 and
+   base-200); `test/contrast.test.ts` computes the ratios and keeps them there, so a theme change cannot
+   quietly undo this.
+
+   Only the dots use these names (checked against the source), so nothing else in the interface moves. */
+@plugin "daisyui/theme" {
+  name: "light";
+  --color-success: oklch(50% 0.13 155);
+  --color-error: oklch(52% 0.2 25);
+  /* Grey means "nobody answered". Mid grey reads as that in a light theme too, where near-black would
+     look like a statement. */
+  --color-neutral: oklch(60% 0.01 254);
+}
+@plugin "daisyui/theme" {
+  name: "dark";
+  /* In the dark theme success and error already pass; only "unbekannt" was invisible. */
+  --color-neutral: oklch(65% 0.01 254);
+}
+
 /* The appearance control is switched by a script, so it is only shown where a script runs. The head
    script marks the document (`html.js`) before anything is painted; without that mark the control stays
    out of the way and the system preference is the whole answer. No button that does nothing. */
 .theme-switch { display: none; }
 html.js .theme-switch { display: inline-flex; }
+
+/* Motion is decoration, and some readers have told their system they do not want it: skeletons that pulse
+   and spinners that turn are exactly the kind of thing that makes a page unusable for them. One rule, so
+   no component has to remember it (G7). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
