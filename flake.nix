@@ -33,6 +33,11 @@
 
           src = ./.;
 
+          # This value belongs to `package-lock.json` and changes with it. It went stale once, which
+          # cost a build: `@types/node` (and its `undici-types`) entered the lock and this line did not
+          # follow, so any flake consuming this repository stopped in npmConfigHook with
+          # "npmDepsHash is out of date". Whoever touches the lock recomputes this with:
+          #   nix run nixpkgs#prefetch-npm-deps -- package-lock.json
           npmDepsHash = "sha256-HjXS+mvrOEt3QFAlqQNQUTk4Aad2AssoudHHPUY9JPE=";
 
           inherit nodejs;
