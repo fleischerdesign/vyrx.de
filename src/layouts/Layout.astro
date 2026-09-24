@@ -17,15 +17,18 @@ interface Props {
   locale: Locale;
   /** The view this document is. Absent means the address is a miss, and a miss is not an address. */
   route?: Route['name'];
+  /** The service, when this document is a service page: part of its address, so part of its canonical. */
+  id?: string | null;
 }
 
-const { locale, route } = Astro.props;
+const { locale, route, id = null } = Astro.props;
 const t = useTranslations(locale);
 const definition = route ? routeFor(route) : undefined;
 const label = definition ? t[definition.key] : '';
 const title = route && route !== 'overview' && label ? `${label} · VYRX` : t.siteTitle;
 const description = (definition?.descKey ? t[definition.descKey] : '') || t.siteDesc;
-const absolute = (target: Locale) => new URL(pathFor(target, route ?? 'overview'), Astro.site).href;
+const absolute = (target: Locale) =>
+  new URL(pathFor(target, id ? 'detail' : route ?? 'overview', id ?? undefined), Astro.site).href;
 ---
 
 <!DOCTYPE html>

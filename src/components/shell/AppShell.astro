@@ -5,8 +5,7 @@
 // Every address in here comes from the route table, and every entry that is the page's own carries
 // `aria-current` from the server - a client that has not run yet cannot be the only thing that knows where
 // the reader is. The language switch points at the *same view* in the other language, so switching a
-// language is not going home; a selected service is carried into that address by the client, because a
-// prerendered file cannot know the query it was opened with.
+// language is not going home. A service has its own address, so the switch can carry it without help.
 import { useTranslations } from '../../i18n';
 import type { Locale } from '../../i18n';
 import { NAV, PRIMARY_NAV } from '../../lib/nav.ts';
@@ -18,14 +17,19 @@ interface Props {
   locale: Locale;
   /** The view this page is. Absent on a miss, which is why nothing is marked as current there. */
   route?: Route['name'];
+  /** The service, when this page is a service page: signing in returns here, not to the catalogue. */
+  id?: string | null;
 }
 
-const { locale, route } = Astro.props;
+const { locale, route, id = null } = Astro.props;
 const t = useTranslations(locale);
 // Signing in returns to this page, not to the start page.
-const loginUrl = loginPathFor(locale, route);
+const loginUrl = loginPathFor(locale, route, id);
 
 const home = pathFor(locale, 'overview');
+// One address per language, the same view in each - and a service page carries its own name, because now
+// it has one. Switching the language is not going home, and it is not losing the service either.
+const addressIn = (target: Locale) => pathFor(target, id ? 'detail' : route ?? 'overview', id ?? undefined);
 ---
 
 <a class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-content" href="#main">{t.skipToContent}</a>
@@ -53,7 +57,7 @@ const home = pathFor(locale, 'overview');
           {
             LOCALES.map((target) => (
               <a
-                href={pathFor(target, route ?? 'overview')}
+                href={addressIn(target)}
                 hreflang={target}
                 data-locale-switch={target}
                 class={`btn btn-sm join-item${target === locale ? ' btn-active' : ''}`}

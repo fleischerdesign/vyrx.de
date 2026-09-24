@@ -31,9 +31,9 @@ auch wenn der Node-Prozess steht.
   Seite mit eigenem Kopf (`/services/`, `/status/`, `/account/`, `/admin/` und
   die englischen Zwillinge), dazu je eine `404`-Seite pro Sprache. Die Adressen
   entstehen aus einer Tabelle: `src/lib/routes.ts`.
-- Die Auswahl eines Dienstes ist noch keine eigene Adresse, sondern eine Abfrage
-  an der Katalogseite (`/services/?service=<id>`); sie wird mit S5 zu
-  `/services/<id>/`.
+- Jeder Dienst hat eine eigene Seite (`/services/<id>/`, englisch
+  `/en/services/<id>/`) — erzeugt aus dem Katalog, der beim Bau gelesen wird
+  (`src/lib/catalogue.ts`).
 - Für Nicht-Administratoren rendert `/admin/` die Verbotsansicht statt der
   Matrix — der Zustand ist also sichtbar, nicht leer.
 - Endpunkte: `/api/me`, `/api/status`, `/api/hosts`, plus JSON-404 für alles

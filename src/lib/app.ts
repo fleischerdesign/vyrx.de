@@ -19,7 +19,7 @@ import * as views from './views.ts';
 // The navigation is declared once, in `lib/nav.ts` - which derives it from the route table, so an entry
 // cannot name an address the routing does not serve.
 import { NAV } from './nav.ts';
-import { pathFor, selectedPathFor } from './routes.ts';
+import { pathFor } from './routes.ts';
 import type { Route } from './routes.ts';
 import type { AppState, Catalog, Messages, StatusSnapshot } from './contract.ts';
 import type { Locale } from '../i18n/index.ts';
@@ -30,8 +30,8 @@ export interface BootOptions {
   readonly locale: Locale;
   /** The view this page is; the routing decided it, the client does not decide it again. */
   readonly route: Route['name'];
-  /** The service the catalogue page has selected, if the address carried one. */
-  readonly selected: string | null;
+  /** The service this address names, for a service page: the address carries it, nothing else does. */
+  readonly id: string | null;
   readonly accountUrl: string;
 }
 
@@ -40,30 +40,18 @@ export interface BootOptions {
 // place that knew the routes, and a page that only worked once the script had run.
 const navigate = (path: string): void => location.assign(path);
 
-// The language switch leads to the same view in the other language. Its address is rendered by the server
-// from the route table; the selection lives in a query, and a prerendered file cannot know which query it
-// was opened with - so the browser, which does know, hands it to the switch.
-function carrySelection(selected: string | null): void {
-  if (!selected) return;
-  for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-locale-switch]')) {
-    const target = link.dataset.localeSwitch as Locale | undefined;
-    if (target) link.href = selectedPathFor(target, selected);
-  }
-}
-
 // The application state lives exactly once, and it is handed to the views as a whole: a view that reaches
 // for anything else is reaching past its contract. It is `undefined` until the identity answers, which is
 // the state the shell renders as a visitor's page.
 let state: AppState | undefined;
 
 /** The page this document is: the view and, for the catalogue, the selection it was opened with. */
-let page: { route: Route['name']; selected: string | null } | undefined;
+let page: { route: Route['name']; id: string | null } | undefined;
 
-export async function boot({ messages, locale, route, selected, accountUrl }: BootOptions): Promise<void> {
+export async function boot({ messages, locale, route, id, accountUrl }: BootOptions): Promise<void> {
   const main = document.getElementById('main');
   if (!main) return;
-  page = { route, selected };
-  carrySelection(selected);
+  page = { route, id };
 
   // The registry is public and is read first: the landing shows the fleet to everyone, and the same
   // answer feeds the signed-in app, so there is one fetch and one truth.
@@ -178,7 +166,7 @@ let landingStatus: StatusSnapshot | null = null;
 // address it parses again. The selection is the catalogue's, so it belongs to the catalogue view.
 function viewFor(source: AppState): string {
   if (!page) return views.overview(source);
-  if (page.route === 'services' && page.selected) return views.detail(source, page.selected);
+  if (page.route === 'services' && page.id) return views.detail(source, page.id);
   switch (page.route) {
     case 'services': return views.services(source);
     case 'status': return views.status(source);
@@ -286,7 +274,7 @@ function installPalette(app: AppState): void {
         groups[t.cmdServices]!.push({
           label: service.name,
           hint: service.category,
-          run: () => navigate(selectedPathFor(app.locale, service.id)),
+          run: () => navigate(pathFor(app.locale, 'detail', service.id)),
         });
     }
     for (const [category, entries] of categories(app.services)) {

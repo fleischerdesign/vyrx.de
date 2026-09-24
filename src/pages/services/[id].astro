@@ -1,0 +1,21 @@
+---
+// A service page: one address per service, prerendered as a file (S5).
+//
+// The catalogue is a build input (`src/lib/catalogue.ts`), so the services are known while the site is
+// built - which is what `getStaticPaths` needs. A build without a catalogue produces no service pages,
+// and there is nothing to link to either: that build already says "Kein Katalog im Bau" on the catalogue
+// page rather than offering services it cannot name.
+import AppLayout from '../../layouts/AppLayout.astro';
+import { readCatalogue } from '../../lib/catalogue.ts';
+
+export function getStaticPaths() {
+  const catalogue = readCatalogue();
+  return (catalogue?.services ?? []).map((service) => ({ params: { id: service.id } }));
+}
+
+// The route parameter *is* the address: `Astro.params.id` is what the path says, and nothing has to be
+// passed twice through `getStaticPaths`.
+const { id } = Astro.params;
+---
+
+<AppLayout locale="de" route="services" id={id} />

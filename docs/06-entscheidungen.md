@@ -193,8 +193,13 @@ bleibt erreichbar.
 die Oberfläche schon hat); `/services/<id>` serverseitig rendern (ein zweiter
 Auslieferungsweg für eine Seite, gegen die Zusage oben).
 *Konsequenzen:* Die Abfrage kennt nur der Browser, die vorgerenderte Datei nicht —
-deshalb trägt der Sprachumschalter sie clientseitig mit. Verweise auf die
-Adresse gibt es nur in `routes.ts`, also ist der Wechsel mit S5 eine Zeile.
+deshalb trug der Sprachumschalter sie clientseitig mit. Verweise auf die Adresse
+gibt es nur in `routes.ts`, also war der Wechsel mit S5 eine Zeile.
+
+*Abgelöst durch S5* (2026-09-24): Jeder Dienst hat jetzt eine eigene Seite
+(`/services/<id>/`), erzeugt aus dem Katalog als Bau-Eingang (E-0013). Die
+Zwischenlösung mit der Abfrage ist damit weg — und mit ihr das clientseitige
+Nachreichen im Sprachumschalter.
 
 ### E-0013 — Der Katalog ist ein Bau-Eingang, und die Datei trägt, was allen gehört
 *Kontext:* Jede Ansicht entstand im Browser, weil der Katalog nur dort gelesen
