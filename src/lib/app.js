@@ -45,8 +45,8 @@ export async function boot({ messages, locale, loginUrl, accountUrl }) {
   for (const node of document.querySelectorAll('[data-field="username"]')) node.textContent = identity.name || identity.username;
   for (const node of document.querySelectorAll('[data-field="initial"]')) node.textContent = (identity.name || identity.username || 'U').charAt(0).toUpperCase();
   // The catalogue is one fetch away; skeletons are honest, the landing behind the app chrome is not.
-  document.getElementById('main').innerHTML =
-    '<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">' + '<div class="skeleton h-36"></div>'.repeat(6) + '</div>';
+  // The shape of a skeleton is a view concern, so it comes from the views and is not spelled out here.
+  document.getElementById('main').innerHTML = views.skeletonGrid(6);
 
   state = {
     t: messages,

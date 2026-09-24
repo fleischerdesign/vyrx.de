@@ -50,7 +50,10 @@ function tile(s, ctx) {
 }
 
 const grid = (list, ctx) => `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${list.map((s) => tile(s, ctx)).join('')}</div>`;
-const skeletons = (count = 6) =>
+// The loading state, declared once: the shell shows it before the catalogue arrives, the views show it
+// before the first live read. It used to exist twice - here (dead, never called) and as a string literal in
+// `app.js` - which is the kind of duplicate that drifts the day one of them gets a different height.
+export const skeletonGrid = (count = 6) =>
   `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${Array.from({ length: count }, () => '<div class="skeleton h-36"></div>').join('')}</div>`;
 
 const section = (title, count, body) =>
