@@ -16,6 +16,13 @@ Er ist **kein** Endnutzer-Handbuch — das wird die Wissensbasis (Wiki, siehe
 | `04-integrationen.md` | Entwurf für ein generisches Integrationssystem (Dienste ansprechen) | bei Entwurfsänderungen |
 | `05-personas-usecases.md` | Wer nutzt wofür, welche Szenarien und Randfälle | laufend |
 | `06-entscheidungen.md` | Getroffene Entscheidungen und offene Fragen | bei jeder Entscheidung |
+| `07-pruefung-2026-09-24.md` | Prüfung der lebenden Adresse und des Logo-Pakets: Befunde mit Beleg, Vorschläge als Block U | einmalig, datiert |
+| `logo/` | Wortmarke, Marke, Favicon, App-Symbol, Teilen-Karte, Prüfseite (`logo/preview.html`) | bei jeder Markenänderung |
+
+`07-…` ist eine datierte Momentaufnahme, keine laufende Datei: die Vorschläge
+darin sind bewusst **nicht** in `02-feature-backlog.md` eingetragen und die
+berichtigten Stellen aus seinem Abschnitt 1.6 sind bewusst **nicht** in
+`01-ist-analyse.md` geändert. Beides ist eine Entscheidung, keine Aufräumarbeit.
 
 ## Konventionen
 

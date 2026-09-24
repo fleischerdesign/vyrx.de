@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VYRX Logo — Paket und Prüfung</title>
+<link rel="icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<style>
+  :root { --line:#333; }
+  body { margin:0; background:#111; color:#eee; font:15px/1.6 ui-sans-serif, system-ui, sans-serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing:.05em; }
+  h2 { font-size: 16px; margin: 48px 0 12px; text-transform: uppercase; letter-spacing:.12em; color:#9aa; }
+  p { color:#bdc; max-width: 76ch; }
+  ul { color:#bdc; max-width: 76ch; }
+  .panel { border:1px solid var(--line); border-radius:12px; padding:24px; margin:12px 0; }
+  .white { background:#fff; }
+  .grid { display:flex; flex-wrap:wrap; gap:26px; align-items:flex-end; }
+  .cell { text-align:center; }
+  .cell span { display:block; margin-top:8px; font-size:11px; color:#9aa; font-family:ui-monospace,monospace; }
+  .tab { background:#2b2b2b; border-radius:8px 8px 0 0; padding:6px 14px; display:inline-flex; align-items:center; gap:8px; font-size:12px; }
+  .tab.light { background:#e8e8e8; color:#222; }
+  .tab img { width:16px; height:16px; }
+  code, pre { font: 12px/1.5 ui-monospace, monospace; background:#1b1b1b; color:#dfe; }
+  pre { padding:14px; border-radius:8px; overflow-x:auto; border:1px solid var(--line); }
+  .bad { color:#ff9d9d; } .good { color:#9dffb0; }
+  table { border-collapse:collapse; font-size:13px; margin:12px 0; }
+  th,td { border:1px solid var(--line); padding:6px 10px; text-align:left; }
+  th { color:#9aa; font-weight:400; }
+  img.raw { image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<main>
+  <h1>VYRX<span style="color:#7c5cff">.</span> Logo — Paket und Prüfung</h1>
+  <p>Zwei Lieferungen liegen vor: ein Stück <strong>Code</strong> (SVG-Pfade) und ein
+  <strong>Markenbogen als PNG</strong>. Beide sind vermessen, gerendert und verglichen.
+  Aus der Geometrie des Codes ist ein vollständiges Satzzeichen geworden — Favicon,
+  App-Symbol, maskable, Teilen-Karte.</p>
+
+  <h2>1. Markenbogen gegen Code</h2>
+  <div class="panel white">
+    <img src="wordmark-compare-view.png" alt="Vier Fassungen der Wortmarke im Vergleich" style="width:100%">
+  </div>
+  <table>
+    <tr><th>Maß</th><th>Markenbogen (PNG)</th><th>Code (SVG-Pfade)</th></tr>
+    <tr><td>Versalhöhe</td><td>137 px</td><td>185 Einheiten</td></tr>
+    <tr><td>Breite V / Y / R / X</td><td>194 / 167 / 149 / 185 px</td><td>280 / 260 / 260 / 240</td></tr>
+    <tr><td>Breite, auf Versalhöhe 185 normiert</td><td>262 / 225 / 201 / 250</td><td>280 / 260 / 260 / 240</td></tr>
+    <tr><td>Abstände</td><td>43 / 45 / 37 px → 58 / 61 / 50 normiert</td><td>20 / 20 / <span class="bad">−120</span></td></tr>
+    <tr><td>Buchstaben im Paar R|X</td><td>getrennt</td><td><span class="bad">verschmolzen</span></td></tr>
+  </table>
+  <p><strong>Was daraus folgt.</strong> Der Bogen ist keine maßstäbliche Vorlage für den Code:
+  die Buchstaben des Codes sind breiter (Y +16 %, R +29 %, normiert), und der Code setzt sie
+  etwa dreimal enger. Das eine ist Geschmack (Zeile 3 oder Zeile 4), das andere ein Fehler
+  (Zeile 2): das X liegt 120 Einheiten im R.</p>
+
+  <h2>2. Quadratmarke und Favicon</h2>
+  <div class="panel" style="background:#1a1a1a">
+    <div class="grid">
+      <div class="cell"><img src="mark-256.png" width="112" alt=""><span>mark.svg — V, frei</span></div>
+      <div class="cell"><img src="icon-512.png" width="112" alt=""><span>App-Symbol (Bogen-Stil)</span></div>
+      <div class="cell"><img src="favicon-16.png" alt=""><span>favicon 16</span></div>
+      <div class="cell"><img src="favicon-32.png" alt=""><span>favicon 32</span></div>
+      <div class="cell"><img src="icon-maskable-512.png" width="112" alt=""><span>maskable</span></div>
+    </div>
+    <p>Der Bogen zeigt als App-Symbol die <em>Wortmarke</em> in der Kachel. Bei 32 px ist sie
+    ein Fleck (links unten, 8× vergrößert) — deshalb trägt das Favicon das <strong>V</strong>,
+    die Kachel für den Startbildschirm weiterhin die Wortmarke.</p>
+    <div class="grid" style="margin-top:18px">
+      <div class="cell"><img class="raw" src="tiles-small-zoom.png" width="220" alt=""><span>Kachel mit Wortmarke, 32 und 64 px, 8×</span></div>
+      <div class="cell"><img class="raw" src="favicon-zoom.png" width="220" alt=""><span>Favicon mit V, 128/32/16 px, 8×</span></div>
+    </div>
+  </div>
+
+  <h2>3. Im Browser</h2>
+  <div class="panel" style="background:#202124">
+    <div class="tab"><img src="favicon-16.png" alt=""> VYRX · Dezentrale Plattform &amp; Mesh</div>
+    <div class="tab light" style="margin-left:12px"><img src="favicon-16.png" alt=""> VYRX · Dezentrale Plattform &amp; Mesh</div>
+    <p>Dunkler und heller Reiter: die Kachel gibt dem Zeichen auf beiden einen Rand. Ein frei
+    stehendes dunkles V wäre auf dem dunklen Reiter unsichtbar — deshalb die Kachel.</p>
+  </div>
+
+  <h2>4. Maskenprobe</h2>
+  <div class="panel white">
+    <img src="mask-test.png" alt="Kreismasken über dem App-Symbol" style="width:100%;max-width:780px">
+    <p style="color:#444">Kreis mit 100 %, 92 % und 61 % der Kachelbreite. Bis 92 % — dem
+    Android-Fall „66 von 72 dp sichtbar“ — hält die Wortmarke. Bei 61 %, der garantiert
+    sichtbaren Fläche eines adaptiven Symbols, schneidet die Maske V und X an.
+    Darum ist die <code>maskable</code>-Fassung das V auf voller Fläche, nicht die Wortmarke.</p>
+  </div>
+
+  <h2>5. Vorschau beim Teilen (1200 × 630)</h2>
+  <div class="panel" style="padding:0;overflow:hidden"><img src="vyrx-og.png" style="width:100%;display:block" alt=""></div>
+
+  <h2>6. Einbau (Vorschlag, noch nicht im Repository)</h2>
+<pre>&lt;!-- src/layouts/Layout.astro --&gt;
+&lt;link rel="icon" href="/favicon.ico" sizes="any"&gt;
+&lt;link rel="icon" type="image/svg+xml" href="/mark.svg"&gt;
+&lt;link rel="apple-touch-icon" href="/apple-touch-icon.png"&gt;
+&lt;link rel="manifest" href="/site.webmanifest"&gt;
+&lt;meta name="theme-color" content="#000000"&gt;
+&lt;meta property="og:image" content="https://vyrx.de/vyrx-og.png"&gt;</pre>
+  <p class="bad">Achtung, sonst nutzlos: <code>/favicon.ico</code> und <code>/manifest.webmanifest</code> gehen
+  heute durch den Outpost und antworten mit 302 auf <code>auth.vyrx.de</code>. Öffentliche Pfade müssen im
+  Ingress ausgenommen sein — sonst holt der Browser für jedes Symbol eine Anmeldung.</p>
+
+  <h2>7. Was der Bogen an Text mitbringt</h2>
+  <ul>
+    <li><code>SMARTER CONNECTIONS · A BRIGHTER TOMORROW</code> — noch kein deutscher Satz; die
+      Übersetzungsdatei kennt ihn nicht (Parität wäre Pflicht, H1).</li>
+    <li><code>NETWORK · SECURITY · SMART HOME · YOU</code> — „Smart Home“ deckt der Katalog nur
+      einmal ab (<code>home-assistant</code>); sieben Kacheln sind Medien, fünf „AI &amp; Agents“.</li>
+    <li>Die Landung sagt heute „Enterprise Architecture &amp; Cloud Platform“ und „Zero-Trust Edge“ —
+      Falschsprache gegen die eigene Regel (Klartext vor Fachsprache) und gegen den Ton des Bogens („YOU“).</li>
+  </ul>
+</main>
+</body>
+</html>
