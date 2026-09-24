@@ -15,7 +15,7 @@ const files = import.meta.glob('../icons/*.svg', { query: '?raw', import: 'defau
 
 // Only the geometry: size, colour and stroke live in `icon()`, so an icon cannot be rendered differently
 // depending on which renderer asked for it.
-const geometry = (name) => {
+const geometry = (name: string) => {
   const raw = files[`../icons/${name}.svg`];
   if (typeof raw !== 'string') {
     throw new Error(`src/icons/${name}.svg is missing - declared in src/lib/icons.js, absent from the tree`);
@@ -30,7 +30,7 @@ const geometry = (name) => {
 
 // The other direction as well: a file nobody declares is either a leftover or a forgotten entry, and both
 // are silent. `ICONS` is the declaration, the directory is the fact, and they have to agree.
-const undeclared = Object.keys(files)
+const undeclared: string[] = Object.keys(files)
   .map((path) => path.replace('../icons/', '').replace(/\.svg$/, ''))
   .filter((name) => !ICONS.includes(name));
 if (undeclared.length) {
