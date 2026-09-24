@@ -56,6 +56,16 @@ const absolute = (target: Locale) =>
     document.documentElement.classList.add('js');
   </script>
 
+  <!-- The mark set. Every file here is built from one artwork by `docs/brand/build.py`; the browser gets a
+       glyph at 16 px and the name where there is room for it. `theme-color` follows the system, because
+       the portal itself follows it (G2) - the manifest cannot, being one file. -->
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#1d232a" media="(prefers-color-scheme: dark)" />
+
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="VYRX" />
   <meta property="og:title" content={title} />

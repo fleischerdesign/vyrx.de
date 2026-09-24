@@ -108,9 +108,10 @@ auch wenn der Node-Prozess steht.
 - **Zeitlimit statt hängender Anzeige.** *(berichtigt)* Jeder Abruf in `api.ts`
   trägt `AbortSignal.timeout(8000)`; die Route gibt dem Kollektor fünf Sekunden,
   der Browser wartet etwas länger als das, was er gefragt hat.
-- **Kein `favicon`, kein `manifest`, kein Vorschaubild.** `public/` enthält nur
-  `.well-known/security.txt` und `robots.txt`; Lesezeichen und Teilen sehen
-  dadurch beliebig aus.
+- **Symbole und Manifest.** *(berichtigt)* `public/` trägt Favicon (16/32/48),
+  SVG-Symbol, Apple-Touch, 192/512, eine `maskable`-Fassung und ein Manifest mit
+  dem Anmeldeweg als Start (G1); der Satz entsteht aus einer Zeichnung
+  (`docs/brand/`). Ein Vorschaubild fürs Teilen fehlt weiterhin.
 
 ### 3.4 Zugänglichkeit und Randfälle der Darstellung
 - **Der Browser baut die Ansicht des Lesers.** Die Datei trägt, was allen gehört
