@@ -113,8 +113,10 @@ auch wenn der Node-Prozess steht.
   übrigen Ansichten zeigen Inhalt. Nicht-technische Nutzer auf fremden Geräten
   mit Blockern verlieren also nichts mehr, außer den zwei Ansichten über sie
   selbst.
-- **Nur ein Theme.** `themes: dark --default`; kein heller Modus, keine
-  Nutzerpräferenz, kein `prefers-color-scheme` (im Client nicht verwendet).
+- **Zwei Themes, die Wahl je Gerät.** `light --default, dark --prefersdark`,
+  gesetzt vor dem ersten Bild; ohne Wahl entscheidet das System, und der
+  Umschalter erscheint nur, wo ein Skript läuft (G2, E-0014). Benutzerweise statt
+  geräteweise wird die Wahl erst mit dem eigenen Speicher (D4, E-0009).
 - **Statuswechsel sind nicht hörbar.** Änderungen an Zustands-Punkten werden
   nicht über `aria-live` gemeldet; für Screenreader passiert nichts.
 - **Doppelte Bedienwege, aber keine Tastenkürzel-Anzeige.** Es gibt eine

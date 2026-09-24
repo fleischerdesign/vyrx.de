@@ -12,6 +12,7 @@ import { useTranslations } from '../i18n';
 import IconSprite from '../components/IconSprite.astro';
 import { LOCALES, pathFor, routeFor } from '../lib/routes';
 import type { Route } from '../lib/routes';
+import { THEMES, THEME_KEY } from '../lib/theme.ts';
 
 interface Props {
   locale: Locale;
@@ -38,6 +39,22 @@ const absolute = (target: Locale) =>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{title}</title>
   <meta name="description" content={description} />
+
+  {
+    /* Before the stylesheet, before the body, before anything is painted: the stored appearance choice
+       onto the document, and the mark that says a script runs at all. Both are facts about *this*
+       document, and a choice applied after the first paint would be a flash on every navigation. The key
+       and the two values come from `lib/theme.ts`, so the script cannot drift from the module. */
+  }
+  <script is:inline define:vars={{ themeKey: THEME_KEY, themes: THEMES }}>
+    try {
+      const stored = localStorage.getItem(themeKey);
+      if (themes.includes(stored)) document.documentElement.dataset.theme = stored;
+    } catch {
+      // No storage: the system preference stays the answer.
+    }
+    document.documentElement.classList.add('js');
+  </script>
 
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="VYRX" />

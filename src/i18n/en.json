@@ -86,5 +86,8 @@
   "noscriptHint": "Account and administration are built in the browser after signing in; without scripts what remains is what belongs to everyone.",
   "catalogueAbsentTitle": "No catalogue in this build",
   "catalogueAbsentHint": "This build was made without the catalogue, so it cannot say what the portal offers. In a browser it loads the catalogue itself.",
-  "needsBrowserTitle": "This view needs the browser"
+  "needsBrowserTitle": "This view needs the browser",
+  "themeLabel": "Appearance",
+  "themeLight": "Light",
+  "themeDark": "Dark"
 }

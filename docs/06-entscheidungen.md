@@ -227,6 +227,29 @@ benannte Zustand statt Inhalt. **S5 baut darauf auf** (eine Seite je Dienst).
 Konto und Verwaltung bleiben Browser-Ansichten mit erklärendem Satz: für sie gilt
 „ohne Skripte sichtbar“ nicht, und das steht dort auch so.
 
+### E-0014 — Die Darstellungswahl gehört dem Gerät, und sie steht vor dem ersten Bild
+*Kontext:* G2 verlangt Systemvorgabe plus Wahl; `03-ui-ux.md` §2 nannte sie „je
+Benutzer“. Das Portal hat keinen eigenen Speicher (E-0009 wird erst mit D3 und N
+gebraucht), und die Wahl wird *vor* dem ersten Bild gebraucht — der Aufbau wartet
+nicht auf `/api/me`, und ein Theme, das danach kommt, ist ein Flackern bei jedem
+Aufruf.
+*Entscheidung:* Die Wahl liegt im Gerätespeicher (`vyrx.portal.theme`). Ohne Wahl
+entscheidet `prefers-color-scheme`. Gesetzt wird sie von einem Inline-Skript im
+Kopf, vor dem Stylesheet und damit vor dem ersten Bild. Der Umschalter existiert
+nur, wo ein Skript läuft (`html.js` in `daisy.css`).
+*Begründung:* Eine Wahl, die nach dem ersten Bild kommt, ist ein Flackern; ein
+Knopf, der nichts tut, ist schlimmer als kein Knopf. „Je Benutzer“ ist heute nur
+um den Preis eines Flackerns (auf die Identität warten) oder einer erfundenen
+Zugehörigkeit (Schlüssel mit Benutzernamen, den man noch nicht kennt) zu haben.
+*Alternativen:* benutzerweise im Gerätespeicher (der Name kommt zu spät);
+daisyUIs `theme-controller` ohne Speicherung (schön, aber die Wahl ist beim
+nächsten Aufruf weg); serverseitig (das Portal hat keinen Zustand — E-0009).
+*Konsequenzen:* Die Wahl gilt je Gerät; mit dem eigenen Speicher (D4) darf der
+Schlüssel den Benutzernamen tragen und die Wahl wandert auf das Konto. Und:
+`light` ist jetzt die Vorgabe für ein System ohne Vorliebe — das Portal war
+vorher fest dunkel. Wer es umgekehrt will, dreht in `daisy.css` zwei Wörter um
+(`dark --default, light --prefersdark`) und nichts sonst.
+
 ## Entscheidungen zu den offenen Fragen (2026-09-23)
 
 Diese zehn Fragen waren als offen notiert und sind am 2026-09-23 entschieden.
