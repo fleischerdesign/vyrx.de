@@ -19,7 +19,8 @@ ohnehin stattfindet:
 
 **Triage.** Der erste Arbeitsblock ist entschieden und trägt den Status
 `geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
-Griffe G1, G2, G6 und G7. Alles andere bleibt `idee` und ist damit ausdrücklich
+Griffe G1, G2, G6 und G7. Von diesen elf Einträgen ist H1 inzwischen
+`umgesetzt` (E-0010). Alles andere bleibt `idee` und ist damit ausdrücklich
 nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
@@ -182,8 +183,12 @@ Flotten-Rebuild.
 
 ## H. Qualitätssicherung und Dokumentation
 
-- **H1 Übersetzungsparität als Prüfung** — `geplant` · `S` · Test über die
+- **H1 Übersetzungsparität als Prüfung** — `umgesetzt` · `S` · Test über die
   Schlüsselmengen beider Dateien. AC: Eine fehlende Übersetzung bricht den Bau.
+  *Beleg:* `test/i18n.test.ts` — die Sprachen, die Schlüssel und die Dateien
+  werden aus dem Baum entdeckt, nichts ist im Test aufgezählt; `npm run check`
+  läuft `astro check` und die Prüfungen, `npm run build` beginnt mit `check`.
+  Läufer: E-0010.
 - **H2 Vertragstests der Endpunkte** — `idee` · `M` · `me`, `status`, `hosts`
   und der JSON-404 werden gegen feste Beispiele geprüft. AC: Die Katalogform
   steht als Prüfbeispiel im Repository.
