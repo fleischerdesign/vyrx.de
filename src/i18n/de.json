@@ -82,5 +82,8 @@
   "addrWan": "WAN",
   "addrMesh": "Mesh",
   "dhcp": "DHCP",
-  "allCategories": "Alle"
+  "allCategories": "Alle",
+  "signedOutTitle": "Nicht angemeldet",
+  "signedOutHint": "Diese Ansicht zeigt, was zu deinem Konto gehört. Melde dich an, dann steht sie hier.",
+  "noscriptHint": "Diese Ansicht wird im Browser aufgebaut und braucht JavaScript. Ohne Skripte bleibt nur die Startseite lesbar – bis die Ansichten vom Server kommen (G3)."
 }

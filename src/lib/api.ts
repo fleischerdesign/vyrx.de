@@ -37,8 +37,13 @@ export async function loadIdentity(): Promise<Identity | null> {
       headers: { Accept: 'application/json' },
     });
     if (!res.ok || res.type === 'opaqueredirect') return null;
+    // The username *is* the claim: a response without one is not an identity with empty fields, it is
+    // nobody, and the portal has a state for that. Reading it as a name would have made every anonymous
+    // reader look signed in.
+    const username = res.headers.get('X-Portal-Username') || '';
+    if (!username) return null;
     return {
-      username: res.headers.get('X-Portal-Username') || '',
+      username,
       name: res.headers.get('X-Portal-Name') || '',
       groups: splitGroups(res.headers.get('X-Portal-Groups')),
     };

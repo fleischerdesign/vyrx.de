@@ -1,0 +1,7 @@
+---
+// One view of the portal: the shell comes from the layout, the address from `src/lib/routes.ts`, and the
+// content is rendered into the slot by the client until S3 moves it to the server (G3).
+import AppLayout from '../../layouts/AppLayout.astro';
+---
+
+<AppLayout locale="en" route="services" />

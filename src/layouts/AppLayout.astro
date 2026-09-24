@@ -1,0 +1,63 @@
+---
+// A page of the portal: the document, the shell, and the one script that makes the live parts live.
+//
+// The shell is a layout now and not something every page assembles (S2), so a page below this file
+// carries content and nothing else - no navigation, no footer, no palette, no language switch.
+//
+// The page declares *which* view it is; the client reads the rest of the address (language, selection)
+// through the same route table, once, in `routes.ts`.
+import Layout from './Layout.astro';
+import AppShell from '../components/shell/AppShell.astro';
+import { useTranslations } from '../i18n';
+import type { Locale } from '../i18n';
+import type { Route } from '../lib/routes';
+
+interface Props {
+  locale: Locale;
+  route: Route['name'];
+}
+
+const { locale, route } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<Layout locale={locale} route={route}>
+  <AppShell locale={locale} route={route}>
+    {
+      /* Default content for a view page: the page below fills the slot, and a view page has nothing to
+         fill it with until the client has the catalogue. So the honest thing stands there first - a
+         loading state for a browser that runs scripts, and a sentence for one that does not (until S3
+         moves the views to the server, G3). */
+    }
+    <slot>
+      <div class="flex min-h-[40vh] items-center justify-center">
+        <span class="loading loading-spinner loading-lg" role="status" aria-label={t.catalogLoading}></span>
+      </div>
+      <noscript>
+        <div class="alert alert-soft mx-auto max-w-lg">
+          <div><p class="text-sm opacity-70">{t.noscriptHint}</p></div>
+        </div>
+      </noscript>
+    </slot>
+  </AppShell>
+</Layout>
+
+<script>
+  import { boot } from '../lib/app.ts';
+  import { routeFrom } from '../lib/routes.ts';
+  import { useTranslations } from '../i18n';
+
+  // The address is the only input the client has, and it reads it through the same table the server used:
+  // two derivations of one fact would be one too many.
+  const { locale, route, selected } = routeFrom(location.pathname, location.search);
+  boot({
+    // The same accessor the markup uses: on the client too, a key missing from a table is marked in
+    // the page instead of arriving as an empty string.
+    messages: useTranslations(locale),
+    locale,
+    route,
+    selected,
+    loginUrl: '/outpost.goauthentik.io/start?rd=/',
+    accountUrl: 'https://auth.vyrx.de/if/user/',
+  });
+</script>

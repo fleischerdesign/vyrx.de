@@ -18,6 +18,8 @@ export const ICONS = [
   'menu',
   'search',
   'star',
+  'arrow-right',
+  'lock',
 ] as const;
 
 /** Every declared icon, by name. Derived, never repeated. */

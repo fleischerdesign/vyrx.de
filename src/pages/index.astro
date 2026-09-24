@@ -1,5 +1,9 @@
 ---
-import Portal from "../components/Portal.astro";
+// The start page: the landing for a visitor, the overview for a signed-in reader - one shell, two states.
+import AppLayout from '../layouts/AppLayout.astro';
+import Landing from '../components/landing/Landing.astro';
 ---
 
-<Portal locale="de" />
+<AppLayout locale="de" route="overview">
+  <Landing locale="de" />
+</AppLayout>

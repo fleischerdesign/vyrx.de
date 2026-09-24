@@ -1,18 +1,31 @@
 ---
+// The document: one `<html>`, one head, one icon sprite.
+//
+// Everything in the head that names *this page* comes from the route table - title, description, canonical
+// address and the alternates that point at the other language. Before, the head carried the site's title
+// and one canonical for every address, which was true for exactly two pages.
 import '../styles/daisy.css';
 import type { Locale } from '../i18n';
 import { useTranslations } from '../i18n';
 // The sprite carries every icon in this document: the shell and the client views reference the same
 // `<symbol>`s, so an icon cannot differ between the two renderers.
 import IconSprite from '../components/IconSprite.astro';
+import { LOCALES, pathFor, routeFor } from '../lib/routes';
+import type { Route } from '../lib/routes';
 
 interface Props {
   locale: Locale;
+  /** The view this document is. Absent means the address is a miss, and a miss is not an address. */
+  route?: Route['name'];
 }
 
-const { locale } = Astro.props;
+const { locale, route } = Astro.props;
 const t = useTranslations(locale);
-const canonicalUrl = locale === 'en' ? 'https://vyrx.de/en/' : 'https://vyrx.de/';
+const definition = route ? routeFor(route) : undefined;
+const label = definition ? t[definition.key] : '';
+const title = route && route !== 'overview' && label ? `${label} · VYRX` : t.siteTitle;
+const description = (definition?.descKey ? t[definition.descKey] : '') || t.siteDesc;
+const absolute = (target: Locale) => new URL(pathFor(target, route ?? 'overview'), Astro.site).href;
 ---
 
 <!DOCTYPE html>
@@ -20,12 +33,28 @@ const canonicalUrl = locale === 'en' ? 'https://vyrx.de/en/' : 'https://vyrx.de/
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{t.siteTitle}</title>
-  <meta name="description" content={t.siteDesc} />
-  <link rel="canonical" href={canonicalUrl} />
-  <link rel="alternate" hreflang="de" href="https://vyrx.de/" />
-  <link rel="alternate" hreflang="en" href="https://vyrx.de/en/" />
-  <link rel="alternate" hreflang="x-default" href="https://vyrx.de/" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="VYRX" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:locale" content={locale} />
+
+  {
+    route ? (
+      <>
+        <link rel="canonical" href={absolute(locale)} />
+        <meta property="og:url" content={absolute(locale)} />
+        {LOCALES.map((other) => <link rel="alternate" hreflang={other} href={absolute(other)} />)}
+        <link rel="alternate" hreflang="x-default" href={absolute('de')} />
+      </>
+    ) : (
+      // A page without an address of its own must not be indexed as one.
+      <meta name="robots" content="noindex" />
+    )
+  }
 
   <!-- Typography comes from the platform stack until the fonts are self-hosted; daisyUI carries the rest. -->
 </head>

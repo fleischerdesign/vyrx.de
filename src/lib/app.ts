@@ -16,41 +16,72 @@ import {
   loadStatus,
 } from './api.ts';
 import * as views from './views.ts';
-// The navigation is declared once, in `lib/nav.ts`. This table was a second copy of the shell's, with
-// the same five entries kept in step by hand - and its icons were never rendered here at all.
+// The navigation is declared once, in `lib/nav.ts` - which derives it from the route table, so an entry
+// cannot name an address the routing does not serve.
 import { NAV } from './nav.ts';
-import type { AppState, Catalog, Messages, Route, StatusSnapshot } from './contract.ts';
+import { pathFor, selectedPathFor } from './routes.ts';
+import type { Route } from './routes.ts';
+import type { AppState, Catalog, Messages, StatusSnapshot } from './contract.ts';
 import type { Locale } from '../i18n/index.ts';
 
-/** What the shell hands the app: the translations, the language and the two ways out of the portal. */
+/** What the layout hands the app: the translations, the language, the page and the two ways out. */
 export interface BootOptions {
   readonly messages: Messages;
   readonly locale: Locale;
+  /** The view this page is; the routing decided it, the client does not decide it again. */
+  readonly route: Route['name'];
+  /** The service the catalogue page has selected, if the address carried one. */
+  readonly selected: string | null;
   readonly loginUrl: string;
   readonly accountUrl: string;
 }
 
-const go = (hash: string): void => {
-  if (location.hash === hash) render();
-  else location.hash = hash;
-};
+// Navigation is navigation: a link is an address and the browser is good at addresses. The portal used to
+// keep a router of its own over the fragment, which meant an address nobody else could read, a second
+// place that knew the routes, and a page that only worked once the script had run.
+const navigate = (path: string): void => location.assign(path);
+
+// The language switch leads to the same view in the other language. Its address is rendered by the server
+// from the route table; the selection lives in a query, and a prerendered file cannot know which query it
+// was opened with - so the browser, which does know, hands it to the switch.
+function carrySelection(selected: string | null): void {
+  if (!selected) return;
+  for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-locale-switch]')) {
+    const target = link.dataset.localeSwitch as Locale | undefined;
+    if (target) link.href = selectedPathFor(target, selected);
+  }
+}
 
 // The application state lives exactly once, and it is handed to the views as a whole: a view that reaches
 // for anything else is reaching past its contract. It is `undefined` until the identity answers, which is
 // the state the shell renders as a visitor's page.
 let state: AppState | undefined;
 
-export async function boot({ messages, locale, loginUrl, accountUrl }: BootOptions): Promise<void> {
-  if (!document.getElementById('main')) return;
+/** The page this document is: the view and, for the catalogue, the selection it was opened with. */
+let page: { route: Route['name']; selected: string | null } | undefined;
+
+export async function boot({ messages, locale, route, selected, loginUrl, accountUrl }: BootOptions): Promise<void> {
+  const main = document.getElementById('main');
+  if (!main) return;
+  page = { route, selected };
+  carrySelection(selected);
 
   // The registry is public and is read first: the landing shows the fleet to everyone, and the same
   // answer feeds the signed-in app, so there is one fetch and one truth.
   const registry: Catalog | null = await loadCatalog().catch(() => null);
   if (registry) renderLandingHosts(registry, messages, locale);
-  startStatusPolling();
+  // Live state belongs to the pages that show it. The account page shows none of it, so polling there
+  // would be a request every twenty seconds for nothing.
+  const showsLiveState = route !== 'account';
+  if (showsLiveState) startStatusPolling();
 
   const identity = await loadIdentity();
-  if (!identity) return;
+  if (!identity) {
+    // A view page without an identity is not an empty page: it is a page with nothing to show yet, and
+    // it says so. The start page keeps its own prerendered landing, which needs no identity.
+    if (route !== 'overview') main.innerHTML = views.signedOut(messages, loginUrl);
+    return;
+  }
 
   // The shell is already in the document in both states; signing in reveals its signed-in chrome.
   setAuthed(true);
@@ -78,7 +109,6 @@ export async function boot({ messages, locale, loginUrl, accountUrl }: BootOptio
   };
 
   installPalette(state);
-  window.addEventListener('hashchange', render);
   window.addEventListener('online', () => setOffline(false));
   window.addEventListener('offline', () => setOffline(true));
   delegate(document, 'click', '[data-action="favorite"]', (e, node) => {
@@ -146,54 +176,38 @@ function applyCatalog({ adminGroups, locales: catalogueLocales, hosts, services 
 }
 
 
-let lastRoute: string | null = null;
 let landing: { registry: Catalog; t: Messages; locale: Locale } | null = null;
 let landingStatus: StatusSnapshot | null = null;
+
+// One place decides what the page shows, and it decides from the page's own declaration - not from an
+// address it parses again. The selection is the catalogue's, so it belongs to the catalogue view.
+function viewFor(source: AppState): string {
+  if (!page) return views.overview(source);
+  if (page.route === 'services' && page.selected) return views.detail(source, page.selected);
+  switch (page.route) {
+    case 'services': return views.services(source);
+    case 'status': return views.status(source);
+    case 'account': return views.account(source);
+    case 'admin': return source.isAdmin ? views.admin(source) : views.forbidden(source);
+    default: return views.overview(source);
+  }
+}
 
 function render(): void {
   if (!state) return;
   const main = document.querySelector<HTMLElement>('#main');
   if (!main) return;
-  const route = parseHash();
-  let html;
-  let active = route.name;
   if (state.catalogError) {
-    html = `<div class="state" role="alert"><div class="state__title">${esc(state.t.catalogError)}</div>
+    main.innerHTML = `<div class="state" role="alert"><div class="state__title">${esc(state.t.catalogError)}</div>
       <div class="state__actions"><button class="btn btn-primary" data-action="retry">${esc(state.t.retry)}</button></div></div>`;
-    main.innerHTML = html;
     main.querySelector('[data-action="retry"]')?.addEventListener('click', () =>
       loadCatalog().then(applyCatalog).catch(() => render()),
     );
     return;
   }
-  if (!state.allServices.length) active = 'overview';
-  switch (route.name) {
-    case 'services': html = views.services(state); break;
-    case 'status': html = views.status(state); break;
-    case 'account': html = views.account(state); break;
-    case 'admin': html = state.isAdmin ? views.admin(state) : views.forbidden(state); break;
-    case 'detail': html = views.detail(state, route.id); active = 'services'; break;
-    default: html = views.overview(state); active = 'overview';
-  }
   const banner = state.offline ? `<div class="banner banner--warn" role="status">${esc(state.t.offline)}</div>` : '';
-  main.innerHTML = banner + html;
-  for (const node of document.querySelectorAll<HTMLElement>('[data-nav]')) {
-    if (node.dataset.nav === active) node.setAttribute('aria-current', 'page');
-    else node.removeAttribute('aria-current');
-  }
+  main.innerHTML = banner + viewFor(state);
   wireFilter();
-  if (lastRoute && lastRoute !== location.hash) main.focus();
-  lastRoute = location.hash;
-}
-
-function parseHash(): Route {
-  const path = location.hash.replace(/^#\/?/, '');
-  if (path.startsWith('dienst/')) return { name: 'detail', id: decodeURIComponent(path.slice('dienst/'.length)) };
-  const named: Readonly<Record<string, Route['name']>> = { '': 'overview', dienste: 'services', status: 'status', konto: 'account', admin: 'admin' };
-  const name = named[path];
-  // An address nobody knows is not the start page: it renders the start page's shape and no claim.
-  if (!name) return { name: 'overview' };
-  return name === 'detail' ? { name: 'overview' } : { name };
 }
 
 function wireFilter(): void {
@@ -272,17 +286,25 @@ function installPalette(app: AppState): void {
   const render_items = (query: string): void => {
     const q = query.trim().toLowerCase();
     const groups: Record<string, Entry[]> = { [t.cmdServices]: [], [t.cmdCategories]: [], [t.cmdActions]: [] };
-    for (const s of app.services) {
-      if (!q || `${s.name} ${localized(s.description, app.locale)} ${s.category}`.toLowerCase().includes(q))
-        groups[t.cmdServices]!.push({ label: s.name, hint: s.category, run: () => go(`#/dienst/${s.id}`) });
+    for (const service of app.services) {
+      if (!q || `${service.name} ${localized(service.description, app.locale)} ${service.category}`.toLowerCase().includes(q))
+        groups[t.cmdServices]!.push({
+          label: service.name,
+          hint: service.category,
+          run: () => navigate(selectedPathFor(app.locale, service.id)),
+        });
     }
-    for (const [cat, list] of categories(app.services)) {
-      if (!q || cat.toLowerCase().includes(q))
-        groups[t.cmdCategories]!.push({ label: cat, hint: String(list.length), run: () => go('#/dienste') });
+    for (const [category, entries] of categories(app.services)) {
+      if (!q || category.toLowerCase().includes(q))
+        groups[t.cmdCategories]!.push({
+          label: category,
+          hint: String(entries.length),
+          run: () => navigate(pathFor(app.locale, 'services')),
+        });
     }
-    for (const item of NAV.filter((n) => !n.admin || app.isAdmin)) {
-      if (!q || t[item.key]!.toLowerCase().includes(q))
-        groups[t.cmdActions]!.push({ label: t[item.key]!, hint: t.cmdGoTo, run: () => go(item.hash) });
+    for (const item of NAV.filter((entry) => !entry.admin || app.isAdmin)) {
+      if (!q || t[item.key].toLowerCase().includes(q))
+        groups[t.cmdActions]!.push({ label: t[item.key], hint: t.cmdGoTo, run: () => navigate(pathFor(app.locale, item.name)) });
     }
     items = [];
     list.innerHTML = Object.entries(groups)

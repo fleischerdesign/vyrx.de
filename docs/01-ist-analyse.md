@@ -15,7 +15,8 @@ auch wenn der Node-Prozess steht.
 
 | Schicht | Ort | Aufgabe |
 |---|---|---|
-| Hülle (SSR) | `src/components/shell/AppShell.astro`, `src/layouts/Layout.astro` | **Ein** Shell für zwei Zustände (`data-auth="in|out"`), Navigation, Sprachumschalter, Sprungmarke `#main` |
+| Hülle (SSR) | `src/components/shell/AppShell.astro`, `src/layouts/Layout.astro`, `src/layouts/AppLayout.astro` | **Ein** Shell für zwei Zustände (`data-auth="in|out"`), Navigation, Sprachumschalter, Sprungmarke `#main`; `AppLayout` setzt Dokument, Hülle und Startskript zusammen |
+| Inhalt | `src/components/landing/Landing.astro` | die Landing für Besucher — Inhalt der Startseite, nicht Teil der Hülle |
 | Verträge | `src/lib/contract.ts` | die Formen, einmal aufgeschrieben: Katalog, Identität, Status, Ansichtsform — Formen, nie Werte |
 | Daten | `src/lib/api.ts` | einziger Ort mit `fetch`; Identität, Katalog, Status, Favoriten |
 | Darstellung | `src/lib/views.ts` | reine Renderfunktionen; „kennen die Katalogform, nie einen Dienstnamen“ |
@@ -25,12 +26,15 @@ auch wenn der Node-Prozess steht.
 
 ### Routen
 
-- Seiten: `/` (Deutsch, präfixlos), `/en/`, je eine `404`-Seite pro Sprache.
-- Ansichten (Hash-Router): `#/`, `#/dienste`, `#/dienst/<id>`, `#/status`,
-  `#/konto`, `#/admin`. Für Nicht-Administratoren rendert `#/admin` die
-  Verbotsansicht statt der Matrix — der Zustand ist also sichtbar, nicht leer.
-  Der angestrebte Zustand (englische Pfade, keine Raute) steht in
-  `03-ui-ux.md` §6 und `06-entscheidungen.md` E-0006.
+- Seiten: `/` (Deutsch, präfixlos) und `/en/`; jede Ansicht ist eine eigene
+  Seite mit eigenem Kopf (`/services/`, `/status/`, `/account/`, `/admin/` und
+  die englischen Zwillinge), dazu je eine `404`-Seite pro Sprache. Die Adressen
+  entstehen aus einer Tabelle: `src/lib/routes.ts`.
+- Die Auswahl eines Dienstes ist noch keine eigene Adresse, sondern eine Abfrage
+  an der Katalogseite (`/services/?service=<id>`); sie wird mit S5 zu
+  `/services/<id>/`.
+- Für Nicht-Administratoren rendert `/admin/` die Verbotsansicht statt der
+  Matrix — der Zustand ist also sichtbar, nicht leer.
 - Endpunkte: `/api/me`, `/api/status`, `/api/hosts`, plus JSON-404 für alles
   andere unter `/api/`. Katalog: `/portal.json`.
 
@@ -101,9 +105,11 @@ auch wenn der Node-Prozess steht.
   dadurch beliebig aus.
 
 ### 3.4 Zugänglichkeit und Randfälle der Darstellung
-- **`innerHTML` als alleiniger Rendering-Pfad.** Ohne JavaScript bleibt `#main`
-  leer — die Landing ist vorgerendert, die Ansichten nicht. Nicht-technische
-  Nutzer auf fremden Geräten oder mit Blockern verlieren die Hälfte.
+- **`innerHTML` als alleiniger Rendering-Pfad.** Ohne JavaScript bleiben die
+  Ansichten leer — die Landing ist vorgerendert, die Ansichten nicht. An ihrer
+  Stelle steht jetzt ein Ladezustand und ein Satz für Browser ohne Skripte
+  (`AppLayout`), aber der Inhalt fehlt: Nicht-technische Nutzer auf fremden
+  Geräten oder mit Blockern verlieren die Hälfte.
 - **Nur ein Theme.** `themes: dark --default`; kein heller Modus, keine
   Nutzerpräferenz, kein `prefers-color-scheme` (im Client nicht verwendet).
 - **Statuswechsel sind nicht hörbar.** Änderungen an Zustands-Punkten werden
