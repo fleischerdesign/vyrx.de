@@ -36,7 +36,18 @@ interface RenderOptions {
   readonly interactive?: boolean;
 }
 
-function statusBadge(s: Service, ctx: AppState, interactive: boolean) {
+// The live fragments. A tick replaces the *contents* of the nodes marked `data-live` and touches nothing
+// else - which is the whole point: what the reader is using (a search field with text in it, a chip they
+// picked, the focus, the scroll position) sits next to the live parts and must survive a tick. Before, a
+// tick re-rendered the view, so a reader who was typing lost text and focus every twenty seconds.
+//
+// One function per fragment, used by the full render *and* by the tick, so the two cannot disagree about
+// what a state dot looks like.
+export const liveKey = (kind: 'service' | 'host' | 'stats' | 'asof', id: string): string => `${kind}:${id}`;
+
+/** What a service tile shows about liveness: nothing when unmeasured, a spinner while a browser is
+ *  answering, the truth when there is one. */
+export function serviceStateContent(s: Service, ctx: AppState, interactive = true): string {
   const { state } = serviceState(s, ctx.status);
   if (state === 'unmonitored') return `<span class="badge badge-ghost badge-sm">${esc(ctx.t.unmonitored)}</span>`;
   // Before the first live read there is no state to show. A spinner is honest while the browser is about to
@@ -46,7 +57,18 @@ function statusBadge(s: Service, ctx: AppState, interactive: boolean) {
   return `${stateDot(state, ctx.t)}<span class="text-xs opacity-60">${esc(stateLabel(state, ctx.t))}</span>`;
 }
 
-const favoriteButton = (s: Service, ctx: AppState): string => {
+function statusBadge(s: Service, ctx: AppState, interactive: boolean): string {
+  return `<span data-live="${liveKey('service', s.id)}">${serviceStateContent(s, ctx, interactive)}</span>`;
+}
+
+/** What a host card shows about liveness - the same two shapes a tile has, for the same reasons. */
+export function hostStateContent(host: Host, ctx: HostView): string {
+  const { state } = hostState(host, ctx.status);
+  if (state === 'unmonitored') return `<span class="badge badge-ghost badge-sm">${esc(ctx.t.unmonitored)}</span>`;
+  return `${stateDot(state, ctx.t)}<span class="text-xs opacity-60">${esc(stateLabel(state, ctx.t))}</span>`;
+}
+
+export const favoriteButton = (s: Service, ctx: AppState): string => {
   const t = ctx.t;
   const fav = ctx.favorites.includes(s.id);
   const label = fav ? t.removeFavorite : t.addFavorite;
@@ -89,9 +111,11 @@ const section = (title: string, count: number, body: string) =>
     <h2 class="text-lg font-semibold">${esc(title)}</h2>${count ? `<span class="text-sm opacity-50">${count}</span>` : ''}
   </div>${body}</section>`;
 
-const head = (title: string, desc: string, actions = '') =>
+// `meta` is raw markup on purpose: it is the one piece of the heading that is live (the time of the last
+// read), so it carries a `data-live` marker and is replaced by a tick instead of the heading around it.
+const head = (title: string, desc: string, actions = '', meta = '') =>
   `<div class="mb-6 flex flex-wrap items-start gap-4"><div class="mr-auto">
-    <h1 class="text-2xl font-semibold">${esc(title)}</h1>${desc ? `<p class="opacity-60">${esc(desc)}</p>` : ''}
+    <h1 class="text-2xl font-semibold">${esc(title)}</h1>${desc ? `<p class="opacity-60">${esc(desc)}${meta}</p>` : ''}
   </div>${actions}</div>`;
 
 const empty = (title: string, hint = '') =>
@@ -100,6 +124,32 @@ const empty = (title: string, hint = '') =>
 const stat = (value: number | string, label: string) =>
   `<div class="stat place-items-center"><div class="stat-value text-2xl">${esc(String(value))}</div><div class="stat-title">${esc(label)}</div></div>`;
 
+/** The time of the last read, as a live fragment: without a browser it is simply absent. */
+export function asOfContent(ctx: AppState): string {
+  const stamp = ctx.status ? new Date(ctx.status.asOf).toLocaleTimeString(ctx.locale) : null;
+  return stamp ? ` · ${esc(ctx.t.statusAsOf)} ${esc(stamp)}` : '';
+}
+
+/** The figures above the tiles. They are live too - "wie viele laufen" is a live question. */
+export function statsContent(route: 'overview' | 'status', ctx: AppState): string {
+  const t = ctx.t;
+  if (route === 'overview') {
+    const services = ctx.services || [];
+    const up = ctx.status ? services.filter((s) => serviceState(s, ctx.status).state === 'up').length : '–';
+    const favs = services.filter((s) => ctx.favorites.includes(s.id)).length;
+    return `${stat(services.length, t.navServices)}${stat(up, t.online)}${stat(favs, t.favorites)}${stat(ctx.hosts.length, t.statusNodes)}`;
+  }
+  const hosts = ctx.hosts || [];
+  const monitored = hosts.filter((h) => h.monitored !== false).length;
+  const up = ctx.status ? hosts.filter((h) => hostState(h, ctx.status).state === 'up').length : '–';
+  return `${stat(hosts.length, t.statusNodes)}${stat(up, t.online)}${stat(hosts.length - monitored, t.unmonitored)}`;
+}
+
+const statsRow = (route: 'overview' | 'status', ctx: AppState): string =>
+  `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal" data-live="${liveKey('stats', route)}">
+      ${statsContent(route, ctx)}
+    </div>`;
+
 export function overview(ctx: AppState, { interactive = true }: RenderOptions = {}): string {
   const t = ctx.t;
   const name = ctx.identity.name || ctx.identity.username;
@@ -107,12 +157,9 @@ export function overview(ctx: AppState, { interactive = true }: RenderOptions = 
   const recent = ctx.recents
     .map((id) => ctx.services.find((service) => service.id === id))
     .filter((service): service is Service => service !== undefined);
-  const up = ctx.status ? ctx.services.filter((s) => serviceState(s, ctx.status).state === 'up').length : '–';
   return (
     head(`${t.userGreeting}, ${name}`, `${ctx.services.length} ${t.navServices}`) +
-    `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal">
-      ${stat(ctx.services.length, t.navServices)}${stat(up, t.online)}${stat(favs.length, t.favorites)}${stat(ctx.hosts.length, t.statusNodes)}
-    </div>` +
+    statsRow('overview', ctx) +
     (favs.length ? section(t.favorites, favs.length, grid(favs, ctx, interactive)) : section(t.favorites, 0, empty(t.noFavorites))) +
     (recent.length ? section(t.recent, recent.length, grid(recent, ctx, interactive)) : '') +
     categories(ctx.services).slice(0, 3).map(([cat, list]) => section(cat, list.length, grid(list, ctx, interactive))).join('')
@@ -149,23 +196,16 @@ export function status(ctx: AppState): string {
   const t = ctx.t;
   const hosts = ctx.hosts || [];
   if (!hosts.length) return head(t.statusTitle, t.statusDesc) + empty(t.meshChecking);
-  const monitored = hosts.filter((h) => h.monitored !== false).length;
-  // The middle figure was the count of *monitored* hosts under the label "online", so a host that was down
-  // counted as online. The three figures are three different things now: nodes, up, not monitored.
-  const up = ctx.status ? hosts.filter((h) => hostState(h, ctx.status).state === 'up').length : '–';
-  const meta = ctx.status ? ` · ${t.statusAsOf} ${new Date(ctx.status.asOf).toLocaleTimeString(ctx.locale)}` : '';
+  const meta = `<span data-live="${liveKey('asof', 'status')}">${asOfContent(ctx)}</span>`;
   return (
-    head(t.statusTitle, `${t.statusDesc}${meta}`) +
-    `<div class="stats stats-vertical mb-8 border border-base-300 bg-base-200 sm:stats-horizontal">
-      ${stat(hosts.length, t.statusNodes)}${stat(up, t.online)}${stat(hosts.length - monitored, t.unmonitored)}
-    </div>` +
+    head(t.statusTitle, t.statusDesc, '', meta) +
+    statsRow('status', ctx) +
     section(t.statusNodes, hosts.length, `<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">${hosts.map((host) => hostCard(host, ctx)).join('')}</div>`)
   );
 }
 
 export function hostCard(host: Host, ctx: HostView): string {
   const t = ctx.t;
-  const { state } = hostState(host, ctx.status);
   const rows = [
     { label: t[host.zone === 'mesh' ? 'addrWan' : 'addrZone'], value: host.ipv4 || t.dhcp },
     { label: t.addrMesh, value: host.wireguardIpv4 || t.dhcp },
@@ -183,7 +223,7 @@ export function hostCard(host: Host, ctx: HostView): string {
   <div class="card-body gap-3 p-4">
     <div class="flex items-center gap-2">
       <h3 class="card-title mr-auto font-mono text-base">${esc(host.name)}</h3>
-      ${state === 'unmonitored' ? `<span class="badge badge-ghost badge-sm">${esc(t.unmonitored)}</span>` : `${stateDot(state, t)}<span class="text-xs opacity-60">${esc(stateLabel(state, t))}</span>`}
+      <span data-live="${liveKey('host', host.name)}">${hostStateContent(host, ctx)}</span>
     </div>
     <div class="flex flex-wrap gap-1">${badges.map((b) => `<span class="badge badge-ghost badge-sm">${esc(b)}</span>`).join('')}</div>
     <ul class="list">

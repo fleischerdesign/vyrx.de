@@ -89,5 +89,7 @@
   "needsBrowserTitle": "Diese Ansicht braucht den Browser",
   "themeLabel": "Darstellung",
   "themeLight": "Hell",
-  "themeDark": "Dunkel"
+  "themeDark": "Dunkel",
+  "stateDownNotice": "{name} ist nicht mehr erreichbar.",
+  "stateUpNotice": "{name} ist wieder erreichbar."
 }

@@ -89,5 +89,7 @@
   "needsBrowserTitle": "This view needs the browser",
   "themeLabel": "Appearance",
   "themeLight": "Light",
-  "themeDark": "Dark"
+  "themeDark": "Dark",
+  "stateDownNotice": "{name} is no longer reachable.",
+  "stateUpNotice": "{name} is reachable again."
 }

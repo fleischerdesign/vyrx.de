@@ -28,6 +28,14 @@ const splitGroups = (value: string | null): string[] =>
 /** The browser's own storage, keyed per person: favourites and history are two kinds of one thing. */
 const key = (username: string, kind: 'fav' | 'recent') => `vyrx.portal.${kind}.${username}`;
 
+/**
+ * Every read answers or gives up. A read that hangs is a hang, not a state: the skeleton would stay a
+ * skeleton and the reader would have no way to tell waiting from broken. The routes give the collector five
+ * seconds, so the browser waits a little longer than the thing it asked.
+ */
+const TIMEOUT_MS = 8000;
+const deadline = (): AbortSignal => AbortSignal.timeout(TIMEOUT_MS);
+
 /** The caller's own claims. `null` means "not signed in", which is a state and not a failure. */
 export async function loadIdentity(): Promise<Identity | null> {
   try {
@@ -35,6 +43,7 @@ export async function loadIdentity(): Promise<Identity | null> {
       credentials: 'same-origin',
       redirect: 'manual',
       headers: { Accept: 'application/json' },
+      signal: deadline(),
     });
     if (!res.ok || res.type === 'opaqueredirect') return null;
     // The username *is* the claim: a response without one is not an identity with empty fields, it is
@@ -54,7 +63,7 @@ export async function loadIdentity(): Promise<Identity | null> {
 
 /** The catalogue. It used to be a bare array; today it is an object, and both shapes are still read. */
 export async function loadCatalog(): Promise<Catalog> {
-  const res = await fetch('/portal.json', { credentials: 'same-origin' });
+  const res = await fetch('/portal.json', { credentials: 'same-origin', signal: deadline() });
   if (!res.ok) throw new Error(`catalog ${res.status}`);
   const data: unknown = await res.json();
   if (Array.isArray(data)) {
@@ -86,7 +95,7 @@ export const localized = (value: Copy, locale: Locale): string =>
 // filter and the join, and it names no service here.
 const fetchVector = async (url: string): Promise<PrometheusVector | null> => {
   try {
-    const res = await fetch(url, { credentials: 'same-origin' });
+    const res = await fetch(url, { credentials: 'same-origin', signal: deadline() });
     return res.ok ? ((await res.json()) as PrometheusVector) : null;
   } catch {
     return null;
