@@ -148,3 +148,10 @@ const addressIn = (target: Locale) => pathFor(target, id ? 'detail' : route ?? '
 </div>
 
 <div class="toast toast-end z-50" id="toast-region"></div>
+
+{
+  /* Where a state change is said out loud. The toast region answers a reader's own action; this one speaks
+     when the world changes under them (a service went down, a host came back), which is the half that was
+     missing for a screen reader. Empty until there is something to say. */
+}
+<div id="live-region" class="sr-only" role="status" aria-live="polite"></div>

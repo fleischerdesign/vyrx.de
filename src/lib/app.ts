@@ -104,7 +104,13 @@ export async function boot({ messages, locale, route, id, accountUrl }: BootOpti
     if (!id || !state) return;
     state.favorites = toggleFavorite(state.identity.username, id);
     toast(state.favorites.includes(id) ? state.t.addFavorite : state.t.removeFavorite);
-    render();
+    // The star is replaced where it stands, not by re-rendering the view: a reader who works by keyboard
+    // would otherwise lose the focus they are standing on with every click.
+    const service = [...state.services, ...state.allServices].find((entry) => entry.id === id);
+    if (!service) return;
+    const button = document.querySelector<HTMLElement>(`[data-action="favorite"][data-id="${CSS.escape(id)}"]`);
+    if (button) button.outerHTML = views.favoriteButton(service, state);
+    document.querySelector<HTMLElement>(`[data-action="favorite"][data-id="${CSS.escape(id)}"]`)?.focus();
   });
   delegate(document, 'click', '[data-action="open"]', (_e, node) => {
     const id = node.dataset.id;
@@ -127,21 +133,88 @@ function renderLandingHosts(registry: Catalog, t: Messages, locale: Locale): voi
   grid.innerHTML = (registry.hosts || []).map((host) => views.hostCard(host, { t, locale, status: landingStatus })).join('');
 }
 
+/**
+ * Write one live answer into the marked nodes, and nothing else.
+ *
+ * The landing (a visitor) and a signed-in page carry the same markers, so one loop serves both: a host card
+ * is a host card. An unknown kind is left alone rather than guessed at - a marker nobody understands is a
+ * marker nobody should have written.
+ */
+function applyLive(status: StatusSnapshot): void {
+  // The previous answer has to be read *before* this one is written down, or a change would be compared
+  // with itself and nothing would ever be announced.
+  const previous = state?.status ?? landingStatus;
+  if (state) state.status = status;
+  else landingStatus = status;
+  const sources = state ?? landing;
+  if (!sources) return;
+  for (const node of document.querySelectorAll<HTMLElement>('[data-live]')) {
+    const [kind, id = ''] = (node.dataset.live ?? '').split(':');
+    let next: string | null = null;
+    if (kind === 'host') {
+      const host = (state?.hosts ?? landing?.registry.hosts ?? []).find((entry) => entry.name === id);
+      if (host) next = views.hostStateContent(host, { t: sources.t, locale: sources.locale, status });
+    } else if (state) {
+      if (kind === 'service') {
+        const service = [...state.services, ...state.allServices].find((entry) => entry.id === id);
+        if (service) next = views.serviceStateContent(service, state);
+      } else if (kind === 'stats') {
+        next = views.statsContent(id === 'status' ? 'status' : 'overview', state);
+      } else if (kind === 'asof') {
+        next = views.asOfContent(state);
+      }
+    }
+    if (next !== null) node.innerHTML = next;
+  }
+  announceChanges(previous, status);
+}
+
+/**
+ * Say what changed, out loud.
+ *
+ * A state dot that turns red is a message for the eye only; the label beside it repeats the state, but
+ * nothing tells a reader using a screen reader that it changed while they were reading something else.
+ * Only *changes* are announced - the first read is not news - and at most three, because a wall of "x is
+ * down" is worse than the two that matter.
+ */
+function announceChanges(previous: StatusSnapshot | null | undefined, next: StatusSnapshot): void {
+  if (!previous || !state) return;
+  const region = document.getElementById('live-region');
+  if (!region) return;
+  // `was === undefined` means the previous read did not know this service or host at all - no answer is not
+  // a fall and coming back into view is not a recovery. Only a real change between two answers is news.
+  const say = (name: string, was: string | undefined, now: string | undefined) => {
+    if (was === undefined || now === was) return null;
+    const phrase = now === 'down' ? state?.t.stateDownNotice : now === 'up' ? state?.t.stateUpNotice : null;
+    return phrase ? phrase.replace('{name}', name) : null;
+  };
+  const lines: string[] = [];
+  for (const [id, live] of next.services) {
+    const service = [...state.services, ...state.allServices].find((entry) => entry.id === id);
+    const line = say(service?.name ?? id, previous.services.get(id)?.state, live.state);
+    if (line) lines.push(line);
+  }
+  for (const [name, live] of next.hosts) {
+    const line = say(name, previous.hosts.get(name)?.state, live.state);
+    if (line) lines.push(line);
+  }
+  if (lines.length) region.textContent = lines.slice(0, 3).join(' ');
+}
+
 // Status is live, not baked: one request to the same-origin route, refreshed while the tab is visible.
 // A failed read leaves the previous answer in place and the page keeps working - the state model already
 // distinguishes "no answer" from "down".
+//
+// What a tick does with the answer: it writes into the nodes the views marked as live and into nothing
+// else. It used to re-render the whole view, which threw away whatever the reader was doing - a search term
+// halfway typed, the focus, the chosen filter chip. A tick is not a new page.
 function startStatusPolling(): void {
   const tick = async (): Promise<void> => {
     if (document.visibilityState !== 'visible') return;
     const hosts = state?.hosts || landing?.registry.hosts || [];
     const status = await loadStatus(hosts.map((host) => host.name));
     if (!status) return;
-    landingStatus = status;
-    if (landing) renderLandingHosts(landing.registry, landing.t, landing.locale);
-    if (state) {
-      state.status = status;
-      render();
-    }
+    applyLive(status);
   };
   tick();
   setInterval(tick, 20000);
