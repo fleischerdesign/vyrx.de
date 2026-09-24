@@ -167,7 +167,7 @@ Flotten-Rebuild.
   `icon-maskable-512.png` und `site.webmanifest` (`start_url` ist der
   Anmeldeweg, `scope` die Seite); der Kopf verweist auf alle, dazu
   `theme-color` je Systemvorgabe. Vier Anordnungen aus **einem** Werk
-  (`docs/brand/build.py`, keine Buchstabe nachgezeichnet): Wortmarke einzeilig
+  (`scripts/build-brand.py`, keine Buchstabe nachgezeichnet): Wortmarke einzeilig
   für breite Plätze, VY/RX zweizeilig ab ~48 px, ein Buchstabe bei 16 px, die
   Kachel für die Sichtbarkeit in hellem und dunklem Reiter. Gemessen: bei 16 px
   liefert die einzeilige Wortmarke 0 Pixel Tinte, die zweizeilige 25 (Striche),

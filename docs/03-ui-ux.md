@@ -38,7 +38,7 @@ Grundsätze, die für jede Änderung gelten — und danach konkrete Verbesserung
   Was ist passiert, was bedeutet es, was kann ich tun.
 - **Symbole und Manifest.** *(erledigt, G1)* Sieben Dateien aus einer Zeichnung,
   gestaffelt nach Größe: ein Buchstabe bei 16 px, VY/RX zweizeilig ab ~48 px,
-  Wortmarke einzeilig für breite Plätze (`docs/brand/`).
+  Wortmarke einzeilig für breite Plätze (`src/brand/`).
 - **Polling nur bei sichtbarem Tab** (`visibilitychange`), längeres Intervall
   im Hintergrund.
 

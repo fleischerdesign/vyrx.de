@@ -111,7 +111,7 @@ auch wenn der Node-Prozess steht.
 - **Symbole und Manifest.** *(berichtigt)* `public/` trägt Favicon (16/32/48),
   SVG-Symbol, Apple-Touch, 192/512, eine `maskable`-Fassung und ein Manifest mit
   dem Anmeldeweg als Start (G1); der Satz entsteht aus einer Zeichnung
-  (`docs/brand/`). Ein Vorschaubild fürs Teilen fehlt weiterhin.
+  (`src/brand/`). Ein Vorschaubild fürs Teilen fehlt weiterhin.
 
 ### 3.4 Zugänglichkeit und Randfälle der Darstellung
 - **Der Browser baut die Ansicht des Lesers.** Die Datei trägt, was allen gehört

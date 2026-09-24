@@ -27,7 +27,7 @@ import re
 import subprocess
 from pathlib import Path
 
-HERE = Path(__file__).parent
+HERE = Path(__file__).parent.parent / "src" / "brand"
 PUBLIC = HERE.parent.parent / "public"
 SOURCE = HERE / "vyrx-primary-black.svg"
 

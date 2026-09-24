@@ -36,7 +36,7 @@ in beiden Themes (G2).
 ## Bauen
 
 ```sh
-cd docs/brand && python3 build.py     # braucht ImageMagick (`magick`) im Pfad
+npm run brand        # braucht ImageMagick (`magick`) im Pfad: python3 scripts/build-brand.py
 ```
 
 Das Skript prüft am Ende sein eigenes Ergebnis: die Tinte muss in jeder Kachel
