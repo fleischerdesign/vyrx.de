@@ -16,15 +16,17 @@ import type { Route } from '../lib/routes.ts';
 interface Props {
   locale: Locale;
   route: Route['name'];
+  /** The service, when this page is a service page: the address names it. */
+  id?: string;
 }
 
-const { locale, route } = Astro.props;
+const { locale, route, id = null } = Astro.props;
 ---
 
-<Layout locale={locale} route={route}>
-  <AppShell locale={locale} route={route}>
+<Layout locale={locale} route={route} id={id}>
+  <AppShell locale={locale} route={route} id={id}>
     <slot>
-      <StaticView locale={locale} route={route} />
+      <StaticView locale={locale} route={route} id={id} />
     </slot>
   </AppShell>
 </Layout>
@@ -36,14 +38,14 @@ const { locale, route } = Astro.props;
 
   // The address is the only input the client has, and it reads it through the same table the server used:
   // two derivations of one fact would be one too many - including where a sign-in comes back to.
-  const { locale, route, selected } = routeFrom(location.pathname, location.search);
+  const { locale, route, id } = routeFrom(location.pathname);
   boot({
     // The same accessor the markup uses: on the client too, a key missing from a table is marked in
     // the page instead of arriving as an empty string.
     messages: useTranslations(locale),
     locale,
     route,
-    selected,
+    id,
     accountUrl: ACCOUNT_URL,
   });
 </script>

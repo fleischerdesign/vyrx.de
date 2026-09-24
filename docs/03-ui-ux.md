@@ -144,10 +144,10 @@ wechselt nie mit der Sprache, die Beschriftung schon.
 
 Die Adressen tragen den abschließenden Schrägstrich, den der Bau erzeugt
 (`/services/`, `/en/services/`) — dieselbe Schreibweise, die `canonical` und
-`hreflang` nennen. Eine Auswahl ist noch keine eigene Adresse: sie hängt als
-Abfrage an der Katalogseite (`/services/?service=<id>`) und wird mit S5 eine
-Seite je Dienst (`/services/<id>/`). Die Hülle trägt einen solchen Zustand mit —
-wer die Sprache wechselt, bleibt auf demselben Dienst.
+`hreflang` nennen. Jeder Dienst hat eine eigene Seite (`/services/<id>/`); wer
+die Sprache wechselt, bleibt auf demselben Dienst. Eine Dienstseite, die nur
+bestimmten Gruppen gehört, sagt ohne Identität „Diesen Dienst gibt es nicht“
+(A4) und zeigt sich dem Browser, der die Gruppen kennt.
 
 ### 6.4 Was keinen Eintrag bekommt
 

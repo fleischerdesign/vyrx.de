@@ -19,8 +19,9 @@ ohnehin stattfindet:
 
 **Triage.** Der erste Arbeitsblock ist entschieden und trägt den Status
 `geplant`: die Grundlage S1–S5, die Übersetzungsparität H1 und die vier kleinen
-Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2, S3, S4 und G3 inzwischen
-`umgesetzt` (Belege bei den Einträgen; E-0010 bis E-0013). Alles andere bleibt `idee` und ist damit ausdrücklich
+Griffe G1, G2, G6 und G7. Davon sind H1, S1, S2, S3, S4, S5 und G3 inzwischen
+`umgesetzt` (Belege bei den Einträgen; E-0010 bis E-0013) — der S-Block ist
+vollständig. Alles andere bleibt `idee` und ist damit ausdrücklich
 nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
@@ -415,7 +416,9 @@ E-0006 bis E-0008; Navigation: `03-ui-ux.md` §6.
   Dateien im Bau, jede mit eigenem Titel, eigener Beschreibung, `canonical` und
   `hreflang` (de, en, x-default); die 404-Seiten tragen `noindex` und keinen
   `canonical`. Raute nur noch dort, wo sie hingehört: die Sprungmarke `#main`
-  und die Symbolverweise `#i-*` des Sprites.
+  und die Symbolverweise `#i-*` des Sprites. Jeder Dienst hat inzwischen eine
+  eigene Adresse (`/services/<id>/`, S5); der Sprachumschalter behält die Ansicht
+  (E-0011).
 - **S2 Hülle als Layout** — `umgesetzt` · `M` · Zeichnung, Hafen, Palette und
   Sprachumschalter werden ein Layout, die Ansichten sind Seiten darin. Ort:
   Portal. Personas: alle. AC: Kein Ansichtsmodul enthält Hüllenelemente.
@@ -442,15 +445,19 @@ E-0006 bis E-0008; Navigation: `03-ui-ux.md` §6.
   `src/lib/contract.ts`; belegt mit einer Probe - ein falscher Argumenttyp in
   `views.ts` lässt `astro check` mit Exit 1 abbrechen. Vorher sah der Prüflauf
   rund 27 KB Oberflächenlogik nicht.
-- **S5 Dienstseiten statt Detailansicht** — `geplant` · `M` · Je Dienst eine
+- **S5 Dienstseiten statt Detailansicht** — `umgesetzt` · `M` · Je Dienst eine
   vorgerenderte Seite (`/services/<id>`) mittels `getStaticPaths`. Ort: Portal.
   Personas: Technisch, Automat. AC: Die Seite existiert als Datei und ist ohne
   JavaScript lesbar und verlinkbar.
-  *Vorbedingung erfüllt:* Der Katalog ist ein Bau-Eingang (E-0013, S3). Offen ist
-  nur noch, dass die Bereitstellung die Datei dort ablegt, wo `readCatalogue()`
-  sie liest. Bis dahin hängt die Auswahl als Abfrage an der Katalogseite
-  (`/services/?service=<id>`, E-0012); die Adresse `/services/<id>/` entsteht mit
-  diesem Eintrag — eine Zeile in `routes.ts`.
+  *Beleg:* `src/pages/services/[id].astro` und der englische Zwilling erzeugen aus
+  dem Bau-Katalog 21 Seiten je Sprache; `/services/jellyseerr/` und
+  `/en/services/jellyseerr/` tragen den Dienst als Datei (Name, Zweck, Zugang,
+  Sichtbarkeit, Kategorie) samt `canonical` und `hreflang` auf die eigene
+  Adresse. Belegt mit Skript und Identität: der Browser zeigt den Dienst auf
+  beiden Adressen, der Sprachumschalter bleibt beim Dienst. Grenze, aus A4: eine
+  Dienstseite, die nur bestimmten Gruppen gehört, sagt ohne Identität „Diesen
+  Dienst gibt es nicht“ und zeigt sich erst dem Browser, der die Gruppen kennt —
+  die Seite existiert, weil der Browser sie füllen kann.
 
 ## T. Netzblick (Betrieb)
 

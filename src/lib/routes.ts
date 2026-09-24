@@ -52,20 +52,16 @@ const prefix = (locale: Locale): string => (locale === 'en' ? '/en' : '');
  * The address of a view in a language. Directory form, with the trailing slash Astro's build writes and the
  * server answers in one step - and the same punctuation the site already publishes for the start page in
  * both languages (`hreflang`, `canonical`). A canonical address that needs a redirect is not canonical.
+ *
+ * A service has an address of its own (`/services/<id>/`): the page exists as a file with S5, so the
+ * selection is no longer an afterthought in a query (E-0012 is settled by this).
  */
 export function pathFor(locale: Locale, name: RouteName, id?: string): string {
-  if (name === 'detail') return selectedPathFor(locale, id ?? '');
+  if (name === 'detail') return `${pathFor(locale, 'services')}${encodeURIComponent(id ?? '')}/`;
   const route = routeFor(name);
   if (!route || route.segment === '') return `${prefix(locale)}/`;
   return `${prefix(locale)}/${route.segment}/`;
 }
-
-/** The catalogue page with one service selected. */
-export const selectedPathFor = (locale: Locale, id: string): string =>
-  `${pathFor(locale, 'services')}?service=${encodeURIComponent(id)}`;
-
-/** The selected service, as the catalogue page reads it out of its own query. */
-export const selectedFrom = (search: string): string | null => new URLSearchParams(search).get('service');
 
 /** Where the outpost starts a sign-in, and where the account itself is kept. */
 const LOGIN = '/outpost.goauthentik.io/start';
@@ -75,8 +71,8 @@ export const ACCOUNT_URL = 'https://auth.vyrx.de/if/user/';
  * Signing in should return to the page that asked for it, not to the start page - the return address is
  * part of knowing where the reader is. The outpost reads `rd`.
  */
-export const loginPathFor = (locale: Locale, route: Route['name'] = 'overview', selected: string | null = null): string =>
-  `${LOGIN}?rd=${selected ? selectedPathFor(locale, selected) : pathFor(locale, route)}`;
+export const loginPathFor = (locale: Locale, route: Route['name'] = 'overview', id: string | null = null): string =>
+  `${LOGIN}?rd=${pathFor(locale, id ? 'detail' : route, id ?? undefined)}`;
 
 /**
  * Which language and which view an address asks for. The client derives it from the address alone - the
@@ -84,9 +80,13 @@ export const loginPathFor = (locale: Locale, route: Route['name'] = 'overview', 
  * about what an address means. A path no view claims answers with the start page's name; a page that has
  * no view (a miss) never asks.
  */
-export function routeFrom(pathname: string, search = ''): { locale: Locale; route: Route['name']; selected: string | null } {
+export function routeFrom(pathname: string): { locale: Locale; route: Route['name']; id: string | null } {
   const english = pathname === '/en' || pathname.startsWith('/en/');
   const rest = (english ? pathname.slice(3) : pathname).replace(/^\/+|\/+$/g, '');
-  const match = ROUTES.find((route) => route.segment === rest);
-  return { locale: english ? 'en' : 'de', route: match?.name ?? 'overview', selected: selectedFrom(search) };
+  const [segment, ...tail] = rest.split('/');
+  const match = ROUTES.find((route) => route.segment === segment);
+  // A service page is the catalogue's segment plus the service's own: the address carries the selection,
+  // so nothing has to be read out of a query any more.
+  const id = match?.name === 'services' && tail.length === 1 ? decodeURIComponent(tail[0] ?? '') : null;
+  return { locale: english ? 'en' : 'de', route: match?.name ?? 'overview', id: id || null };
 }

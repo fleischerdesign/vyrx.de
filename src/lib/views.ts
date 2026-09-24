@@ -4,7 +4,7 @@
 import { esc } from './dom.ts';
 import { icon } from './icons.ts';
 import { categories, localized, serviceState, hostState, ROLE_KEY } from './api.ts';
-import { pathFor, selectedPathFor } from './routes.ts';
+import { pathFor } from './routes.ts';
 import type { AppState, Host, HostType, HostView, Messages, Scope, Service, ServiceState } from './contract.ts';
 
 const SCOPE: Readonly<Record<Scope, string>> = {
@@ -60,7 +60,7 @@ function tile(s: Service, ctx: AppState, interactive: boolean) {
   <div class="card-body gap-3 p-4">
     <div class="flex items-start gap-2">
       <h3 class="card-title mr-auto text-base leading-tight">
-        <a class="link link-hover" href="${selectedPathFor(ctx.locale, s.id)}">${esc(s.name)}</a>
+        <a class="link link-hover" href="${pathFor(ctx.locale, 'detail', s.id)}">${esc(s.name)}</a>
       </h3>
       ${interactive ? favoriteButton(s, ctx) : ''}
     </div>
