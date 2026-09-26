@@ -1,0 +1,20 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import Overview from '@/components/workspace/Overview.astro';
+import { useTranslations } from '@/i18n';
+import { loginPathFor, pathFor } from '@/lib/locale';
+import { readSession } from '@/lib/session';
+
+// Der Einstieg in den Workspace. Er liest die Identität, die der Proxy liefert,
+// und liegt deshalb hinter der Anmeldung.
+export const prerender = false;
+
+const session = readSession(Astro.request);
+if (!session.identity) return Astro.redirect(loginPathFor(pathFor('de', 'overview')));
+
+const t = useTranslations('de');
+---
+
+<AppShell locale="de" session={session} title={t('navOverview')} description={t('overviewIntro')}>
+  <Overview locale="de" session={session} />
+</AppShell>

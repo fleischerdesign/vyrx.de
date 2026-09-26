@@ -17,7 +17,7 @@ export interface NavItem {
 
 /** Die Hauptnavigation des Workspace, in Leserichtung. */
 export const WORKSPACE_NAV: readonly NavItem[] = [
-  { name: 'start', key: 'navOverview', icon: 'home' },
+  { name: 'overview', key: 'navOverview', icon: 'home' },
   { name: 'services', key: 'navServices', icon: 'grid' },
   { name: 'knowledge', key: 'navKnowledge', icon: 'book' },
   { name: 'status', key: 'navStatus', icon: 'activity' },
@@ -33,7 +33,6 @@ export const PUBLIC_NAV: readonly NavItem[] = [
 
 /** Der Eintrag, der auf dieser Adresse aktiv ist. */
 export function isCurrent(item: NavItem, current: RouteName): boolean {
-  if (item.name === 'start') return current === 'start';
   if (item.name === 'services') return current === 'services' || current === 'service';
   if (item.name === 'knowledge') return current === 'knowledge' || current === 'article';
   return item.name === current;

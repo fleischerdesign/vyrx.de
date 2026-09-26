@@ -17,6 +17,7 @@ export type RouteName =
   | 'start'
   | 'project'
   | 'help'
+  | 'overview'
   | 'services'
   | 'service'
   | 'knowledge'
@@ -30,19 +31,36 @@ interface RouteDefinition {
   readonly segment: string;
   /** Ein Segment, das der Adresse angehängt wird (`:id`, `:slug`). */
   readonly param?: string;
+  /**
+   * Ob die Adresse **ohne Anmeldung** erreichbar ist.
+   *
+   * Das ist keine Geschmacksfrage, sondern die Grenze zwischen App und Ingress:
+   * ein öffentlicher Pfad läuft dort an der Anmeldung vorbei und trägt deshalb
+   * **keine** Identitätskopfzeilen. Also darf eine öffentliche Seite keine
+   * Identität lesen - und eine Seite, die Identität liest, darf nicht öffentlich
+   * sein. `scripts/verify-access.mjs` prüft beides und leitet daraus die Liste
+   * ab, die der Ingress ausnehmen muss.
+   */
+  readonly public: boolean;
 }
-
 const ROUTES: Readonly<Record<Exclude<RouteName, 'notFound'>, RouteDefinition>> = {
-  start: { segment: '' },
-  project: { segment: 'project' },
-  help: { segment: 'help' },
-  services: { segment: 'services' },
-  service: { segment: 'services', param: 'id' },
-  knowledge: { segment: 'knowledge' },
-  article: { segment: 'knowledge', param: 'slug' },
-  status: { segment: 'status' },
-  account: { segment: 'account' },
-  admin: { segment: 'admin' },
+  // Die öffentliche Landing - redaktionell, ohne Identität, als Datei gebaut.
+  start: { segment: '', public: true },
+  project: { segment: 'project', public: true },
+  help: { segment: 'help', public: true },
+  // Der Einstieg in den Workspace: eine eigene, geschützte Adresse. Früher lag
+  // er auf `/`, das gleichzeitig öffentlich war - deshalb kam dort nie eine
+  // Identität an und die Übersicht war unerreichbar.
+  overview: { segment: 'overview', public: false },
+  services: { segment: 'services', public: false },
+  service: { segment: 'services', param: 'id', public: false },
+  // Wissen ist heute intern: kein Artikel trägt `visibility: public`. Wird einer
+  // öffentlich, muss diese Zeile mit (der Ingress folgt ihr, geprüft im Bau).
+  knowledge: { segment: 'knowledge', public: false },
+  article: { segment: 'knowledge', param: 'slug', public: false },
+  status: { segment: 'status', public: false },
+  account: { segment: 'account', public: false },
+  admin: { segment: 'admin', public: false },
 };
 
 const prefix = (locale: Locale): string => (locale === 'en' ? '/en' : '');
@@ -100,3 +118,43 @@ export function loginPathFor(pathname: string): string {
 
 /** Der Katalog der authentisierten Identität, außerhalb dieser App verwaltet. */
 export const ACCOUNT_URL = 'https://auth.vyrx.de/if/user/';
+
+/** Die Segmente der öffentlichen Routen (ohne Startseite und ohne Detailrouten). */
+export const PUBLIC_ROUTE_SEGMENTS: readonly string[] = (
+  Object.entries(ROUTES) as [RouteName, RouteDefinition][]
+)
+  .filter(([, definition]) => definition.public && !definition.param && definition.segment !== '')
+  .map(([, definition]) => definition.segment);
+
+/**
+ * Die öffentlichen Adressen, als Muster für den Ingress.
+ *
+ * Sie entstehen aus der Routentabelle und dem, was in `public/` liegt - nicht
+ * aus einer zweiten Liste. Was hier steht, muss der Ingress ausnehmen; was der
+ * Ingress ausnimmt, muss hier stehen. Die Prüfung dazu liegt in der Flotte
+ * (`checks/vyrx-portal.nix`), weil sie beides sieht.
+ */
+export function publicPathPatterns(staticFiles: readonly string[] = []): readonly string[] {
+  const patterns = new Set<string>(['/']);
+
+  for (const locale of LOCALES) {
+    const prefix = locale === 'en' ? '/en' : '';
+    // Die Sprachwurzel selbst: `/en`, `/en/` - aber ausdrücklich nicht `/en/*`.
+    if (prefix) {
+      patterns.add(prefix);
+      patterns.add(`${prefix}/`);
+    }
+    for (const [, definition] of Object.entries(ROUTES) as [RouteName, RouteDefinition][]) {
+      if (!definition.public || definition.param || definition.segment === '') continue;
+      patterns.add(`${prefix}/${definition.segment}`);
+      patterns.add(`${prefix}/${definition.segment}/`);
+      patterns.add(`${prefix}/${definition.segment}/*`);
+    }
+  }
+
+  // Gebaute Dateien und alles, was aus `public/` mitkommt - Dateien sind öffentlich.
+  patterns.add('/_astro/*');
+  for (const file of staticFiles) patterns.add(`/${file}`);
+
+  return [...patterns].sort();
+}

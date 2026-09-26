@@ -15,7 +15,7 @@ interface Props {
 
 const { locale } = Astro.props;
 const t = useTranslations(locale);
-const login = loginPathFor(pathFor(locale, 'start'));
+const login = loginPathFor(pathFor(locale, 'overview'));
 
 const examples = [
   { number: t('example1Number'), title: t('example1Title'), text: t('example1Text') },

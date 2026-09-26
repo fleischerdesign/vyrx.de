@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "PORTAL_DEV_SERVER=1 astro dev",
-    "build": "astro check && astro build && node scripts/verify-server.mjs && node scripts/verify-contrast.mjs && node scripts/verify-content.mjs && node scripts/verify-adapters.mjs && npm run test",
+    "build": "astro check && astro build && node scripts/verify-access.mjs && node scripts/verify-server.mjs && node scripts/verify-contrast.mjs && node scripts/verify-content.mjs && node scripts/verify-adapters.mjs && npm run test",
     "preview": "astro preview",
     "check": "astro check",
     "test": "node --test \"test/**/*.test.ts\"",

@@ -1,8 +1,9 @@
 ---
 import StartPage from '@/components/pages/StartPage.astro';
 
-// Diese Seite liest die Identität aus den Kopfzeilen: sie ist serverseitig, nie vorgerendert.
-export const prerender = false;
+// Die öffentliche Landing ist für alle gleich und liest keine Identität:
+// sie wird als Datei gebaut. Der Workspace beginnt unter `/overview/`.
+export const prerender = true;
 ---
 
 <StartPage locale="de" />

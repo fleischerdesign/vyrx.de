@@ -63,7 +63,7 @@ const palette: PaletteItem[] = [
 
   <div class="shell">
     <aside class="side">
-      <a class="side__brand" href={`/${locale === 'en' ? 'en/' : ''}`} aria-label={t('brandHome')}>
+      <a class="side__brand" href={pathFor(locale, 'overview')} aria-label={t('brandHome')}>
         <Wordmark height="1.3rem" />
       </a>
 
@@ -88,7 +88,7 @@ const palette: PaletteItem[] = [
 
     <div class="content">
       <header class="topbar">
-        <a class="topbar__brand" href={`/${locale === 'en' ? 'en/' : ''}`} aria-label={t('brandHome')}>
+        <a class="topbar__brand" href={pathFor(locale, 'overview')} aria-label={t('brandHome')}>
           <Wordmark height="1.15rem" />
         </a>
         <nav class="crumb" aria-label={t('workspaceLabel')}>

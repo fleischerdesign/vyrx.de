@@ -22,7 +22,9 @@ interface Props {
 const { locale, title, description } = Astro.props;
 const t = useTranslations(locale);
 const here = routeFrom(Astro.url.pathname).name;
-const login = loginPathFor(Astro.url.pathname);
+// Die Anmeldung führt in den Workspace, nicht auf diese Seite zurück: die
+// Landing ist öffentlich und bliebe sonst die Antwort auf einen Klick.
+const login = loginPathFor(pathFor(locale, 'overview'));
 ---
 
 <Base locale={locale} title={title} description={description}>
