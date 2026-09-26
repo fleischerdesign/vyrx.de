@@ -175,6 +175,17 @@ const t = useTranslations(locale);
     display: block;
     width: 100%;
     height: auto;
+    /*
+     * Die Vorgabe der Zeichnung: nichts ist gefüllt und nichts ist gestrichen.
+     * Jede Fläche und jede Linie sagt selbst, was sie ist. Fehlen diese zwei
+     * Zeilen, werden reine Strichpfade gefüllt - aus drei Lüftungsstrichen
+     * eines Hosts werden dann drei schwarze Rauten.
+     */
+    fill: none;
+    stroke: none;
+    stroke-width: 1;
+    stroke-linecap: butt;
+    stroke-linejoin: round;
     overflow: visible;
   }
 
