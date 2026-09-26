@@ -9,6 +9,23 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
 
+/*
+ * Der Server wird **gebündelt**, und das ist die Vorgabe.
+ *
+ * Das Artefakt wird ohne `node_modules` ausgeliefert. Wird eine Abhängigkeit
+ * externalisiert, fehlt sie beim Start und der Prozess stirbt mit
+ * `ERR_MODULE_NOT_FOUND` - im Store, also in der Produktion, während lokal
+ * alles lief.
+ *
+ * Der Entwicklungsserver darf **nicht** bündeln: er zieht dann CJS-Pakete in
+ * ein ESM-Modul und stirbt mit „require is not defined". Damit die sichere
+ * Vorgabe nicht durch die Ausnahme verdreht wird, sagt nur der Dev-Befehl sie
+ * ausdrücklich ab (`npm run dev` setzt `PORTAL_DEV_SERVER=1`), und
+ * `scripts/verify-server.mjs` belegt nach jedem Bau, dass im Serverbaum keine
+ * fremde Abhängigkeit mehr steht.
+ */
+const devServer = process.env.PORTAL_DEV_SERVER === '1';
+
 export default defineConfig({
   site: 'https://vyrx.de',
   output: 'server',
@@ -24,4 +41,8 @@ export default defineConfig({
       redirectToDefaultLocale: false,
     },
   },
+  // Im Bau wird gebündelt; im Dev-Server steht die Vorgabe (nichts externalisieren
+  // heißt umgekehrt: nichts bündeln), deshalb fehlt der Schlüssel dort ganz -
+  // `noExternal: false` ist in diesem Vite kein gültiger Wert.
+  vite: devServer ? {} : { ssr: { noExternal: true } },
 });
