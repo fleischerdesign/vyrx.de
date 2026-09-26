@@ -1,0 +1,27 @@
+---
+import { ICONS, type IconName } from '@/lib/icons';
+
+interface Props {
+  name: IconName;
+  /** Eine CSS-Länge, z. B. `1.25rem`. Standard ist die Zeilenhöhe der Schrift. */
+  size?: string;
+  class?: string;
+}
+
+const { name, size = '1.15em', class: className } = Astro.props;
+---
+
+<svg
+  class={className}
+  width={size}
+  height={size}
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.7"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+  focusable="false"
+  set:html={ICONS[name]}
+/>

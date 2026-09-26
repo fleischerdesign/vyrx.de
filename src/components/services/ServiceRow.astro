@@ -1,0 +1,128 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import StateDot from '@/components/ui/StateDot.astro';
+import FavoriteButton from '@/components/services/FavoriteButton.astro';
+import { useTranslations } from '@/i18n';
+import { text, type FleetService } from '@/lib/fleet';
+import { serviceIcon } from '@/lib/icons';
+import type { Locale } from '@/lib/locale';
+import type { Live } from '@/lib/status';
+
+interface Props {
+  service: FleetService;
+  locale: Locale;
+  /** Der gemessene Zustand, wenn die Ansicht ihn kennt. */
+  state?: Live;
+  /** Für die Filterung in der Liste: die Kategorie des Dienstes. */
+  category?: string;
+  /** Für die Filterung in der Liste: der durchsuchbare Text. */
+  search?: string;
+  /** Ob dieses Angebot gemerkt ist; `undefined` heißt: hier kein Stern. */
+  favorited?: boolean;
+}
+
+const { service, locale, state, category, search, favorited } = Astro.props;
+const t = useTranslations(locale);
+const prefix = locale === 'en' ? '/en' : '';
+const name = text(service.name, locale);
+const stateLabel =
+  state?.state === 'up'
+    ? t('stateUp')
+    : state?.state === 'down'
+      ? t('stateDown')
+      : state?.state === 'unmonitored'
+        ? t('stateUnmonitored')
+        : t('stateUnknown');
+---
+
+<div class="row" data-category={category} data-search={search}>
+  <a class="row__link" href={`${prefix}/services/${service.id}/`}>
+    <span class="row__icon"><Icon name={serviceIcon(service.icon)} size="1.15rem" /></span>
+    <span class="row__text">
+      <strong>{name}</strong>
+      <small>{text(service.summary, locale)}</small>
+    </span>
+  </a>
+  {state && <StateDot state={state.state} label={stateLabel} class="row__state" />}
+  {favorited !== undefined && (
+    <FavoriteButton serviceId={service.id} favorited={favorited} locale={locale} next={Astro.url.pathname} />
+  )}
+  <a class="row__open" href={service.url} aria-label={`${t('servicesOpen')}: ${name}`} title={t('servicesOpen')}>
+    <Icon name="external" size="0.95rem" />
+  </a>
+</div>
+
+<style>
+  .row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    transition: border-color var(--fast) var(--ease);
+  }
+
+  .row:hover {
+    border-color: var(--accent);
+  }
+
+  .row__link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    min-width: 0;
+    flex: 1;
+  }
+
+  .row__icon {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    flex: none;
+  }
+
+  .row__text {
+    min-width: 0;
+  }
+
+  .row__text strong {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .row__text small {
+    display: block;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    margin-top: 2px;
+  }
+
+  .row__open {
+    display: grid;
+    place-items: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    flex: none;
+  }
+
+  .row__open:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  @media (max-width: 560px) {
+    .row__state {
+      display: none;
+    }
+  }
+</style>

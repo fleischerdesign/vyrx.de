@@ -1,0 +1,8 @@
+---
+import ProjectPage from '@/components/pages/ProjectPage.astro';
+
+// Die Projektseite ist für alle gleich und braucht keine Identität: sie wird als Datei gebaut.
+export const prerender = true;
+---
+
+<ProjectPage locale="de" />

@@ -1,0 +1,79 @@
+---
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+
+const layers = [
+  { step: '01', title: t('projectLayerDeclaration'), note: t('projectLayerDeclarationNote') },
+  { step: '02', title: t('projectLayerAccess'), note: t('projectLayerAccessNote') },
+  { step: '03', title: t('projectLayerOffers'), note: t('projectLayerOffersNote') },
+  { step: '04', title: t('projectLayerObservation'), note: t('projectLayerObservationNote') },
+];
+---
+
+<div class="layers">
+  {
+    layers.map((layer) => (
+      <div class="layer">
+        <span class="layer__step">{layer.step} /</span>
+        <strong>{layer.title}</strong>
+        <small>{layer.note}</small>
+      </div>
+    ))
+  }
+</div>
+
+<style>
+  .layers {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-3);
+    background: var(--surface-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    margin-top: var(--space-5);
+  }
+
+  .layer {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: var(--space-4) var(--space-3);
+    min-height: 6.2rem;
+  }
+
+  .layer__step {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--accent-strong);
+    margin-bottom: var(--space-3);
+  }
+
+  .layer strong {
+    display: block;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .layer small {
+    display: block;
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    color: var(--muted);
+    margin-top: var(--space-2);
+  }
+
+  @media (max-width: 760px) {
+    .layers {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+</style>

@@ -1,0 +1,49 @@
+---
+/*
+ * Ein redaktioneller Abschnitt: links die Überschrift, rechts der Text. Diese
+ * Form tragen Projekt und Hilfe gemeinsam - sie wird einmal gebaut.
+ */
+interface Props {
+  overline: string;
+  title: string;
+}
+
+const { overline, title } = Astro.props;
+---
+
+<section class="editorial">
+  <div class="editorial__head">
+    <p class="overline">{overline}</p>
+    <h2>{title}</h2>
+  </div>
+  <div class="editorial__body prose">
+    <slot />
+  </div>
+</section>
+
+<style>
+  .editorial {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.62fr) minmax(0, 1.38fr);
+    gap: clamp(var(--space-6), 5vw, var(--space-12));
+    padding-block: var(--space-8);
+    border-top: 1px solid var(--line);
+  }
+
+  .editorial:last-of-type {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .editorial h2 {
+    font-size: var(--text-xl);
+    letter-spacing: var(--tracking-tighter);
+    margin-top: var(--space-3);
+  }
+
+  @media (max-width: 760px) {
+    .editorial {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-4);
+    }
+  }
+</style>

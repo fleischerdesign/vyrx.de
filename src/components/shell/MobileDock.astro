@@ -1,0 +1,71 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { isCurrent, WORKSPACE_NAV } from '@/lib/nav';
+import { pathFor, routeFrom, type Locale } from '@/lib/locale';
+
+interface Props {
+  locale: Locale;
+  isAdmin: boolean;
+}
+
+const { locale, isAdmin } = Astro.props;
+const t = useTranslations(locale);
+const here = routeFrom(Astro.url.pathname).name;
+// Höchstens fünf Einträge - Verwaltung bleibt in der Schublade.
+const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin).slice(0, 5);
+---
+
+<nav class="dock" aria-label={t('workspaceLabel')}>
+  {
+    items.map((item) => (
+      <a
+        href={pathFor(locale, item.name)}
+        class:list={['dock__item', isCurrent(item, here) && 'is-current']}
+        aria-current={isCurrent(item, here) ? 'page' : undefined}
+      >
+        <Icon name={item.icon} size="1.15rem" />
+        <span>{t(item.key)}</span>
+      </a>
+    ))
+  }
+</nav>
+
+<style>
+  .dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 40;
+    display: none;
+    justify-content: space-around;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: var(--space-2) var(--space-2) max(var(--space-2), env(safe-area-inset-bottom));
+    box-shadow: 0 -10px 30px rgb(36 43 59 / 0.05);
+  }
+
+  .dock__item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: var(--space-2) 2px;
+    border-radius: var(--radius-sm);
+    color: var(--faint);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+
+  .dock__item.is-current {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  @media (max-width: 900px) {
+    .dock {
+      display: flex;
+    }
+  }
+</style>

@@ -1,0 +1,40 @@
+---
+/*
+ * Die Hülle entscheidet sich an der Identität: angemeldet der Workspace,
+ * sonst die öffentliche Seite. Für Inhalte, die beides sein dürfen (etwa ein
+ * öffentlicher Wiki-Artikel), gibt es genau eine Stelle, die das entscheidet.
+ */
+import WorkspaceLayout from '@/layouts/WorkspaceLayout.astro';
+import PublicLayout from '@/layouts/PublicLayout.astro';
+import type { Locale } from '@/lib/locale';
+import type { Session } from '@/lib/session';
+
+interface Props {
+  locale: Locale;
+  session: Session;
+  title: string;
+  description: string;
+}
+
+const { locale, session, title, description } = Astro.props;
+---
+
+{
+  session.identity ? (
+    <WorkspaceLayout locale={locale} session={session} title={title} description={description}>
+      <slot />
+    </WorkspaceLayout>
+  ) : (
+    <PublicLayout locale={locale} title={title} description={description}>
+      <div class="guest container">
+        <slot />
+      </div>
+    </PublicLayout>
+  )
+}
+
+<style>
+  .guest {
+    padding-block: clamp(var(--space-12), 6vw, var(--space-20));
+  }
+</style>

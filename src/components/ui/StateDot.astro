@@ -1,0 +1,59 @@
+---
+/*
+ * Ein Zustandspunkt trägt nie allein die Bedeutung: er steht immer neben
+ * seinem Text. Das ist die Barrierefreiheitsregel für Farbe - und die
+ * inhaltliche: „unbekannt" ist etwas anderes als „ausgefallen".
+ */
+import type { ServiceState } from '@/lib/status';
+
+interface Props {
+  state: ServiceState;
+  label: string;
+  class?: string;
+}
+
+const { state, label, class: className } = Astro.props;
+const tone =
+  state === 'up' ? 'ok' : state === 'down' ? 'bad' : state === 'unmonitored' ? 'idle' : 'unknown';
+---
+
+<span class={`dot ${className ?? ''}`} data-tone={tone}>
+  <span class="dot__mark" aria-hidden="true"></span>
+  <span class="dot__label">{label}</span>
+</span>
+
+<style>
+  .dot {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .dot__mark {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--unknown);
+    flex: none;
+  }
+
+  .dot[data-tone='ok'] .dot__mark {
+    background: var(--ok);
+  }
+
+  .dot[data-tone='bad'] .dot__mark {
+    background: var(--bad);
+  }
+
+  .dot[data-tone='idle'] .dot__mark {
+    background: var(--line-strong);
+  }
+
+  .dot[data-tone='unknown'] .dot__mark {
+    background: var(--unknown);
+  }
+</style>

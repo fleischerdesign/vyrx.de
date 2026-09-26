@@ -1,0 +1,81 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  id: string;
+  label: string;
+  placeholder?: string;
+  value?: string;
+  /** Zählt die Treffer und liest sie vor. */
+  countId?: string;
+  class?: string;
+}
+
+const { id, label, placeholder = '', value = '', countId, class: className } = Astro.props;
+---
+
+<div class={`search ${className ?? ''}`}>
+  <label class="search__label" for={id}>{label}</label>
+  <Icon name="search" size="1.15rem" class="search__icon" />
+  <input
+    id={id}
+    type="search"
+    class="search__input"
+    placeholder={placeholder}
+    value={value}
+    autocomplete="off"
+    spellcheck="false"
+  />
+  {countId && <span class="search__count" id={countId} role="status" aria-live="polite"></span>}
+</div>
+
+<style>
+  .search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding-inline: var(--space-4);
+  }
+
+  .search:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+
+  .search__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .search__icon {
+    color: var(--muted);
+    flex: none;
+  }
+
+  .search__input {
+    flex: 1;
+    min-width: 0;
+    height: 3.5rem;
+    border: 0;
+    background: none;
+    outline: 0;
+  }
+
+  .search__input::placeholder {
+    color: var(--faint);
+  }
+
+  .search__count {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--faint);
+    white-space: nowrap;
+  }
+</style>

@@ -1,0 +1,317 @@
+---
+import PageHeader from '@/components/ui/PageHeader.astro';
+import Badge from '@/components/ui/Badge.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { text } from '@/lib/fleet';
+import { ACCOUNT_URL, type Locale } from '@/lib/locale';
+import type { Session } from '@/lib/session';
+import { reportsOf } from '@/lib/store';
+
+interface Props {
+  locale: Locale;
+  session: Session;
+}
+
+const { locale, session } = Astro.props;
+const t = useTranslations(locale);
+const identity = session.identity;
+const initial = (identity?.name || identity?.username || 'U').charAt(0).toUpperCase();
+
+// Für die Rechteansicht: nur was diese Person ohnehin sieht, wird benannt.
+const services = session.services;
+const openToAll = services.filter((service) => service.accessGroups.length === 0);
+const byGroup = (identity?.groups ?? [])
+  .map((group) => ({ group, services: services.filter((service) => service.accessGroups.includes(group)) }))
+  .filter((entry) => entry.services.length > 0);
+
+const reports = identity ? reportsOf(identity.username) : [];
+const serviceName = (id: string | null): string | null => {
+  const service = id ? services.find((entry) => entry.id === id) : undefined;
+  return service ? text(service.name, locale) : null;
+};
+const day = (iso: string): string => iso.slice(0, 10);
+---
+
+<PageHeader overline={t('accountEyebrow')} title={t('accountTitle')} description={t('accountIntro')} />
+
+<section class="identity">
+  <span class="identity__avatar" aria-hidden="true">{initial}</span>
+  <div>
+    <p class="overline">{t('accountIdentity')}</p>
+    <strong>{identity?.name || identity?.username}</strong>
+    <small>{identity?.username}</small>
+  </div>
+</section>
+
+<section class="block">
+  <h2>{t('accountGroups')}</h2>
+  {
+    identity && identity.groups.length > 0 ? (
+      <ul class="groups">
+        {identity.groups.map((group) => (
+          <li>
+            <Badge tone="neutral">{group}</Badge>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="muted">{t('accountGroupsEmpty')}</p>
+    )
+  }
+</section>
+
+<section class="block">
+  <h2>{t('rightsTitle')}</h2>
+  <p class="muted">{t('rightsNote')}</p>
+  {
+    openToAll.length === 0 && byGroup.length === 0 ? (
+      <p class="muted">{t('rightsNoServices')}</p>
+    ) : (
+      <ul class="rights">
+        {openToAll.length > 0 && (
+          <li>
+            <span class="rights__group">{t('rightsEveryone')}</span>
+            <span class="rights__services">
+              {openToAll.map((service) => text(service.name, locale)).join(', ')}
+            </span>
+          </li>
+        )}
+        {byGroup.map((entry) => (
+          <li>
+            <span class="rights__group">{entry.group}</span>
+            <span class="rights__services">
+              {entry.services.map((service) => text(service.name, locale)).join(', ')}
+            </span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</section>
+
+<section class="block">
+  <h2>{t('reportsTitle')}</h2>
+  {
+    reports.length === 0 ? (
+      <p class="muted">{t('reportsEmpty')}</p>
+    ) : (
+      <ul class="reports">
+        {reports.map((report) => (
+          <li class="report">
+            <div class="report__head">
+              <Badge tone={report.state === 'open' ? 'accent' : 'ok'}>
+                {report.state === 'open' ? t('reportOpen') : t('reportDone')}
+              </Badge>
+              <span class="mono report__date">{day(report.createdAt)}</span>
+              {serviceName(report.serviceId) && <span class="report__service">{serviceName(report.serviceId)}</span>}
+            </div>
+            <p>{report.body}</p>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</section>
+
+<section class="block">
+  <div class="security">
+    <span class="security__icon"><Icon name="shield" size="1.2rem" /></span>
+    <div>
+      <strong>{t('accountSecurity')}</strong>
+      <p>{t('accountSecurityHint')}</p>
+    </div>
+    <a class="security__link" href={ACCOUNT_URL}>
+      {t('accountManage')}
+      <Icon name="external" size="1rem" />
+    </a>
+  </div>
+</section>
+
+<style>
+  .identity {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    padding: var(--space-6);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    max-width: 34rem;
+  }
+
+  .identity__avatar {
+    display: grid;
+    place-items: center;
+    width: 3.2rem;
+    height: 3.2rem;
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    flex: none;
+  }
+
+  .identity strong {
+    display: block;
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    margin-top: var(--space-2);
+  }
+
+  .identity small {
+    display: block;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    margin-top: var(--space-1);
+  }
+
+  .block {
+    margin-top: var(--space-10);
+    max-width: 34rem;
+  }
+
+  .block h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+  }
+
+  .groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    list-style: none;
+  }
+
+  .muted {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .rights {
+    list-style: none;
+    margin-top: var(--space-4);
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .rights li {
+    display: grid;
+    grid-template-columns: minmax(9rem, auto) minmax(0, 1fr);
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .rights__group {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--accent-strong);
+  }
+
+  .rights__services {
+    font-size: var(--text-sm);
+  }
+
+  .reports {
+    list-style: none;
+    margin-top: var(--space-4);
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .report {
+    padding: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .report__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-3);
+  }
+
+  .report__date {
+    font-size: var(--text-xs);
+    color: var(--faint);
+  }
+
+  .report__service {
+    font-size: var(--text-xs);
+    color: var(--muted);
+  }
+
+  .report p {
+    font-size: var(--text-sm);
+    color: var(--ink-2);
+    white-space: pre-line;
+  }
+
+  @media (max-width: 560px) {
+    .rights li {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--space-2);
+    }
+  }
+
+  .security {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .security__icon {
+    display: grid;
+    place-items: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--radius-sm);
+    background: var(--surface-3);
+    color: var(--muted);
+    flex: none;
+  }
+
+  .security strong {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .security p {
+    color: var(--muted);
+    font-size: var(--text-xs);
+    margin-top: var(--space-1);
+  }
+
+  .security__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-inline-start: auto;
+    color: var(--accent);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 560px) {
+    .security {
+      flex-wrap: wrap;
+    }
+
+    .security__link {
+      margin-inline-start: 0;
+    }
+  }
+</style>

@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "revision": "fixture-2026-09-26",
+  "generatedAt": "2026-09-26T17:54:37.364Z",
+  "backups": [
+    {
+      "target": "cld-edge-01",
+      "lastRunAt": "2026-09-26T12:54:37.364Z",
+      "state": "ok"
+    },
+    {
+      "target": "hom-srv-01",
+      "lastRunAt": "2026-09-26T11:54:37.364Z",
+      "state": "ok"
+    },
+    {
+      "target": "cld-ops-01",
+      "lastRunAt": "2026-09-25T11:54:37.364Z",
+      "state": "overdue"
+    }
+  ],
+  "certificates": [
+    {
+      "name": "vyrx.de",
+      "expiresAt": "2026-11-27T17:54:37.364Z",
+      "issuer": "Let’s Encrypt"
+    },
+    {
+      "name": "auth.vyrx.de",
+      "expiresAt": "2026-10-07T17:54:37.364Z",
+      "issuer": "Let’s Encrypt"
+    },
+    {
+      "name": "media.vyrx.de",
+      "expiresAt": "2026-11-05T17:54:37.364Z",
+      "issuer": "intern"
+    }
+  ],
+  "tree": {
+    "lastCheckAt": "2026-09-26T15:54:37.364Z",
+    "checkState": "ok",
+    "lastDeployAt": "2026-09-25T17:54:37.364Z"
+  }
+}

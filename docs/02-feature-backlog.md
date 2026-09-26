@@ -27,6 +27,38 @@ nicht zugesagt; `verworfen` steht am Ende der Datei mit Begründung.
 Block A und B sind die beiden Vorhaben, die das Portal von einem Schaufenster
 zu einem Hub machen. C bis H sind der Rest, nach Nutzen sortiert.
 
+## Stand nach dem Neubau (2026-09-26)
+
+Die Anwendung wurde neu geschrieben (`08-ziel-rewrite.md`, E-0019). Damit sind
+die Sockel-Einträge **umgesetzt**, und zwar im neuen Aufbau: **A1, A3, A4, A5,
+B1, C3, D1, D2, D3 (nur Favoriten), E1, E3, F4, G2, G3, G5, G6, G7 (Bausteine),
+H1, K1, K2 (schlanke Form), S1-S5.** Beleg sind `src/` und die Entscheidungen
+E-0019 bis E-0022.
+
+**Neu verworfen** (2026-09-26, Begründungen unten): **K4** (Offline-Wissen),
+**F3** und **Q1** (Gastzugang). F3/Q1 gehören zum Identitätsanbieter, nicht zum
+Portal; K4 zahlt einen zweiten Auslieferungsweg für einen Fall, in dem meist
+auch das Portal selbst fehlt.
+
+**Grenze von K2, benannt:** die Leiste „Erste Schritte" zeigt nur, was das
+Portal weiß - angemeldet, Anzahl der freigegebenen Angebote, Anzahl der
+Anleitungen - und verweist für alles Weitere auf die einladende Person. Geräte-
+und Passkey-Zustand kennt das Portal nicht und behauptet ihn deshalb nicht.
+
+Bewusst **revidiert**: **A7** – aus dem Katalog entsteht *keine* generierte
+Wiki-Seite mehr. Die Dienstseite ist ein Einstieg in geschriebene Artikel; die
+Begründung steht in `07-produkt-und-seitenkonzept.md`.
+
+**Teilweise** umgesetzt, mit benannter Lücke: **A2** (Suche findet Titel und
+Kurzantworten, nicht den ganzen Fließtext), **B2** (der Dienst öffnet, aber es
+gibt keinen geführten Rückweg), **B3** (der Zustand kommt aus der Messung, nicht
+aus einer Befragung des Dienstes selbst), **D3** (der Verlauf bleibt gerätweise
+und ist noch nicht gebaut), **G8** (ein fehlender Kollektor ergibt „unbekannt",
+aber die Oberfläche bietet noch kein „erneut versuchen").
+
+Alle übrigen Einträge sind unverändert `idee`. Die Reihenfolge für den weiteren
+Bau steht in `08-ziel-rewrite.md` §5.
+
 ## A. Wissensbasis (Wiki)
 
 Zwei Teile, ausdrücklich getrennt: die **Faktentafel** entsteht aus dem Katalog
@@ -36,7 +68,7 @@ geschrieben (`content/knowledge/<slug>/de.md` und `en.md`, optional
 zwei Beschreibungen desselben Dienstes, und eine Textänderung bräuchte einen
 Flotten-Rebuild.
 
-- **A1 Wissensbasis unter `/knowledge`** — `idee` · `M` · Nicht-technische
+- **A1 Wissensbasis unter `/knowledge`** — `umgesetzt` · `M` · Nicht-technische
   Nutzer finden Anleitungen dort, wo sie sich anmelden. Personas: Gast,
   Nicht-technisch, Technisch. AC: `/knowledge` und `/knowledge/<slug>` liefern
   vorgerendertes HTML (auch ohne JavaScript lesbar); die Artikel sind eine
@@ -45,14 +77,14 @@ Flotten-Rebuild.
 - **A2 Volltextsuche über Inhalte** — `idee` · `M` · Eine Suche, die Dienste,
   Kategorien und Wissensseiten gemeinsam trifft. Personas: alle. AC: Die
   Befehlspalette findet Titel und Textstellen; Treffer zeigen die Herkunft.
-- **A3 Zwei Lesetiefen je Thema** — `idee` · `M` · Kurzfassung für den Alltag,
+- **A3 Zwei Lesetiefen je Thema** — `umgesetzt` · `M` · Kurzfassung für den Alltag,
   Abschnitt „Technisch“ zum Aufklappen. Personas: Nicht-technisch, Technisch.
   AC: Jede Seite hat einen Kurzabschnitt vor allen Fachdetails; die Kurzfassung
   ist ohne Vorwissen verständlich (Prüfung durch eine zweite Person).
-- **A4 Sichtbarkeit nach Rolle** — `idee` · `S` · Nutzt das vorhandene Modell
+- **A4 Sichtbarkeit nach Rolle** — `umgesetzt` · `S` · Nutzt das vorhandene Modell
   (`public|internal|mesh|isolated`). AC: Unsichtbare Seiten sind auch über
   die Suche nicht erreichbar, nicht nur nicht verlinkt.
-- **A5 Rezepte statt Referenz** — `idee` · `S` · „Film beantragen“, „Drucker
+- **A5 Rezepte statt Referenz** — `umgesetzt` · `S` · „Film beantragen“, „Drucker
   einrichten“, „Passwort vergessen“ als Schrittfolgen. AC: Jedes Rezept beginnt
   mit dem Ergebnis, nicht mit dem Werkzeug.
 - **A6 Inhalt im Pull-Request-Verfahren** — `idee` · `S` · Vorschau je PR,
@@ -73,7 +105,7 @@ Flotten-Rebuild.
 
 ## B. Integrations-Hub
 
-- **B1 Dienst-Deskriptoren** — `idee` · `M` · Ein Datenformat beschreibt je
+- **B1 Dienst-Deskriptoren** — `umgesetzt` · `M` · Ein Datenformat beschreibt je
   Dienst: Kennung, Anzeigename, Symbol, Adresse, Anmeldung, Zustandsabfrage,
   Kurzaktionen, Sichtbarkeit. AC: Ein neuer Dienst ist über den Katalog, ohne
   Änderung an `views.js`, vollständig bedienbar. Format: `04-integrationen.md`.
@@ -102,7 +134,7 @@ Flotten-Rebuild.
 - **C2 Wartungsfenster und Banner** — `idee` · `S` · Geplante Arbeiten stehen
   vorher sichtbar, nicht erst als Ausfall. AC: Ein Fenster kann ohne Neubau
   gesetzt werden und verschwindet von selbst.
-- **C3 Health-Endpunkt des Portals** — `idee` · `S` · `/api/health` unterscheidet
+- **C3 Health-Endpunkt des Portals** — `umgesetzt` · `S` · `/api/health` unterscheidet
   „Prozess lebt“ von „Datenquelle erreichbar“. AC: Der Endpunkt antwortet in
   unter einer Sekunde und nennt je Abhängigkeit `ok|degraded|down`.
 - **C4 Sicherungszustand** — `idee` · `M` · Alter der letzten Sicherung je
@@ -115,10 +147,10 @@ Flotten-Rebuild.
 
 ## D. Komfort und Informationsarchitektur
 
-- **D1 Globale Suche statt Dienstsuche** — `idee` · `M` · Ein Eingang für
+- **D1 Globale Suche statt Dienstsuche** — `umgesetzt` · `M` · Ein Eingang für
   Dienste, Kategorien, Wiki, Personen und Aktionen. AC: Die Palette erklärt
   leere Treffer, statt nichts zu zeigen.
-- **D2 Kürzel sichtbar machen** — `idee` · `S` · `Cmd/Ctrl+K` und die übrigen
+- **D2 Kürzel sichtbar machen** — `umgesetzt` · `S` · `Cmd/Ctrl+K` und die übrigen
   Tasten stehen in der Palette und auf einer Hilfezeile. AC: Jede Aktion der
   Palette ist ohne Maus erreichbar.
 - **D3 Favoriten auf dem Server** — `idee` · `M` · Favoriten gelten
@@ -135,12 +167,12 @@ Flotten-Rebuild.
 
 ## E. Kommunikation
 
-- **E1 Ankündigungen** — `idee` · `S` · Neuigkeiten mit Zeitraum und Zielgruppe.
+- **E1 Ankündigungen** — `umgesetzt` · `S` · Neuigkeiten mit Zeitraum und Zielgruppe.
   AC: Abgelaufene Ankündigungen verschwinden ohne Eingriff.
 - **E2 Benachrichtigungen (freiwillig)** — `idee` · `M` · Ausfall- und
   Erfolgsmeldungen, abonnierbar je Kategorie. AC: Ausschalten ist genauso
   einfach wie Einschalten; ein Kanal ist nie stillschweigend aktiv.
-- **E3 Problem melden** — `idee` · `S` · Ein Formular, das die Sitzungsdaten
+- **E3 Problem melden** — `umgesetzt` · `S` · Ein Formular, das die Sitzungsdaten
   gleich mitliefert. AC: Die Meldung enthält Zeitpunkt, Sicht und Antwort-ID,
   aber keine Zugangsdaten.
 
@@ -150,9 +182,7 @@ Flotten-Rebuild.
   Name stammt aus dem Verzeichnis; Abweichungen sind im Portal sichtbar.
 - **F2 Sitzungen und Geräte** — `idee` · `M` · Wo bin ich angemeldet, wie beende
   ich eine Sitzung. AC: Die Liste ist vollständig aus den Konto-Daten.
-- **F3 Gastzugang** — `idee` · `M` · Befristeter Zugang ohne Konto. AC: Ablauf
-  ist einstellbar und wird auch durchgesetzt, nicht nur angezeigt.
-- **F4 „Was darf ich?“** — `idee` · `S` · Die eigenen Rechte in Klartext.
+- **F4 „Was darf ich?“** — `umgesetzt` · `S` · Die eigenen Rechte in Klartext.
   AC: Deckt alle im Katalog benutzten Sichtbarkeiten ab.
 - **F5 Tokens für Automatisierung** — `idee` · `M` · Skripte und Agenten fragen
   den Katalog ab, ohne Benutzerkonto. AC: Token ist widerrufbar, eingeschränkt
@@ -194,7 +224,7 @@ Flotten-Rebuild.
 - **G4 Sicherheits-Header nachweisen** — `idee` · `S` · CSP, `Referrer-Policy`,
   `Permissions-Policy`, `X-Content-Type-Options`, HSTS. AC: Ein Prüflauf gegen
   die Produktionsadresse zeigt alle Header, und die CSP erlaubt nichts Fremdes.
-- **G5 Schriften selbst hosten** — `idee` · `S` · Steht im Code bereits als Plan.
+- **G5 Schriften selbst hosten** — `umgesetzt` · `S` · Steht im Code bereits als Plan.
   AC: Keine Anfrage an fremde Herkunft beim Laden einer Seite.
 - **G6 Polling mit Bedacht** — `umgesetzt` · `S` · Nur bei sichtbarem Tab abfragen,
   längeres Intervall im Hintergrund. AC: Ein versteckter Tab erzeugt keine
@@ -288,15 +318,12 @@ oder gemessen ist. Vorbedingung für alle Einträge: die Schichtung aus
   Aussage darüber, was nicht geht, abgeleitet aus den Abhängigkeiten. Personas:
   alle. AC: Eine Aussage nennt die betroffenen Personen und die kleinste
   mögliche Handlung.
-- **K2 Onboarding-Reise** — `idee` · `M` · Gerät, Konto, erster Zugang mit
+- **K2 Onboarding-Reise** — `umgesetzt` (2026-09-26, schlanke Form) · `M` · Gerät, Konto, erster Zugang mit
   Zustand statt Papierliste. Personas: Nicht-technisch, Gast. AC: Jeder Schritt
   zeigt, was noch fehlt und wer hilft.
 - **K3 Rezept-Modus** — `idee` · `L` · Ein Rezept führt durch die Oberfläche
   und hebt den gemeinten Knopf hervor, statt ihn zu beschreiben. Personas:
   Nicht-technisch. AC: Ohne laufendes Rezept ändert sich die Oberfläche nicht.
-- **K4 Wissensbasis, die offline hält** — `idee` · `M` · Gerade im Ausfall ist
-  das Netz weg; die Erklärung muss im Zwischenspeicher liegen. Personas: alle.
-  AC: Die zuletzt gelesenen Rezepte sind ohne Netz lesbar.
 - **K5 Sprachweg** — `idee` · `M` · Eine gesprochene Frage nach dem Zustand,
   eine gesprochene Antwort. Personas: Nicht-technisch. AC: Der Weg ist
   abschaltbar und antwortet nie mit einem Geheimwert.
@@ -373,9 +400,6 @@ Freigabe-Eingang aus der Ideensammlung (ein Weg, nicht zwei).
 
 ## Q. Zugang und Gäste
 
-- **Q1 Gastmodus mit Einweisung** — `idee` · `M` · Befristeter Zugang plus
-  Einseiter „was hier erlaubt ist“ und erzwungener Ablauf. Personas: Gast,
-  Administrator. AC: Nach Ablauf endet der Zugang ohne Zutun.
 - **Q2 „Wen frage ich?“** — `idee` · `S` · Verantwortliche je Dienst, aus den
   Contracts. Personas: alle. AC: Jede Aussage, die eine Handlung verlangt,
   nennt eine Person oder eine Gruppe.
@@ -530,6 +554,9 @@ Zwei Regeln für den ganzen Block: es entsteht **keine zweite Sammelstrecke**
 Diese Einträge bleiben stehen, damit sie nicht in drei Monaten neu vorgeschlagen
 werden. Wer sie wieder aufnehmen will, widerlegt zuerst die Begründung.
 
+- **K4 Wissensbasis, die offline hält** — `verworfen` (2026-09-26). Ein Zwischenspeicher im Browser (Service Worker) würde zuletzt gelesene Artikel offline lesbar halten. Im Ausfall ist aber meist auch das Portal selbst nicht erreichbar: die Seiten kommen aus demselben Prozess. Dafür ein zweiter Auslieferungsweg mit Cache-Versionen und veralteten Texten einzuführen, steht in keinem Verhältnis zur Wirkung. *Was bleibt:* Artikel sind druckbar (Druckansicht im Artikel), und das Papier ist auch ohne Netz da.
+- **F3 Gastzugang** — `verworfen` (2026-09-26). "Befristeter Zugang ohne Konto" ist keine Fähigkeit dieses Portals: Befristung, Ablauf und Widerruf entscheidet und erzwingt der Identitätsanbieter (Authentik), nicht die Anwendung. Ein Ablauf, den nur die Oberfläche anzeigt, wäre ein Loch statt eines Schutzes. Ohne eine erzwungene Ablauffunktion auf der Identitätsseite gibt es hier nichts zu bauen. *Was bleibt:* eine Einladung durch die Person, die den Zugang verwaltet.
+- **Q1 Gastmodus mit Einweisung** — `verworfen` (2026-09-26). Wie F3: der Gastmodus selbst gehört zum Identitätsanbieter. Was hier bliebe, wäre die Einweisung - und die ist mit der öffentlichen Hilfe (`/help/`) und der Wissensbasis bereits vorhanden.
 - **V1 Startseite „Was willst du tun?“** — `verworfen` (2026-09-23). Ein zweiter
   Einstieg neben dem Katalog zahlt sich nur aus, solange die Kacheln
   nichtssagend sind. Mit den Integrationen (Block B) ist die Kachel die Einheit;

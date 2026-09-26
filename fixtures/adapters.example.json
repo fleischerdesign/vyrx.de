@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "services": {
+    "media-requests": {
+      "driver": "http-json",
+      "auth": "bearer",
+      "read": { "method": "GET", "path": "/api/v1/status" },
+      "fields": [
+        { "id": "version", "label": { "de": "Version", "en": "Version" }, "type": "text", "pointer": "/version" },
+        { "id": "queue", "label": { "de": "Offene Anfragen", "en": "Open requests" }, "type": "number", "pointer": "/requests/pending" },
+        { "id": "uptime", "label": { "de": "Läuft seit", "en": "Running for" }, "type": "duration", "pointer": "/uptimeSeconds" }
+      ],
+      "actions": [
+        {
+          "id": "restart",
+          "label": { "de": "Neu starten", "en": "Restart" },
+          "confirm": { "de": "Der Dienst startet neu. Das dauert kurz.", "en": "The service restarts. That takes a moment." },
+          "method": "POST",
+          "path": "/api/v1/restart",
+          "permission": "admin"
+        }
+      ]
+    },
+    "media-library": {
+      "driver": "http-json",
+      "auth": "header",
+      "read": { "method": "GET", "path": "/System/Info" },
+      "fields": [
+        { "id": "version", "label": { "de": "Version", "en": "Version" }, "type": "text", "pointer": "/Version" },
+        { "id": "library", "label": { "de": "Filme", "en": "Films" }, "type": "number", "pointer": "/Counts/MovieCount" }
+      ],
+      "lists": [
+        {
+          "id": "recent",
+          "label": { "de": "Zuletzt hinzugefügt", "en": "Recently added" },
+          "pointer": "/Recent/Items",
+          "max": 5,
+          "items": [
+            { "id": "title", "label": { "de": "Titel", "en": "Title" }, "type": "text", "pointer": "/Name" },
+            { "id": "added", "label": { "de": "Hinzugefügt", "en": "Added" }, "type": "date", "pointer": "/DateCreated" }
+          ]
+        }
+      ],
+      "actions": []
+    },
+    "home-automation": {
+      "driver": "http-json",
+      "auth": "bearer",
+      "read": { "method": "GET", "path": "/api/" },
+      "fields": [
+        { "id": "version", "label": { "de": "Version", "en": "Version" }, "type": "text", "pointer": "/version" },
+        { "id": "devices", "label": { "de": "Geräte", "en": "Devices" }, "type": "number", "pointer": "/entities" }
+      ],
+      "actions": []
+    }
+  },
+  "examples": {
+    "media-requests": { "version": "2.1.0", "requests": { "pending": 3 }, "uptimeSeconds": 486000 },
+    "media-library": {
+      "Version": "10.9.11",
+      "Counts": { "MovieCount": 412 },
+      "Recent": {
+        "Items": [
+          { "Name": "Dune: Part Two", "DateCreated": "2026-09-24T20:15:00Z" },
+          { "Name": "Perfect Days", "DateCreated": "2026-09-21T19:02:00Z" },
+          { "Name": "The Zone of Interest", "DateCreated": "2026-09-18T21:40:00Z" },
+          { "Name": "Anatomy of a Fall", "DateCreated": "2026-09-14T20:05:00Z" },
+          { "Name": "Past Lives", "DateCreated": "2026-09-11T19:30:00Z" },
+          { "Name": "Ein sechster Titel", "DateCreated": "2026-09-09T19:30:00Z" }
+        ]
+      }
+    },
+    "home-automation": { "version": "2026.9.1", "entities": 187 }
+  }
+}

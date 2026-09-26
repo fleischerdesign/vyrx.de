@@ -1,0 +1,89 @@
+---
+import PublicLayout from '@/layouts/PublicLayout.astro';
+import EditorialSection from '@/components/editorial/EditorialSection.astro';
+import LayerDiagram from '@/components/editorial/LayerDiagram.astro';
+import Button from '@/components/ui/Button.astro';
+import { useTranslations } from '@/i18n';
+import { loginPathFor, pathFor, type Locale } from '@/lib/locale';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<PublicLayout locale={locale} title={t('projectTitle')} description={t('projectIntro')}>
+  <article class="container page">
+    <header class="head">
+      <p class="kicker">{t('projectEyebrow')}</p>
+      <h1>{t('projectTitle')}</h1>
+      <p class="head__lead">{t('projectIntro')}</p>
+    </header>
+
+    <EditorialSection overline={t('projectTaskOverline')} title={t('projectTaskTitle')}>
+      <p>{t('projectTaskBody1')}</p>
+      <p>{t('projectTaskBody2')}</p>
+    </EditorialSection>
+
+    <EditorialSection overline={t('projectApproachOverline')} title={t('projectApproachTitle')}>
+      <p>{t('projectApproachBody')}</p>
+      <LayerDiagram locale={locale} />
+    </EditorialSection>
+
+    <EditorialSection overline={t('projectTradeoffOverline')} title={t('projectTradeoffTitle')}>
+      <p>{t('projectTradeoffBody1')}</p>
+      <p>{t('projectTradeoffBody2')}</p>
+    </EditorialSection>
+
+    <div class="cta">
+      <Button href={pathFor(locale, 'start')} variant="secondary">{t('notFoundAction')}</Button>
+      <Button href={loginPathFor(pathFor(locale, 'start'))} variant="primary" icon="arrowRight">
+        {t('openWorkspace')}
+      </Button>
+    </div>
+  </article>
+</PublicLayout>
+
+<style>
+  .page {
+    padding-block: clamp(var(--space-12), 7vw, var(--space-20));
+  }
+
+  .head {
+    max-width: 60rem;
+    margin-bottom: var(--space-12);
+  }
+
+  .kicker {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    margin-bottom: var(--space-4);
+  }
+
+  .head h1 {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tighter);
+    line-height: var(--leading-tight);
+    margin-bottom: var(--space-5);
+  }
+
+  .head__lead {
+    color: var(--muted);
+    font-size: var(--text-md);
+    max-width: var(--measure);
+  }
+
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-top: var(--space-10);
+  }
+</style>

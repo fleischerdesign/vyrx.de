@@ -1,0 +1,80 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "matrix",
+    "result": [
+      {
+        "metric": {
+          "service": "media-requests",
+          "probe_type": "http"
+        },
+        "values": [
+          [
+            1790423632,
+            "1"
+          ],
+          [
+            1790434432,
+            "0"
+          ],
+          [
+            1790438032,
+            "1"
+          ],
+          [
+            1790442832,
+            "0"
+          ],
+          [
+            1790445220,
+            "0"
+          ]
+        ]
+      },
+      {
+        "metric": {
+          "service": "media-library",
+          "probe_type": "http"
+        },
+        "values": [
+          [
+            1790423632,
+            "1"
+          ],
+          [
+            1790430832,
+            "1"
+          ],
+          [
+            1790439832,
+            "0"
+          ],
+          [
+            1790441032,
+            "1"
+          ],
+          [
+            1790445220,
+            "1"
+          ]
+        ]
+      },
+      {
+        "metric": {
+          "service": "home-automation",
+          "probe_type": "http"
+        },
+        "values": [
+          [
+            1790423632,
+            "1"
+          ],
+          [
+            1790445220,
+            "1"
+          ]
+        ]
+      }
+    ]
+  }
+}

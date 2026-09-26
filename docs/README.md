@@ -16,6 +16,15 @@ Er ist **kein** Endnutzer-Handbuch — das wird die Wissensbasis (Wiki, siehe
 | `04-integrationen.md` | Entwurf für ein generisches Integrationssystem (Dienste ansprechen) | bei Entwurfsänderungen |
 | `05-personas-usecases.md` | Wer nutzt wofür, welche Szenarien und Randfälle | laufend |
 | `06-entscheidungen.md` | Getroffene Entscheidungen und offene Fragen | bei jeder Entscheidung |
+| `07-produkt-und-seitenkonzept.md` | Gestaltungsgrundlage für öffentliche Seiten, Workspace und Szenarien (E-0015 bis E-0018) | vor UI-Umsetzung |
+| `08-ziel-rewrite.md` | Ziel, Schnittstelle zu `nixfiles` und Abnahmekriterien des Neubaus | beim Bau der App |
+| `design-concept.html` | Eigenständige, klickbare Designstudie mit Beispieldaten (kein Produkt) | zum gemeinsamen Beurteilen |
+
+## Die Anwendung
+
+Der Ordner `src/` ist die **neu geschriebene App** (Astro, TypeScript, ein
+Token-System, keine zweite Gestaltung). Aufbau und Regeln stehen in
+`08-ziel-rewrite.md`; wer eine Ansicht ändert, liest zuerst dort.
 
 ## Konventionen
 

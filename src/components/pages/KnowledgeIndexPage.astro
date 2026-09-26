@@ -1,0 +1,17 @@
+---
+import KnowledgeIndex from '@/components/knowledge/KnowledgeIndex.astro';
+import { articlesFor, canReadArticle } from '@/lib/knowledge';
+import type { Locale } from '@/lib/locale';
+import type { Session } from '@/lib/session';
+
+interface Props {
+  locale: Locale;
+  session: Session;
+}
+
+const { locale, session } = Astro.props;
+const all = await articlesFor(locale);
+const articles = all.filter((article) => canReadArticle(article, session.identity));
+---
+
+<KnowledgeIndex locale={locale} articles={articles} />

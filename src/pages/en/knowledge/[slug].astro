@@ -1,0 +1,24 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import KnowledgeArticlePage from '@/components/pages/KnowledgeArticlePage.astro';
+import { canReadArticle, findArticle } from '@/lib/knowledge';
+import { readSession } from '@/lib/session';
+
+export const prerender = false;
+
+const { slug = '' } = Astro.params;
+const session = readSession(Astro.request);
+const article = await findArticle('en', slug);
+const readable = article ? canReadArticle(article, session.identity) : false;
+
+if (!article || !readable) Astro.response.status = 404;
+---
+
+<AppShell
+  locale="en"
+  session={session}
+  title={article?.data.title ?? 'Knowledge'}
+  description={article?.data.summary ?? 'An article from the knowledge base.'}
+>
+  <KnowledgeArticlePage locale="en" article={article} readable={readable} session={session} />
+</AppShell>

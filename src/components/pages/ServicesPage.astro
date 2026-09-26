@@ -1,0 +1,171 @@
+---
+/*
+ * Der Katalog als Liste: Suche und Kategorie filtern, was schon ausgeliefert
+ * wurde. Es gibt keinen zweiten Datenweg - die Berechtigung ist längst
+ * entschieden, bevor diese Seite entsteht.
+ */
+import ServiceRow from '@/components/services/ServiceRow.astro';
+import SearchField from '@/components/ui/SearchField.astro';
+import PageHeader from '@/components/ui/PageHeader.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
+import { useTranslations } from '@/i18n';
+import { text } from '@/lib/fleet';
+import { visibleCategories } from '@/lib/authz';
+import type { Locale } from '@/lib/locale';
+import type { Session } from '@/lib/session';
+import { favoritesOf } from '@/lib/store';
+
+interface Props {
+  locale: Locale;
+  session: Session;
+  /** Der gemessene Zustand, wenn die Seite ihn kennt. */
+  states?: ReadonlyMap<string, import('@/lib/status').Live>;
+}
+
+const { locale, session, states } = Astro.props;
+const t = useTranslations(locale);
+const fleet = session.fleet;
+const services = session.services;
+const categories = fleet ? visibleCategories(fleet, services) : [];
+const favorites = session.identity ? favoritesOf(session.identity.username) : [];
+---
+
+<PageHeader overline={t('servicesEyebrow')} title={t('servicesTitle')} description={t('servicesIntro')} />
+
+{
+  !fleet ? (
+    <EmptyState title={t('catalogAbsent')} icon="info" />
+  ) : services.length === 0 ? (
+    <EmptyState title={t('servicesEmptyAccess')} text={t('overviewEmptyHint')} icon="lock" />
+  ) : (
+    <>
+      <SearchField
+        id="services-search"
+        label={t('servicesSearchPlaceholder')}
+        placeholder={t('servicesSearchPlaceholder')}
+        countId="services-count"
+      />
+
+      <div class="chips" role="group" aria-label={t('servicesCategoryAll')}>
+        <button type="button" data-category="all" aria-pressed="true">{t('servicesCategoryAll')}</button>
+        {categories.map((category) => (
+          <button type="button" data-category={category.id} aria-pressed="false">
+            {text(category.label, locale)}
+          </button>
+        ))}
+      </div>
+
+      <div id="services-body">
+        {categories.map((category) => (
+          <section class="group" data-group={category.id}>
+            <h2>{text(category.label, locale)}</h2>
+            <div class="rows">
+              {category.services.map((service) => (
+                <ServiceRow
+                  service={service}
+                  locale={locale}
+                  state={states?.get(service.id)}
+                  category={category.id}
+                  search={`${text(service.name, locale)} ${text(service.summary, locale)}`}
+                  favorited={favorites.includes(service.id)}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      <p class="empty" id="services-empty" hidden>{t('servicesEmpty')}</p>
+    </>
+  )
+}
+
+<script>
+  const initServices = (): void => {
+    const body = document.getElementById('services-body');
+    if (!body) return;
+    const input = document.getElementById('services-search') as HTMLInputElement | null;
+    const rows = Array.from(body.querySelectorAll<HTMLElement>('[data-search]'));
+    const chips = document.querySelectorAll<HTMLButtonElement>('[data-category]');
+    const count = document.getElementById('services-count');
+    const empty = document.getElementById('services-empty');
+
+    const chosen = (): string =>
+      document.querySelector<HTMLButtonElement>('[data-category][aria-pressed="true"]')?.dataset.category ?? 'all';
+
+    const apply = (): void => {
+      const term = (input?.value ?? '').trim().toLocaleLowerCase('de');
+      const category = chosen();
+      let shown = 0;
+      for (const row of rows) {
+        const visible =
+          (category === 'all' || row.dataset.category === category) &&
+          (term === '' || (row.dataset.search ?? '').toLocaleLowerCase('de').includes(term));
+        row.hidden = !visible;
+        if (visible) shown += 1;
+      }
+      for (const group of document.querySelectorAll<HTMLElement>('[data-group]')) {
+        group.hidden = !Array.from(group.querySelectorAll<HTMLElement>('[data-search]')).some((row) => !row.hidden);
+      }
+      if (count) count.textContent = String(shown);
+      if (empty) empty.hidden = shown !== 0;
+    };
+
+    for (const chip of chips) {
+      chip.addEventListener('click', () => {
+        for (const other of chips) other.setAttribute('aria-pressed', String(other === chip));
+        apply();
+      });
+    }
+    input?.addEventListener('input', apply);
+    apply();
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initServices);
+  else initServices();
+</script>
+
+<style>
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: var(--space-5) 0 var(--space-8);
+  }
+
+  .chips button {
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-xs);
+    color: var(--ink-2);
+  }
+
+  .chips button[aria-pressed='true'] {
+    background: var(--accent-soft);
+    border-color: var(--accent-soft-line);
+    color: var(--accent-strong);
+    font-weight: var(--weight-semibold);
+  }
+
+  .group + .group {
+    margin-top: var(--space-10);
+  }
+
+  .group h2 {
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+  }
+
+  .rows {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .empty {
+    padding: var(--space-8) 0;
+    color: var(--muted);
+  }
+</style>

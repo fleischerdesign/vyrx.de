@@ -1,16 +1,67 @@
 ---
-// The English twin of the service page - same catalogue, same addresses, translated copy.
-import AppLayout from '../../../layouts/AppLayout.astro';
-import { readCatalogue } from '../../../lib/catalogue.ts';
+import AppShell from '@/components/layout/AppShell.astro';
+import ServiceDetailPage from '@/components/pages/ServiceDetailPage.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
+import { useTranslations } from '@/i18n';
+import { articlesFor, articlesForService, canReadArticle } from '@/lib/knowledge';
+import { mayManage } from '@/lib/authz';
+import { loginPathFor } from '@/lib/locale';
+import { readSession } from '@/lib/session';
+import { loadHistory, loadStatus, stateOf } from '@/lib/status';
+import { favoritesOf } from '@/lib/store';
+import { capabilityOf, loadAdapters, readDetail } from '@/lib/adapters';
 
-export function getStaticPaths() {
-  const catalogue = readCatalogue();
-  return (catalogue?.services ?? []).map((service) => ({ params: { id: service.id } }));
-}
+export const prerender = false;
 
-// The route parameter *is* the address: `Astro.params.id` is what the path says, and nothing has to be
-// passed twice through `getStaticPaths`.
-const { id } = Astro.params;
+const { id = '' } = Astro.params;
+const session = readSession(Astro.request);
+if (!session.identity) return Astro.redirect(loginPathFor(Astro.url.pathname));
+
+const service = session.services.find((entry) => entry.id === id);
+if (!service) Astro.response.status = 404;
+
+const snapshot = service?.monitored === false ? null : await loadStatus(service ? [service.id] : []);
+const live = service ? stateOf(service, snapshot) : { state: 'unknown' as const, asOf: null };
+const all = await articlesFor('en');
+const guides = service
+  ? articlesForService(all, service.id).filter((article) => canReadArticle(article, session.identity))
+  : [];
+
+const t = useTranslations('en');
+const title = service ? service.name.en : t('serviceUnknownTitle');
+const favorited = service && session.identity ? favoritesOf(session.identity.username).includes(service.id) : false;
+const changes = service ? ((await loadHistory([service.id])).get(service.id) ?? []) : [];
+const history = [...changes].reverse();
+
+const adapters = loadAdapters();
+const capability = service ? capabilityOf(adapters, service.id) : undefined;
+const detail = service
+  ? await readDetail(service.id, service.url, adapters)
+  : { state: 'unsupported' as const, asOf: null, values: new Map(), lists: new Map() };
+const fields = capability?.fields ?? [];
+const lists = capability?.lists ?? [];
+const actions = capability?.actions ?? [];
+const canManage = service ? mayManage(service, session.identity) : false;
 ---
 
-<AppLayout locale="en" route="services" id={id} />
+<AppShell locale="en" session={session} title={title} description={t('servicesIntro')}>
+  {
+    service ? (
+      <ServiceDetailPage
+        locale="en"
+        service={service}
+        state={live}
+        guides={guides}
+        favorited={favorited}
+        history={history}
+        detail={detail}
+        fields={fields}
+        lists={lists}
+        actions={actions}
+        canManage={canManage}
+      />
+    ) : (
+      <EmptyState title={t('serviceUnknownTitle')} text={t('serviceUnknownBody')} icon="lock" />
+    )
+  }
+</AppShell>

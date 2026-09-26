@@ -1,0 +1,76 @@
+---
+import StateDot from '@/components/ui/StateDot.astro';
+import { useTranslations } from '@/i18n';
+import { text, type FleetService } from '@/lib/fleet';
+import type { Locale } from '@/lib/locale';
+import type { Live } from '@/lib/status';
+
+interface Props {
+  locale: Locale;
+  service: FleetService;
+  live: Live;
+}
+
+const { locale, service, live } = Astro.props;
+const t = useTranslations(locale);
+const label =
+  live.state === 'up'
+    ? t('stateUp')
+    : live.state === 'down'
+      ? t('stateDown')
+      : live.state === 'unmonitored'
+        ? t('stateUnmonitored')
+        : t('stateUnknown');
+const time = live.asOf ? new Date(live.asOf).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) : '';
+---
+
+<div class="status-row" data-status-row data-service={service.id}>
+  <span class="status-row__name">
+    <strong>{text(service.name, locale)}</strong>
+    <small>{text(service.summary, locale)}</small>
+  </span>
+  <span class="status-row__time mono" data-asof>{time}</span>
+  <StateDot state={live.state} label={label} />
+</div>
+
+<style>
+  .status-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 5rem auto;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-5) var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .status-row__name strong {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .status-row__name small {
+    display: block;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    margin-top: 2px;
+  }
+
+  .status-row__time {
+    color: var(--faint);
+    font-size: var(--text-xs);
+    text-align: right;
+  }
+
+  @media (max-width: 560px) {
+    .status-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .status-row__time {
+      display: none;
+    }
+  }
+</style>

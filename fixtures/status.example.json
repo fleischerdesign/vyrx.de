@@ -1,0 +1,78 @@
+{
+  "status": "success",
+  "data": {
+    "resultType": "vector",
+    "result": [
+      {
+        "metric": {
+          "service": "home-automation",
+          "probe_type": "http"
+        },
+        "value": [
+          1790445220,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "service": "media-requests",
+          "probe_type": "http"
+        },
+        "value": [
+          1790445220,
+          "0"
+        ]
+      },
+      {
+        "metric": {
+          "service": "media-library",
+          "probe_type": "http"
+        },
+        "value": [
+          1790445220,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "service": "recipes",
+          "probe_type": "http"
+        },
+        "value": [
+          1790445220,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "service": "notes",
+          "probe_type": "http"
+        },
+        "value": [
+          1790445220,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "service": "media-database",
+          "probe_type": "http"
+        },
+        "value": [
+          1790445220,
+          "1"
+        ]
+      },
+      {
+        "metric": {
+          "service": "fleet-view",
+          "probe_type": "http"
+        },
+        "value": [
+          1790445220,
+          "1"
+        ]
+      }
+    ]
+  }
+}

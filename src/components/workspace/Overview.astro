@@ -1,0 +1,150 @@
+---
+import ServiceRow from '@/components/services/ServiceRow.astro';
+import FirstSteps from '@/components/workspace/FirstSteps.astro';
+import PageHeader from '@/components/ui/PageHeader.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { pathFor, type Locale } from '@/lib/locale';
+import type { Session } from '@/lib/session';
+import { favoritesOf } from '@/lib/store';
+import { activeAnnouncements, announcementText } from '@/lib/announcements';
+import { articlesFor, canReadArticle } from '@/lib/knowledge';
+
+interface Props {
+  locale: Locale;
+  session: Session;
+}
+
+const { locale, session } = Astro.props;
+const t = useTranslations(locale);
+const name = session.identity?.name || session.identity?.username || '';
+const owner = session.identity?.username ?? '';
+const services = session.services;
+const favorites = owner ? favoritesOf(owner) : [];
+const saved = services.filter((service) => favorites.includes(service.id));
+const shown = saved.length > 0 ? saved : services;
+const news = session.identity ? activeAnnouncements(session.identity.groups) : [];
+const guides = (await articlesFor(locale)).filter((article) => canReadArticle(article, session.identity));
+---
+
+<PageHeader
+  overline={t('overviewEyebrow')}
+  title={t('overviewGreeting', { name })}
+  description={t('overviewIntro')}
+/>
+
+{
+  news.length > 0 && (
+    <section class="news" aria-label={t('newsTitle')}>
+      {news.map((entry) => (
+        <div class="news__item">
+          <Icon name="bell" size="1rem" />
+          <p>
+            {announcementText(entry, locale)}
+            {entry.href && entry.hrefLabel && (
+              <>
+                {' '}
+                <a href={entry.href}>{entry.hrefLabel[locale] || entry.hrefLabel.de}</a>
+              </>
+            )}
+          </p>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+<section class="block">
+  <div class="block__head">
+    <h2>{saved.length > 0 ? t('favoritesTitle') : t('overviewRecent')}</h2>
+    <a href={pathFor(locale, 'services')}>{t('overviewAllServices')} →</a>
+  </div>
+  {saved.length === 0 && <p class="hint">{t('favoritesEmpty')}</p>}
+
+  {
+    services.length === 0 ? (
+      <EmptyState title={t('overviewEmpty')} text={t('overviewEmptyHint')} icon="lock" />
+    ) : (
+      <div class="rows">
+        {shown.map((service) => (
+          <ServiceRow service={service} locale={locale} favorited={favorites.includes(service.id)} />
+        ))}
+      </div>
+    )
+  }
+</section>
+
+<section class="block">
+  <FirstSteps locale={locale} services={services.length} guides={guides.length} />
+</section>
+
+<style>
+  .block + .block {
+    margin-top: var(--space-12);
+  }
+
+  .news {
+    display: grid;
+    gap: var(--space-2);
+    margin-bottom: var(--space-8);
+  }
+
+  .news__item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--accent-strong);
+  }
+
+  .news__item p {
+    font-size: var(--text-sm);
+    color: var(--ink);
+  }
+
+  .news__item a {
+    font-weight: var(--weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .block__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  .block__head h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+  }
+
+  .block__head a {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--accent);
+  }
+
+  .rows {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .hint {
+    color: var(--muted);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-4);
+  }
+
+  @media (max-width: 620px) {
+    .hint {
+      margin-bottom: var(--space-3);
+    }
+  }
+</style>

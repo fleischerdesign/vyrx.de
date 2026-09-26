@@ -1,0 +1,551 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import Badge from '@/components/ui/Badge.astro';
+import StateDot from '@/components/ui/StateDot.astro';
+import FavoriteButton from '@/components/services/FavoriteButton.astro';
+import { useTranslations } from '@/i18n';
+import { text, type FleetService, type Scope } from '@/lib/fleet';
+import { KIND_KEY, articleSlug, type Article } from '@/lib/knowledge';
+import type { Locale } from '@/lib/locale';
+import type { Live, StateChange } from '@/lib/status';
+import { formatValue, type AdapterAction, type AdapterField, type AdapterList, type DetailResult } from '@/lib/adapters';
+import type { MessageKey } from '@/i18n';
+
+interface Props {
+  locale: Locale;
+  service: FleetService;
+  state: Live;
+  guides: readonly Article[];
+  favorited: boolean;
+  /** Die Zustandswechsel der letzten Stunden, neueste zuerst. */
+  history: readonly StateChange[];
+  /** Was der Dienst über sich sagt - deklarierte Felder, kein Rohdatenstrom. */
+  detail: DetailResult;
+  fields: readonly AdapterField[];
+  lists: readonly AdapterList[];
+  /** Was hier getan werden kann - und ob diese Person es darf. */
+  actions: readonly AdapterAction[];
+  canManage: boolean;
+}
+
+const { locale, service, state, guides, favorited, history, detail, fields, lists, actions, canManage } = Astro.props;
+const t = useTranslations(locale);
+const prefix = locale === 'en' ? '/en' : '';
+
+const result = Astro.url.searchParams.get('result') ?? '';
+const resultAction = Astro.url.searchParams.get('action') ?? '';
+const resultText =
+  result === 'accepted'
+    ? t('actionResultAccepted')
+    : result === 'refused'
+      ? t('actionResultRefused')
+      : result === 'failed'
+        ? t('actionResultFailed')
+        : result === 'unsupported'
+          ? t('actionResultUnsupported')
+          : '';
+
+const SCOPE_KEY: Readonly<Record<Scope, MessageKey>> = {
+  public: 'scopePublic',
+  internal: 'scopeInternal',
+  mesh: 'scopeMesh',
+  isolated: 'scopeIsolated',
+};
+const stateLabel =
+  state.state === 'up'
+    ? t('stateUp')
+    : state.state === 'down'
+      ? t('stateDown')
+      : state.state === 'unmonitored'
+        ? t('stateUnmonitored')
+        : t('stateUnknown');
+const clock = (at: number): string =>
+  new Date(at).toLocaleString(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+---
+
+<a class="back" href={`${prefix}/services/`}>
+  <Icon name="arrowLeft" size="1rem" />
+  {t('serviceBack')}
+</a>
+
+<header class="head">
+  <p class="overline">{t('serviceEyebrow')}</p>
+  <h1>{text(service.name, locale)}</h1>
+  <p class="lead">{text(service.summary, locale)}</p>
+  <div class="facts">
+    <span class="fact"><span class="fact__label">{t('serviceAccess')}</span><Badge tone="neutral">{t(SCOPE_KEY[service.scope])}</Badge></span>
+    <span class="fact"><span class="fact__label">{t('serviceState')}</span><StateDot state={state.state} label={stateLabel} /></span>
+  </div>
+  <div class="actions">
+    <a class="open" href={service.url}>
+      {t('serviceOpen')}
+      <Icon name="external" size="1rem" />
+    </a>
+    <FavoriteButton serviceId={service.id} favorited={favorited} locale={locale} variant="label" next={Astro.url.pathname} />
+  </div>
+</header>
+
+<section class="guides">
+  <h2>{t('serviceGuides')}</h2>
+  {
+    guides.length === 0 ? (
+      <p class="none">{t('serviceNoGuides')}</p>
+    ) : (
+      <ul>
+        {guides.map((article) => (
+          <li>
+            <a href={`${prefix}/knowledge/${articleSlug(article)}/`}>
+              <span>
+                <span class="kind">{t(KIND_KEY[article.data.kind])}</span>
+                <strong>{article.data.title}</strong>
+              </span>
+              <Icon name="arrowRight" size="1rem" />
+            </a>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</section>
+
+<section class="stated">  <h2>{t('serviceDetailTitle')}</h2>
+  {
+    fields.length === 0 && lists.length === 0 ? (
+      <p class="none">{t('serviceDetailUnsupported')}</p>
+    ) : detail.state === 'ok' ? (
+      <>
+        {fields.length > 0 && (
+          <dl class="stated__values">
+            {fields.map((field) => {
+              const value = detail.values.get(field.id);
+              return (
+                <div class="stated__value">
+                  <dt>{field.label[locale] || field.label.de}</dt>
+                  <dd>
+                    {value?.state === 'ok'
+                      ? formatValue(field, value.value, locale)
+                      : <span class="stated__missing">{t('serviceDetailMissing')}</span>}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        )}
+
+        {lists.map((list) => {
+          const value = detail.lists.get(list.id);
+          return (
+            <div class="stated__list">
+              <h3>{list.label[locale] || list.label.de}</h3>
+              {value?.state === 'ok' && value.rows.length > 0 ? (
+                <div class="stated__scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        {list.items.map((item) => <th>{item.label[locale] || item.label.de}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {value.rows.map((row) => (
+                        <tr>
+                          {list.items.map((item) => {
+                            const cell = row.get(item.id);
+                            return <td>{cell?.state === 'ok' ? formatValue(item, cell.value, locale) : '–'}</td>;
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p class="none">{t('serviceListEmpty')}</p>
+              )}
+            </div>
+          );
+        })}
+
+        {detail.asOf && (
+          <p class="stated__source">{t('serviceDetailAsOf', { time: clock(detail.asOf) })}</p>
+        )}
+      </>
+    ) : (
+      <p class="none">
+        {detail.state === 'unauthorized'
+          ? t('serviceDetailUnauthorized')
+          : detail.state === 'unsupported'
+            ? t('serviceDetailUnsupported')
+            : t('serviceDetailUnavailable')}
+      </p>
+    )
+  }
+</section>
+
+{
+  canManage && actions.length > 0 && (
+    <section class="actions" aria-label={t('serviceActions')}>
+      <h2>{t('serviceActions')}</h2>
+      {resultText && (
+        <p class="actions__result" role="status">
+          {resultAction ? `${actions.find((entry) => entry.id === resultAction)?.label[locale] ?? resultAction}: ` : ''}
+          {resultText}
+        </p>
+      )}
+      <ul>
+        {actions.map((action) => (
+          <li>
+            <p class="actions__confirm">{action.confirm[locale] || action.confirm.de}</p>
+            <form method="post" action="/api/actions">
+              <input type="hidden" name="service" value={service.id} />
+              <input type="hidden" name="action" value={action.id} />
+              <input type="hidden" name="next" value={Astro.url.pathname} />
+              <button type="submit" class="actions__button">{action.label[locale] || action.label.de}</button>
+            </form>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+<section class="history">
+  <h2>{t('serviceHistory')}</h2>
+  {
+    history.length === 0 ? (
+      <p class="none">{t('serviceHistoryNone')}</p>
+    ) : (
+      <ul>
+        {history.map((change) => (
+          <li>
+            <span class="mono history__time">{clock(change.at)}</span>
+            <span>{change.state === 'up' ? t('stateUp') : t('stateDown')}</span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+</section>
+
+<style>
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--accent);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-8);
+  }
+
+  .head {
+    max-width: 46rem;
+    padding-bottom: var(--space-8);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .head h1 {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tighter);
+    line-height: var(--leading-tight);
+    margin: var(--space-3) 0 var(--space-4);
+  }
+
+  .lead {
+    color: var(--muted);
+    font-size: var(--text-md);
+  }
+
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+    margin-top: var(--space-6);
+  }
+
+  .fact {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .fact__label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  .open {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 1rem 1.4rem;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    box-shadow: var(--shadow-md);
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-4);
+    margin-top: var(--space-8);
+  }
+
+  .open:hover {
+    background: var(--accent-strong);
+  }
+
+  .guides {
+    margin-top: var(--space-10);
+    max-width: 46rem;
+  }
+
+  .guides h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+  }
+
+  .guides .none {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .guides ul {
+    list-style: none;
+  }
+
+  .guides a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-5) var(--space-2);
+    border-bottom: 1px solid var(--line);
+    color: var(--accent-strong);
+  }
+
+  .guides a:hover {
+    background: var(--accent-weaker);
+  }
+
+  .guides .kind {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: var(--space-2);
+  }
+
+  .guides strong {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .history {
+    margin-top: var(--space-10);
+    max-width: 46rem;
+  }
+
+  .history h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+  }
+
+  .history .none {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .history ul {
+    list-style: none;
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .history li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+  }
+
+  .history__time {
+    color: var(--faint);
+    font-size: var(--text-xs);
+    min-width: 8.5rem;
+  }
+
+  .stated {
+    margin-top: var(--space-10);
+    max-width: 46rem;
+  }
+
+  .stated h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+  }
+
+  .stated .none {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .stated__values {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--space-3);
+  }
+
+  .stated__value {
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+  }
+
+  .stated__value dt {
+    font-size: var(--text-xs);
+    color: var(--muted);
+  }
+
+  .stated__value dd {
+    margin: var(--space-2) 0 0;
+    font-size: var(--text-md);
+    font-family: var(--font-mono);
+    color: var(--ink);
+  }
+
+  .stated__missing {
+    color: var(--faint);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+  }
+
+  .stated__source {
+    margin-top: var(--space-3);
+    color: var(--faint);
+    font-size: var(--text-xs);
+  }
+
+  .stated__list {
+    margin-top: var(--space-8);
+  }
+
+  .stated__list h3 {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-3);
+  }
+
+  .stated__scroll {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+  }
+
+  .stated__list table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .stated__list th,
+  .stated__list td {
+    text-align: left;
+    padding: var(--space-3) var(--space-4);
+    white-space: nowrap;
+  }
+
+  .stated__list th {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--faint);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .stated__list tbody tr + tr td {
+    border-top: 1px solid var(--line);
+  }
+
+  .stated__list td:last-child {
+    color: var(--muted);
+  }
+
+  .actions {
+    margin-top: var(--space-10);
+    max-width: 46rem;
+  }
+
+  .actions h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+  }
+
+  .actions__result {
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-4);
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--ink);
+    font-size: var(--text-sm);
+  }
+
+  .actions ul {
+    list-style: none;
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .actions li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .actions__confirm {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .actions__button {
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0.7rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
+  .actions__button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>

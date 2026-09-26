@@ -1,0 +1,508 @@
+---
+import StatusRow from '@/components/status/StatusRow.astro';
+import PageHeader from '@/components/ui/PageHeader.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { visibleCategories } from '@/lib/authz';
+import { text } from '@/lib/fleet';
+import { pathFor, type Locale } from '@/lib/locale';
+import type { Session } from '@/lib/session';
+import { stateOf, type StatusSnapshot } from '@/lib/status';
+import { maintenanceFrom } from '@/lib/store';
+
+interface Props {
+  locale: Locale;
+  session: Session;
+  snapshot: StatusSnapshot | null;
+}
+
+const { locale, session, snapshot } = Astro.props;
+const t = useTranslations(locale);
+const services = session.services;
+const states = services.map((service) => stateOf(service, snapshot));
+const down = states.filter((state) => state.state === 'down').length;
+const measured = snapshot !== null && services.some((service) => service.monitored !== false);
+
+const tone = !measured ? 'unknown' : down > 0 ? 'warn' : 'ok';
+const summary = !measured ? t('statusUnknown') : down > 0 ? t('statusSomeDown') : t('statusAllOk');
+const asOf = snapshot?.asOf ? new Date(snapshot.asOf).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' }) : '';
+const notice = Astro.url.searchParams.get('report');
+
+// Der Filter steht in der Adresse: er überlebt das Neuladen, lässt sich teilen
+// und braucht kein Skript.
+const categories = session.fleet ? visibleCategories(session.fleet, services) : [];
+const wanted = Astro.url.searchParams.get('group');
+const shownCategories = wanted ? categories.filter((category) => category.id === wanted) : categories;
+const live = new Map(services.map((service, index) => [service.id, states[index]]));
+const measuredSome = services.some((service) => service.monitored !== false);
+const unreachable = measuredSome && snapshot === null;
+
+// Geplante Arbeiten stehen vorher da, nicht erst als Ausfall: laufende und
+// solche, die in den nächsten 24 Stunden beginnen.
+const now = new Date();
+const horizon = new Date(now.getTime() + 24 * 3_600_000).toISOString();
+const planned = maintenanceFrom(now.toISOString()).filter((window) => window.startsAt <= horizon);
+const windowWhat = (serviceId: string | null): string =>
+  serviceId ? text(services.find((service) => service.id === serviceId)?.name ?? { de: serviceId, en: serviceId }, locale) : t('windowsAll');
+const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+---
+
+<PageHeader overline={t('statusEyebrow')} title={t('statusTitle')} description={t('statusIntro')} />
+
+{
+  planned.length > 0 && (
+    <ul class="planned" aria-label={t('windowsTitle')}>
+      {planned.map((window) => (
+        <li>
+          <Icon name="info" size="1rem" />
+          <span>
+            {t('windowsPlannedFor', {
+              what: windowWhat(window.serviceId),
+              from: windowTime(window.startsAt),
+              until: windowTime(window.endsAt),
+            })}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+<div
+  hidden
+  data-status-labels
+  data-up={t('stateUp')}
+  data-down={t('stateDown')}
+  data-unknown={t('stateUnknown')}
+  data-unmonitored={t('stateUnmonitored')}
+  data-summary-ok={t('statusAllOk')}
+  data-summary-down={t('statusSomeDown')}
+  data-summary-unknown={t('statusUnknown')}
+  data-as-of={t('statusAsOf')}
+  data-never={t('statusNever')}
+>
+</div>
+
+<div class="summary" data-tone={tone} id="status-summary">  <span class="summary__icon">
+    <Icon name={tone === 'ok' ? 'check' : tone === 'warn' ? 'alert' : 'info'} size="1.3rem" />
+  </span>
+  <div>
+    <strong id="status-summary-text">{summary}</strong>
+    <span class="summary__note" id="status-asof">
+      {asOf ? t('statusAsOf', { time: asOf }) : t('statusNever')}
+    </span>
+  </div>
+  <span class="summary__source">{t('statusSourceNote')}</span>
+</div>
+
+{
+  unreachable && (
+    <p class="unreachable" role="status">
+      <Icon name="alert" size="1rem" />
+      <span>{t('statusUnreachable')}</span>
+      <a href={Astro.url.pathname}>{t('statusRetry')}</a>
+    </p>
+  )
+}
+
+{
+  services.length === 0 ? (
+    <EmptyState title={t('servicesEmptyAccess')} text={t('overviewEmptyHint')} icon="lock" />
+  ) : (
+    <section class="list" aria-labelledby="status-list-heading">
+      <div class="list__head">
+        <h2 id="status-list-heading">{t('statusYourServices')}</h2>
+        <nav class="chips" aria-label={t('servicesCategoryAll')}>
+          <a href={pathFor(locale, 'status')} aria-current={wanted ? undefined : 'true'}>
+            {t('servicesCategoryAll')}
+          </a>
+          {categories.map((category) => (
+            <a
+              href={`${pathFor(locale, 'status')}?group=${encodeURIComponent(category.id)}`}
+              aria-current={wanted === category.id ? 'true' : undefined}
+            >
+              {text(category.label, locale)}
+            </a>
+          ))}
+        </nav>
+      </div>
+
+      {shownCategories.map((category) => (
+        <div class="group">
+          <h3>{text(category.label, locale)}</h3>
+          <div class="rows">
+            {category.services.map((service) => (
+              <div class="row-wrap">
+                <StatusRow
+                  service={service}
+                  locale={locale}
+                  live={live.get(service.id) ?? { state: 'unknown', asOf: null }}
+                />
+                <a class="row-wrap__link" href={`${locale === 'en' ? '/en' : ''}/services/${service.id}/`}>
+                  {t('serviceGuides')}
+                </a>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+  )
+}
+
+<section class="report">
+  <h2>{t('reportTitle')}</h2>
+  <p class="report__lead">{t('reportLead')}</p>
+  {notice === 'sent' && <p class="report__ok" role="status">{t('reportSent')}</p>}
+  {notice === 'missing' && <p class="report__bad" role="alert">{t('reportTooShort')}</p>}
+  <form class="report__form" method="post" action="/api/reports">
+    <input type="hidden" name="next" value={Astro.url.pathname} />
+    <label for="report-body">{t('reportLabel')}</label>
+    <textarea id="report-body" name="body" rows="4" maxlength="2000" required placeholder={t('reportPlaceholder')}></textarea>
+    <label for="report-service">{t('reportForService')}</label>
+    <select id="report-service" name="service">
+      <option value="">{t('reportNoService')}</option>
+      {services.map((service) => <option value={service.id}>{text(service.name, locale)}</option>)}
+    </select>
+    <button type="submit" class="report__submit">{t('reportSubmit')}</button>
+  </form>
+</section>
+
+<script>
+  const source = document.querySelector<HTMLElement>('[data-status-labels]');
+  const labels = {
+    up: source?.dataset.up ?? '',
+    down: source?.dataset.down ?? '',
+    unknown: source?.dataset.unknown ?? '',
+    unmonitored: source?.dataset.unmonitored ?? '',
+  };
+  const summary = {
+    ok: source?.dataset.summaryOk ?? '',
+    down: source?.dataset.summaryDown ?? '',
+    unknown: source?.dataset.summaryUnknown ?? '',
+  };
+  const asOfTemplate = source?.dataset.asOf ?? '{time}';
+  const never = source?.dataset.never ?? '';
+
+  const rows = document.querySelectorAll<HTMLElement>('[data-status-row]');
+  const summaryNode = document.getElementById('status-summary');
+  const summaryText = document.getElementById('status-summary-text');
+  const asOfNode = document.getElementById('status-asof');
+
+  type LiveState = 'up' | 'down' | 'unknown' | 'unmonitored';
+  interface Payload {
+    asOf: number | null;
+    services: Record<string, { state: LiveState; asOf: number | null }>;
+  }
+
+  const toneOf = (state: LiveState): string =>
+    state === 'up' ? 'ok' : state === 'down' ? 'bad' : state === 'unmonitored' ? 'idle' : 'unknown';
+
+  const paint = (payload: Payload): void => {
+    let down = 0;
+    let known = false;
+    for (const row of rows) {
+      const live = payload.services[row.dataset.service ?? ''];
+      if (!live) continue;
+      const dot = row.querySelector<HTMLElement>('.dot');
+      const label = row.querySelector<HTMLElement>('.dot__label');
+      const time = row.querySelector<HTMLElement>('[data-asof]');
+      if (dot) dot.dataset.tone = toneOf(live.state);
+      if (label) label.textContent = labels[live.state] || labels.unknown;
+      if (time) time.textContent = live.asOf ? new Date(live.asOf).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
+      if (live.state === 'down') down += 1;
+      if (live.state !== 'unknown' && live.state !== 'unmonitored') known = true;
+    }
+    if (summaryNode) summaryNode.dataset.tone = !known ? 'unknown' : down > 0 ? 'warn' : 'ok';
+    if (summaryText) summaryText.textContent = !known ? summary.unknown : down > 0 ? summary.down : summary.ok;
+    if (asOfNode) asOfNode.textContent = payload.asOf ? asOfTemplate.replace('{time}', new Date(payload.asOf).toLocaleString()) : never;
+  };
+
+  const tick = async () => {
+    if (document.visibilityState !== 'visible') return;
+    try {
+      const response = await fetch('/api/status', { credentials: 'same-origin', headers: { accept: 'application/json' } });
+      if (!response.ok) return;
+      paint((await response.json()) as Payload);
+    } catch {
+      // Eine fehlende Antwort lässt den letzten Stand stehen; "unbekannt" ist bereits ein Zustand.
+    }
+  };
+
+  tick();
+  setInterval(tick, 20000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') tick();
+  });
+</script>
+
+<style>
+  .summary {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+    padding: var(--space-5) var(--space-6);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-8);
+    background: var(--surface);
+  }
+
+  .summary[data-tone='ok'] {
+    background: var(--ok-soft);
+    border-color: var(--ok-line);
+  }
+
+  .summary[data-tone='warn'] {
+    background: var(--warn-soft);
+    border-color: var(--warn-line);
+  }
+
+  .summary[data-tone='unknown'] {
+    background: var(--unknown-soft);
+    border-color: var(--unknown-line);
+  }
+
+  .summary__icon {
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .summary[data-tone='ok'] .summary__icon {
+    color: var(--ok);
+  }
+
+  .summary[data-tone='warn'] .summary__icon {
+    color: var(--warn);
+  }
+
+  .summary strong {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .summary__note {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: var(--text-xs);
+    color: var(--muted);
+  }
+
+  .summary__source {
+    margin-inline-start: auto;
+    max-width: 22rem;
+    text-align: right;
+    font-size: var(--text-xs);
+    color: var(--faint);
+  }
+
+  .list h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+  }
+
+  .list__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-4);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .chips a {
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+  }
+
+  .chips a[aria-current='true'] {
+    background: var(--accent-soft);
+    border-color: var(--accent-soft-line);
+    color: var(--accent-strong);
+    font-weight: var(--weight-semibold);
+  }
+
+  .group + .group {
+    margin-top: var(--space-8);
+  }
+
+  .group h3 {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--ink-2);
+    margin-bottom: var(--space-3);
+  }
+
+  .unreachable {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-8);
+    border: 1px solid var(--warn-line);
+    background: var(--warn-soft);
+    color: var(--warn);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+  }
+
+  .planned {
+    list-style: none;
+    display: grid;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+  }
+
+  .planned li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    border: 1px solid var(--accent-soft-line);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+  }
+
+  .unreachable a {
+    margin-inline-start: auto;
+    color: var(--warn);
+    font-weight: var(--weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    white-space: nowrap;
+  }
+
+  .row-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .row-wrap :global(.status-row) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .row-wrap__link {
+    font-size: var(--text-xs);
+    color: var(--accent);
+    white-space: nowrap;
+  }
+
+  .rows {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .report {
+    margin-top: var(--space-12);
+    max-width: 40rem;
+    padding-top: var(--space-8);
+    border-top: 1px solid var(--line);
+  }
+
+  .report h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+  }
+
+  .report__lead {
+    color: var(--muted);
+    font-size: var(--text-sm);
+    margin: var(--space-3) 0 var(--space-5);
+  }
+
+  .report__ok,
+  .report__bad {
+    font-size: var(--text-sm);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-5);
+  }
+
+  .report__ok {
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+
+  .report__bad {
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+
+  .report__form {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .report__form label {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--ink-2);
+    margin-top: var(--space-3);
+  }
+
+  .report__form textarea,
+  .report__form select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3) var(--space-4);
+    font-size: var(--text-sm);
+  }
+
+  .report__form textarea {
+    resize: vertical;
+    line-height: var(--leading-normal);
+  }
+
+  .report__form textarea:focus-visible,
+  .report__form select:focus-visible {
+    border-color: var(--accent);
+    outline: 3px solid var(--ring);
+    outline-offset: 1px;
+  }
+
+  .report__submit {
+    justify-self: start;
+    margin-top: var(--space-4);
+    padding: 0.9rem 1.3rem;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .report__submit:hover {
+    background: var(--accent-strong);
+  }
+
+  @media (max-width: 720px) {
+    .summary {
+      flex-wrap: wrap;
+    }
+
+    .summary__source {
+      margin-inline-start: 0;
+      text-align: left;
+      max-width: none;
+    }
+  }
+</style>

@@ -1,0 +1,47 @@
+---
+import PublicLayout from '@/layouts/PublicLayout.astro';
+import Button from '@/components/ui/Button.astro';
+import { useTranslations } from '@/i18n';
+import { pathFor, type Locale } from '@/lib/locale';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<PublicLayout
+  locale={locale}
+  title={t('notFoundTitle')}
+  description={t('notFoundBody')}
+>
+  <section class="container nf">
+    <p class="overline">404</p>
+    <h1>{t('notFoundTitle')}</h1>
+    <p class="nf__lead">{t('notFoundBody')}</p>
+    <Button href={pathFor(locale, 'start')} variant="primary" icon="arrowRight">
+      {t('notFoundAction')}
+    </Button>
+  </section>
+</PublicLayout>
+
+<style>
+  .nf {
+    padding-block: clamp(var(--space-16), 10vw, var(--space-24));
+  }
+
+  .nf h1 {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tighter);
+    margin: var(--space-4) 0 var(--space-4);
+  }
+
+  .nf__lead {
+    color: var(--muted);
+    max-width: var(--measure-narrow);
+    margin-bottom: var(--space-8);
+  }
+</style>

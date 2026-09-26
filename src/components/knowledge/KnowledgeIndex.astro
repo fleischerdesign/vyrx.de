@@ -1,0 +1,254 @@
+---
+/*
+ * Die Übersicht des Wissens: Suche, Themen und die Artikel, die diese Person
+ * lesen darf. Gefiltert wird im Browser über die schon ausgelieferte Liste -
+ * was nicht ausgeliefert wurde, kann die Suche auch nicht finden.
+ */
+import ArticleRow from './ArticleRow.astro';
+import SearchField from '@/components/ui/SearchField.astro';
+import PageHeader from '@/components/ui/PageHeader.astro';
+import { useTranslations } from '@/i18n';
+import type { Article } from '@/lib/knowledge';
+import type { Locale } from '@/lib/locale';
+import { TOPICS, topicLabel } from '@/lib/topics';
+
+interface Props {
+  locale: Locale;
+  articles: readonly Article[];
+}
+
+const { locale, articles } = Astro.props;
+const t = useTranslations(locale);
+
+const counts = new Map<string, number>();
+for (const article of articles) {
+  for (const topic of article.data.topics) counts.set(topic, (counts.get(topic) ?? 0) + 1);
+}
+const topics = TOPICS.filter((topic) => (counts.get(topic.id) ?? 0) > 0);
+---
+
+<PageHeader overline={t('knowledgeEyebrow')} title={t('knowledgeTitle')} description={t('knowledgeIntro')} />
+
+<SearchField
+  id="knowledge-search"
+  label={t('knowledgeSearchPlaceholder')}
+  placeholder={t('knowledgeSearchPlaceholder')}
+  countId="knowledge-count"
+/>
+
+<div class="layout">
+  <nav class="topics" aria-label={t('knowledgeTopics')}>
+    <p class="overline">{t('knowledgeTopics')}</p>
+    <button type="button" data-topic="all" aria-pressed="true">
+      {t('knowledgeAllTopics')}<span>{articles.length}</span>
+    </button>
+    {
+      topics.map((topic) => (
+        <button type="button" data-topic={topic.id} aria-pressed="false">
+          {topicLabel(topic.id, locale)}<span>{counts.get(topic.id)}</span>
+        </button>
+      ))
+    }
+  </nav>
+
+  <div class="results">
+    <div class="results__head">
+      <p class="overline">{t('knowledgeFind')}</p>
+      <h2 id="knowledge-heading">{t('knowledgeAllArticles')}</h2>
+      <p class="results__hint">{t('knowledgeSubtitle')}</p>
+    </div>
+
+    <div id="knowledge-list">
+      {articles.map((article) => <ArticleRow article={article} locale={locale} />)}
+    </div>
+
+    <p class="empty" id="knowledge-empty" hidden>
+      {t('knowledgeEmpty')}
+      <button type="button" id="knowledge-reset">{t('knowledgeReset')} →</button>
+    </p>
+  </div>
+</div>
+
+<script>
+  const initKnowledge = (): void => {
+  const list = document.getElementById('knowledge-list');
+  if (!list) return;
+  const search = document.getElementById('knowledge-search') as HTMLInputElement | null;
+  const empty = document.getElementById('knowledge-empty');
+  const count = document.getElementById('knowledge-count');
+  const heading = document.getElementById('knowledge-heading');
+  const buttons = document.querySelectorAll<HTMLButtonElement>('[data-topic]');
+  const rows = list ? Array.from(list.querySelectorAll<HTMLElement>('[data-search]')) : [];
+
+  const active = (): string =>
+    document.querySelector<HTMLButtonElement>('[data-topic][aria-pressed="true"]')?.dataset.topic ?? 'all';
+
+  const apply = (): void => {
+    const term = (search?.value ?? '').trim().toLocaleLowerCase('de');
+    const topic = active();
+    let shown = 0;
+    for (const row of rows) {
+      const topics = (row.dataset.topic ?? '').split(' ');
+      const matchesTopic = topic === 'all' || topics.includes(topic);
+      const matchesTerm = term === '' || (row.dataset.search ?? '').includes(term);
+      const visible = matchesTopic && matchesTerm;
+      row.hidden = !visible;
+      if (visible) shown += 1;
+    }
+    if (count) count.textContent = String(shown);
+    if (empty) empty.hidden = shown !== 0;
+    if (heading) {
+      const label = document.querySelector<HTMLButtonElement>(`[data-topic="${topic}"]`);
+      heading.textContent = topic === 'all' ? label?.dataset.original ?? heading.textContent : label?.firstChild?.textContent?.trim() ?? '';
+    }
+  };
+
+  for (const button of buttons) {
+    if (!button.dataset.original) button.dataset.original = button.firstChild?.textContent?.trim() ?? '';
+    button.addEventListener('click', () => {
+      for (const other of buttons) other.setAttribute('aria-pressed', String(other === button));
+      apply();
+    });
+  }
+
+  search?.addEventListener('input', apply);
+
+  document.getElementById('knowledge-reset')?.addEventListener('click', () => {
+    if (search) search.value = '';
+    for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.topic === 'all'));
+    apply();
+    search?.focus();
+  });
+
+  apply();
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initKnowledge);
+  else initKnowledge();
+</script>
+
+<style>
+  .layout {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: clamp(var(--space-6), 4vw, var(--space-12));
+    margin-top: var(--space-6);
+  }
+
+  .topics {
+    border-top: 2px solid var(--accent);
+    padding-top: var(--space-5);
+  }
+
+  .topics .overline {
+    margin-bottom: var(--space-4);
+  }
+
+  .topics button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    width: 100%;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    padding: var(--space-3) var(--space-1);
+    text-align: left;
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+  }
+
+  .topics button:hover {
+    color: var(--accent);
+  }
+
+  .topics button[aria-pressed='true'] {
+    color: var(--accent-strong);
+    font-weight: var(--weight-semibold);
+  }
+
+  .topics button span {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--faint);
+  }
+
+  .results {
+    min-width: 0;
+  }
+
+  .results__head {
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: var(--space-2);
+  }
+
+  .results__head .overline {
+    color: var(--accent-strong);
+  }
+
+  .results__head h2 {
+    font-size: var(--text-xl);
+    letter-spacing: var(--tracking-tighter);
+    margin-top: var(--space-2);
+  }
+
+  .results__hint {
+    color: var(--faint);
+    font-size: var(--text-xs);
+    margin-top: var(--space-2);
+  }
+
+  .empty {
+    padding: var(--space-6) 0;
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .empty button {
+    display: block;
+    margin-top: var(--space-3);
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    font-weight: var(--weight-semibold);
+    font-size: var(--text-sm);
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      display: block;
+    }
+
+    .topics {
+      display: flex;
+      gap: var(--space-2);
+      overflow-x: auto;
+      border-top: 0;
+      padding-top: 0;
+      margin-bottom: var(--space-5);
+      scrollbar-width: none;
+    }
+
+    .topics .overline {
+      display: none;
+    }
+
+    .topics button {
+      width: auto;
+      flex: none;
+      white-space: nowrap;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: var(--space-2) var(--space-3);
+      background: var(--surface);
+    }
+
+    .topics button[aria-pressed='true'] {
+      background: var(--accent-soft);
+      border-color: var(--accent-soft-line);
+    }
+  }
+</style>

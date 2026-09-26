@@ -1,0 +1,39 @@
+---
+/*
+ * Die Wortmarke, aus der einen Zeichnung. Die Füllung wird auf `currentColor`
+ * gesetzt, damit die Marke der Umgebung folgt, statt sich selbst zu färben.
+ */
+interface Props {
+  class?: string;
+  /** Die Höhe der Marke; die Breite folgt dem Seitenverhältnis. */
+  height?: string;
+}
+
+const { class: className, height = '1.25rem' } = Astro.props;
+
+const raw =
+  ((
+    import.meta.glob('/src/brand/wordmark.svg', { query: '?raw', import: 'default', eager: true }) as Record<
+      string,
+      string
+    >
+  )['/src/brand/wordmark.svg']) ?? '';
+const viewBox = raw.match(/viewBox="([^"]+)"/)?.[1] ?? '0 0 866 177';
+const [, , boxWidth = 866, boxHeight = 177] = viewBox.split(/[\s,]+/).map(Number);
+const width = `calc(${height} * ${(boxWidth || 866) / (boxHeight || 177)})`;
+const body = raw
+  .replace(/^[\s\S]*?<svg[^>]*>/, '')
+  .replace(/<\/svg>\s*$/, '')
+  .replace(/fill="#[0-9a-fA-F]{3,8}"/g, 'fill="currentColor"');
+---
+
+<svg
+  class={className}
+  viewBox={viewBox}
+  height={height}
+  width={width}
+  fill="currentColor"
+  role="img"
+  aria-label="VYRX"
+  set:html={body}
+/>

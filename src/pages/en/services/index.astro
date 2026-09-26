@@ -1,0 +1,18 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import ServicesPage from '@/components/pages/ServicesPage.astro';
+import { useTranslations } from '@/i18n';
+import { loginPathFor } from '@/lib/locale';
+import { readSession } from '@/lib/session';
+
+export const prerender = false;
+
+const session = readSession(Astro.request);
+if (!session.identity) return Astro.redirect(loginPathFor(Astro.url.pathname));
+
+const t = useTranslations('en');
+---
+
+<AppShell locale="en" session={session} title={t('servicesTitle')} description={t('servicesIntro')}>
+  <ServicesPage locale="en" session={session} />
+</AppShell>

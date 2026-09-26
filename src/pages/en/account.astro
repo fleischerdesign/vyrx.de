@@ -1,7 +1,18 @@
 ---
-// One view of the portal: the shell comes from the layout, the address from `src/lib/routes.ts`, and the
-// content is rendered into the slot by the client until S3 moves it to the server (G3).
-import AppLayout from '../../layouts/AppLayout.astro';
+import AppShell from '@/components/layout/AppShell.astro';
+import AccountPage from '@/components/pages/AccountPage.astro';
+import { useTranslations } from '@/i18n';
+import { loginPathFor } from '@/lib/locale';
+import { readSession } from '@/lib/session';
+
+export const prerender = false;
+
+const session = readSession(Astro.request);
+if (!session.identity) return Astro.redirect(loginPathFor(Astro.url.pathname));
+
+const t = useTranslations('en');
 ---
 
-<AppLayout locale="en" route="account" />
+<AppShell locale="en" session={session} title={t('accountTitle')} description={t('accountIntro')}>
+  <AccountPage locale="en" session={session} />
+</AppShell>

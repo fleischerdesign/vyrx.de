@@ -1,0 +1,26 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import KnowledgeArticlePage from '@/components/pages/KnowledgeArticlePage.astro';
+import { canReadArticle, findArticle } from '@/lib/knowledge';
+import { readSession } from '@/lib/session';
+
+export const prerender = false;
+
+const { slug = '' } = Astro.params;
+const session = readSession(Astro.request);
+const article = await findArticle('de', slug);
+const readable = article ? canReadArticle(article, session.identity) : false;
+
+// Kein Artikel und keine Berechtigung sind nach außen derselbe Fall: 404.
+// Wer nicht darf, soll aus der Antwort nicht erfahren, dass es etwas gibt.
+if (!article || !readable) Astro.response.status = 404;
+---
+
+<AppShell
+  locale="de"
+  session={session}
+  title={article?.data.title ?? 'Wissen'}
+  description={article?.data.summary ?? 'Ein Artikel aus der Wissensbasis.'}
+>
+  <KnowledgeArticlePage locale="de" article={article} readable={readable} session={session} />
+</AppShell>

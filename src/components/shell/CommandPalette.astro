@@ -1,0 +1,296 @@
+---
+/*
+ * Die eine Suche: ein Eingang für Seiten, Anwendungen und Wissen.
+ *
+ * Sie sucht nur, was diese Person ohnehin sehen darf - die Liste wird
+ * serverseitig gebaut und mitgeliefert. Es gibt keinen zweiten Datenweg, und
+ * ohne JavaScript bleibt sie einfach aus.
+ */
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+export interface PaletteItem {
+  readonly group: 'nav' | 'services' | 'knowledge';
+  readonly label: string;
+  readonly hint?: string;
+  readonly href: string;
+}
+
+interface Props {
+  locale: Locale;
+  items: readonly PaletteItem[];
+}
+
+const { locale, items } = Astro.props;
+const t = useTranslations(locale);
+const groupLabel = { nav: t('paletteNavigation'), services: t('paletteServices'), knowledge: t('paletteKnowledge') };
+---
+
+<button type="button" class="trigger" data-palette-open aria-haspopup="dialog">
+  <Icon name="search" size="1rem" />
+  <span>{t('paletteOpen')}</span>
+  <kbd aria-hidden="true">⌘K</kbd>
+</button>
+
+<dialog class="palette" id="palette" aria-label={t('paletteTitle')}>
+  <div class="palette__box">
+    <div class="palette__field">
+      <Icon name="search" size="1.1rem" />
+      <input
+        id="palette-input"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder={t('palettePlaceholder')}
+        aria-label={t('paletteTitle')}
+        aria-controls="palette-list"
+        role="combobox"
+        aria-expanded="true"
+      />
+    </div>
+    <ul class="palette__list" id="palette-list" role="listbox"></ul>
+    <p class="palette__hint">{t('paletteHint')}</p>
+  </div>
+</dialog>
+
+<p hidden data-palette-empty>{t('paletteEmpty')}</p>
+
+<script type="application/json" data-palette-items set:html={JSON.stringify(items)}></script>
+<script type="application/json" data-palette-groups set:html={JSON.stringify(groupLabel)}></script>
+
+<script>
+  const dialog = document.getElementById('palette') as HTMLDialogElement | null;
+  const input = document.getElementById('palette-input') as HTMLInputElement | null;
+  const list = document.getElementById('palette-list');
+
+  if (dialog && input && list) {
+    const items = JSON.parse(document.querySelector('[data-palette-items]')?.textContent ?? '[]') as {
+      group: string;
+      label: string;
+      hint?: string;
+      href: string;
+    }[];
+    const groups = JSON.parse(document.querySelector('[data-palette-groups]')?.textContent ?? '{}') as Record<string, string>;
+
+    let active = 0;
+    let shown: HTMLElement[] = [];
+
+    const paint = (): void => {
+      shown.forEach((node, index) => node.dataset.active = String(index === active));
+      shown[active]?.scrollIntoView({ block: 'nearest' });
+    };
+
+    const render = (term: string): void => {
+      const needle = term.trim().toLocaleLowerCase('de');
+      const matches = items.filter((item) =>
+        needle === '' || `${item.label} ${item.hint ?? ''} ${groups[item.group] ?? ''}`.toLocaleLowerCase('de').includes(needle),
+      );
+
+      list.replaceChildren();
+      shown = [];
+      active = 0;
+
+      if (matches.length === 0) {
+        const empty = document.createElement('li');
+        empty.className = 'palette__empty';
+        empty.textContent = (document.querySelector('[data-palette-empty]') as HTMLElement | null)?.textContent ?? '';
+        list.append(empty);
+        return;
+      }
+
+      let lastGroup = '';
+      for (const item of matches) {
+        if (item.group !== lastGroup) {
+          lastGroup = item.group;
+          const heading = document.createElement('li');
+          heading.className = 'palette__group';
+          heading.setAttribute('role', 'presentation');
+          heading.textContent = groups[item.group] ?? item.group;
+          list.append(heading);
+        }
+        const link = document.createElement('a');
+        link.className = 'palette__item';
+        link.href = item.href;
+        link.setAttribute('role', 'option');
+        link.dataset.active = 'false';
+        const label = document.createElement('strong');
+        label.textContent = item.label;
+        link.append(label);
+        if (item.hint) {
+          const hint = document.createElement('small');
+          hint.textContent = item.hint;
+          link.append(hint);
+        }
+        list.append(link);
+        shown.push(link);
+      }
+      paint();
+    };
+
+    const open = (): void => {
+      dialog.showModal();
+      input.value = '';
+      render('');
+      input.focus();
+    };
+
+    document.querySelectorAll('[data-palette-open]').forEach((button) => button.addEventListener('click', open));
+
+    // Ein Klick neben die Box schließt: `dialog` selbst ist nur der Rahmen um sie.
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+
+    input.addEventListener('input', () => render(input.value));
+
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (shown.length === 0) return;
+        active = (active + (event.key === 'ArrowDown' ? 1 : shown.length - 1)) % shown.length;
+        paint();
+      }
+      if (event.key === 'Enter') {
+        const target = shown[active];
+        if (target) {
+          event.preventDefault();
+          location.assign(target.getAttribute('href') ?? '/');
+        }
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase('de') === 'k') {
+        event.preventDefault();
+        if (dialog.open) dialog.close();
+        else open();
+      }
+    });
+  }
+</script>
+
+<style>
+  .trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.5rem 0.7rem 0.5rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .trigger:hover {
+    border-color: var(--line-strong);
+    color: var(--ink);
+  }
+
+  .trigger kbd {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xs);
+    padding: 2px 5px;
+    color: var(--faint);
+  }
+
+  .palette {
+    width: min(34rem, calc(100vw - 2rem));
+    margin: 12vh auto auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+  }
+
+  .palette::backdrop {
+    background: rgb(23 27 38 / 0.45);
+    backdrop-filter: blur(2px);
+  }
+
+  .palette__box {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-float);
+    overflow: hidden;
+  }
+
+  .palette__field {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0 var(--space-5);
+    border-bottom: 1px solid var(--line);
+    color: var(--muted);
+  }
+
+  .palette__field input {
+    flex: 1;
+    min-width: 0;
+    height: 3.5rem;
+    border: 0;
+    background: none;
+    outline: 0;
+    font-size: var(--text-md);
+  }
+
+  .palette__list {
+    list-style: none;
+    max-height: 45vh;
+    overflow-y: auto;
+    padding: var(--space-2);
+  }
+
+  /*
+   * Die Listeneinträge entstehen im Browser. Astros Stil-Scope hängt sich an
+   * Elemente aus der Vorlage, nicht an erzeugte - deshalb sind genau diese
+   * Regeln global.
+   */
+  :global(.palette__group) {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+    color: var(--faint);
+    padding: var(--space-3) var(--space-3) var(--space-1);
+  }
+
+  :global(.palette__item) {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+  }
+
+  :global(.palette__item[data-active='true']) {
+    background: var(--accent-soft);
+  }
+
+  :global(.palette__item strong) {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  :global(.palette__item small) {
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  :global(.palette__empty) {
+    padding: var(--space-6) var(--space-4);
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .palette__hint {
+    padding: var(--space-3) var(--space-5);
+    border-top: 1px solid var(--line);
+    color: var(--faint);
+    font-size: var(--text-xs);
+  }
+</style>

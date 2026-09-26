@@ -1,0 +1,36 @@
+---
+/*
+ * Die Startseite ist zwei Zustände derselben Adresse: für Besucher der
+ * öffentliche Einstieg, für angemeldete Menschen die Übersicht. Der Zustand
+ * entscheidet der Server - kein Umschalten im Browser, kein Aufblitzen.
+ */
+import PublicLayout from '@/layouts/PublicLayout.astro';
+import WorkspaceLayout from '@/layouts/WorkspaceLayout.astro';
+import Landing from '@/components/landing/Landing.astro';
+import Overview from '@/components/workspace/Overview.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+import { readSession } from '@/lib/session';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const session = readSession(Astro.request);
+const t = useTranslations(locale);
+const title = t('siteTitle');
+const description = t('siteDescription');
+---
+
+{
+  session.identity ? (
+    <WorkspaceLayout locale={locale} session={session} title={title} description={description}>
+      <Overview locale={locale} session={session} />
+    </WorkspaceLayout>
+  ) : (
+    <PublicLayout locale={locale} title={title} description={description}>
+      <Landing locale={locale} />
+    </PublicLayout>
+  )
+}

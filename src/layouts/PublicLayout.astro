@@ -1,0 +1,175 @@
+---
+/*
+ * Die öffentliche Hülle: Marke, zwei Lesewege und ein Einstieg. Kein
+ * Betriebsvokabular, keine Angaben über die Flotte.
+ */
+import Base from './Base.astro';
+import SkipLink from '@/components/shell/SkipLink.astro';
+import ThemeToggle from '@/components/shell/ThemeToggle.astro';
+import LocaleSwitch from '@/components/shell/LocaleSwitch.astro';
+import Wordmark from '@/components/brand/Wordmark.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { loginPathFor, pathFor, routeFrom, type Locale } from '@/lib/locale';
+import { isCurrent, PUBLIC_NAV } from '@/lib/nav';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+}
+
+const { locale, title, description } = Astro.props;
+const t = useTranslations(locale);
+const here = routeFrom(Astro.url.pathname).name;
+const login = loginPathFor(Astro.url.pathname);
+---
+
+<Base locale={locale} title={title} description={description}>
+  <SkipLink locale={locale} />
+
+  <header class="pub-head">
+    <div class="container pub-head__inner">
+      <a class="pub-head__brand" href={pathFor(locale, 'start')} aria-label={t('brandHome')}>
+        <Wordmark height="1.4rem" />
+      </a>
+
+      <nav class="pub-head__nav" aria-label={t('navWorkspace')}>
+        {
+          PUBLIC_NAV.map((item) => (
+            <a
+              class:list={['pub-head__link', isCurrent(item, here) && 'is-current']}
+              href={pathFor(locale, item.name)}
+              aria-current={isCurrent(item, here) ? 'page' : undefined}
+            >
+              {t(item.key)}
+            </a>
+          ))
+        }
+      </nav>
+
+      <div class="pub-head__actions">
+        <LocaleSwitch locale={locale} class="pub-head__locale" />
+        <ThemeToggle locale={locale} />
+        <a class="pub-head__cta" href={login}>
+          {t('navWorkspace')}
+          <Icon name="arrowRight" size="0.95rem" />
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <slot />
+  </main>
+
+  <footer class="pub-foot">
+    <div class="container pub-foot__inner">
+      <span>{t('footerLine')}</span>
+      <span class="pub-foot__links">
+        <a href={pathFor(locale, 'project')}>{t('navProject')}</a>
+        <a href={pathFor(locale, 'help')}>{t('navHelp')}</a>
+        <a href="/.well-known/security.txt">{t('footerSecurity')}</a>
+      </span>
+    </div>
+  </footer>
+
+  <style>
+    .pub-head {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: color-mix(in srgb, var(--surface) 88%, transparent);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .pub-head__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-6);
+      min-height: var(--shell-bar);
+    }
+
+    .pub-head__brand {
+      color: var(--ink);
+      flex: none;
+    }
+
+    .pub-head__nav {
+      display: flex;
+      gap: var(--space-6);
+      margin-inline-start: auto;
+    }
+
+    .pub-head__link {
+      font-size: var(--text-sm);
+      font-weight: var(--weight-semibold);
+      color: var(--ink-2);
+    }
+
+    .pub-head__link:hover,
+    .pub-head__link.is-current {
+      color: var(--accent);
+    }
+
+    .pub-head__actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      flex: none;
+    }
+
+    .pub-head__cta {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 0.6rem 0.95rem;
+      border-radius: var(--radius-md);
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-size: var(--text-sm);
+      font-weight: var(--weight-semibold);
+    }
+
+    .pub-head__cta:hover {
+      background: var(--accent-strong);
+    }
+
+    .pub-foot {
+      border-top: 1px solid var(--line);
+      margin-top: var(--space-24);
+    }
+
+    .pub-foot__inner {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--space-3);
+      padding-block: var(--space-6);
+      font-size: var(--text-xs);
+      color: var(--muted);
+    }
+
+    .pub-foot__links {
+      display: flex;
+      gap: var(--space-4);
+    }
+
+    .pub-foot__links a {
+      color: var(--ink-2);
+    }
+
+    .pub-foot__links a:hover {
+      color: var(--accent);
+    }
+
+    @media (max-width: 720px) {
+      .pub-head__nav,
+      .pub-head__locale {
+        display: none;
+      }
+    }
+  </style>
+</Base>

@@ -1,0 +1,13 @@
+---
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<a class="skip-link" href="#main">{t('skipToContent')}</a>

@@ -1,0 +1,512 @@
+---
+import PageHeader from '@/components/ui/PageHeader.astro';
+import Badge from '@/components/ui/Badge.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { text } from '@/lib/fleet';
+import type { Locale } from '@/lib/locale';
+import type { Session } from '@/lib/session';
+import { stateOf, type StatusSnapshot } from '@/lib/status';
+import { CERTIFICATE_WARN_DAYS, daysLeft, hoursSince, type Operations } from '@/lib/operations';
+import { maintenanceFrom, recentActions } from '@/lib/store';
+
+interface Props {
+  locale: Locale;
+  session: Session;
+  snapshot: StatusSnapshot | null;
+  operations: Operations | null;
+}
+
+const { locale, session, snapshot, operations } = Astro.props;
+const t = useTranslations(locale);
+const fleet = session.fleet;
+const identity = session.identity;
+const generated = fleet ? fleet.generatedAt.slice(0, 10) : '';
+const notice = Astro.url.searchParams.get('window');
+const windows = session.isAdmin ? maintenanceFrom() : [];
+const interventions = session.isAdmin ? recentActions(8) : [];
+
+// Was Aufmerksamkeit braucht: Ableitungen aus den Quellen, keine eigene Meinung.
+const attention: { tone: 'bad' | 'warn'; text: string }[] = [];
+if (operations === null) {
+  attention.push({ tone: 'warn', text: t('adminOpsAbsent') });
+} else {
+  for (const service of session.services) {
+    if (stateOf(service, snapshot).state === 'down') {
+      attention.push({ tone: 'bad', text: t('adminServiceDown', { name: text(service.name, locale) }) });
+    }
+  }
+  for (const backup of operations.backups) {
+    if (backup.state === 'failed') attention.push({ tone: 'bad', text: t('adminBackupFailed', { target: backup.target }) });
+    else if (backup.state === 'overdue')
+      attention.push({
+        tone: 'warn',
+        text: t('adminBackupOverdue', { target: backup.target, hours: hoursSince(backup.lastRunAt) }),
+      });
+  }
+  for (const certificate of operations.certificates) {
+    const days = daysLeft(certificate.expiresAt);
+    if (days < 0) attention.push({ tone: 'bad', text: t('adminCertExpired', { name: certificate.name }) });
+    else if (days <= CERTIFICATE_WARN_DAYS)
+      attention.push({ tone: 'warn', text: t('adminCertExpiring', { name: certificate.name, days }) });
+  }
+  if (operations.tree?.checkState === 'failed') attention.push({ tone: 'bad', text: t('adminTreeFailed') });
+}
+
+// Ein Wert für ein `datetime-local`-Feld: lokale Zeit, ohne Zone.
+const localInput = (at: Date): string => new Date(at.getTime() - at.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+const stamp = (iso: string): string => new Date(iso).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+const day = (iso: string): string => new Date(iso).toLocaleDateString(locale, { dateStyle: 'medium' });
+---
+
+{
+  !session.isAdmin ? (
+    <EmptyState title={t('adminForbidden')} icon="shield" />
+  ) : (
+    <>
+      <PageHeader overline={t('adminEyebrow')} title={t('adminTitle')} description={t('adminIntro')} />
+
+      <section class="block">
+        <h2>{t('adminAttention')}</h2>
+        {attention.length === 0 ? (
+          <p class="muted">{t('adminAttentionNone')}</p>
+        ) : (
+          <ul class="attention">
+            {attention.map((item) => (
+              <li data-tone={item.tone}>
+                <Icon name={item.tone === 'bad' ? 'alert' : 'info'} size="1rem" />
+                <span>{item.text}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section class="block">
+        <h2>{t('windowsTitle')}</h2>
+        {notice === 'set' && <p class="notice notice--ok" role="status">{t('windowsSet')}</p>}
+        {notice === 'invalid' && <p class="notice notice--bad" role="alert">{t('windowsInvalid')}</p>}
+
+        {windows.length === 0 ? (
+          <p class="muted">{t('windowsNone')}</p>
+        ) : (
+          <ul class="windows">
+            {windows.map((window) => (
+              <li>
+                <span class="windows__what">
+                  {window.serviceId
+                    ? (session.services.find((service) => service.id === window.serviceId)?.name[locale] ?? window.serviceId)
+                    : t('windowsAll')}
+                </span>
+                <span class="windows__when">{stamp(window.startsAt)} – {stamp(window.endsAt)}</span>
+                {window.note && <span class="windows__note">{window.note}</span>}
+                <form method="post" action="/api/maintenance">
+                  <input type="hidden" name="action" value="remove" />
+                  <input type="hidden" name="id" value={String(window.id)} />
+                  <input type="hidden" name="next" value={Astro.url.pathname} />
+                  <button type="submit" class="link-quiet">{t('windowsRemove')}</button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form class="window-form" method="post" action="/api/maintenance">
+          <input type="hidden" name="next" value={Astro.url.pathname} />
+          <label>
+            <span>{t('servicesCategoryAll')}</span>
+            <select name="service">
+              <option value="">{t('windowsAll')}</option>
+              {session.services.map((service) => (
+                <option value={service.id}>{text(service.name, locale)}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{t('windowsFrom')}</span>
+            <input type="datetime-local" name="from" required value={localInput(new Date())} />
+          </label>
+          <label>
+            <span>{t('windowsTo')}</span>
+            <input type="datetime-local" name="to" required value={localInput(new Date(Date.now() + 2 * 3_600_000))} />
+          </label>
+          <label class="window-form__note">
+            <span>{t('windowsNote')}</span>
+            <input type="text" name="note" maxlength="200" />
+          </label>
+          <button type="submit" class="window-form__submit">{t('windowsAdd')}</button>
+        </form>
+      </section>
+
+      <section class="block">
+        <h2>{t('adminBackups')}</h2>
+        {operations === null || operations.backups.length === 0 ? (
+          <p class="muted">{t('adminOpsAbsent')}</p>
+        ) : (
+          <ul class="register">
+            {operations.backups.map((backup) => (
+              <li>
+                <span class="register__name">{backup.target}</span>
+                <span class="register__detail">{t('adminAgoHours', { hours: hoursSince(backup.lastRunAt) })}</span>
+                <Badge tone={backup.state === 'ok' ? 'ok' : backup.state === 'failed' ? 'bad' : 'warn'}>
+                  {backup.state}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section class="block">
+        <h2>{t('adminCertificates')}</h2>
+        {operations === null || operations.certificates.length === 0 ? (
+          <p class="muted">{t('adminOpsAbsent')}</p>
+        ) : (
+          <ul class="register">
+            {operations.certificates.map((certificate) => {
+              const days = daysLeft(certificate.expiresAt);
+              return (
+                <li>
+                  <span class="register__name">{certificate.name}</span>
+                  <span class="register__detail">
+                    {certificate.issuer ? `${certificate.issuer} · ` : ''}
+                    {days < 0 ? t('adminCertExpired', { name: certificate.name }) : t('adminDaysLeft', { days })}
+                  </span>
+                  <Badge tone={days < 0 ? 'bad' : days <= CERTIFICATE_WARN_DAYS ? 'warn' : 'ok'}>{day(certificate.expiresAt)}</Badge>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section class="block">
+        <h2>{t('adminTree')}</h2>
+        {operations?.tree ? (
+          <div class="tree">
+            <Badge tone={operations.tree.checkState === 'ok' ? 'ok' : 'bad'}>{operations.tree.checkState}</Badge>
+            <span>{t('adminTreeLastCheck')}: {stamp(operations.tree.lastCheckAt)}</span>
+            {operations.tree.lastDeployAt && <span>{t('adminTreeLastDeploy')}: {stamp(operations.tree.lastDeployAt)}</span>}
+          </div>
+        ) : (
+          <p class="muted">{t('adminOpsAbsent')}</p>
+        )}
+      </section>
+
+      <section class="block">
+        <h2>{t('adminActions')}</h2>
+        {interventions.length === 0 ? (
+          <p class="muted">{t('adminActionsNone')}</p>
+        ) : (
+          <ul class="register">
+            {interventions.map((entry) => (
+              <li>
+                <span class="register__name">
+                  {entry.actionId} · {session.fleet?.services.find((service) => service.id === entry.serviceId)?.name[locale] ?? entry.serviceId}
+                </span>
+                <span class="register__detail">{entry.actor} · {stamp(entry.at)}</span>
+                <Badge tone={entry.outcome === 'accepted' ? 'ok' : entry.outcome === 'refused' ? 'warn' : 'bad'}>
+                  {entry.outcome === 'accepted' ? t('outcomeAccepted') : entry.outcome === 'refused' ? t('outcomeRefused') : t('outcomeFailed')}
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section class="block">
+        <h2>{t('adminRevision')}</h2>
+        <div class="revision">
+          <strong class="mono">{fleet?.revision ?? t('revisionUnknown')}</strong>
+          <p class="muted">{t('adminRevisionNote')}</p>
+          {generated && <p class="mono revision__date">{t('adminGenerated')} {generated}</p>}
+        </div>
+        <div class="counts">
+          <div class="count">
+            <span class="count__value">{fleet?.services.length ?? 0}</span>
+            <span class="count__label">{t('adminServices')}</span>
+          </div>
+          <div class="count">
+            <span class="count__value">{fleet?.categories.length ?? 0}</span>
+            <span class="count__label">{t('adminCategories')}</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <h2>{t('adminPeople')}</h2>
+        <ul class="groups">
+          {identity?.groups.map((group) => (
+            <li><Badge tone="neutral">{group}</Badge></li>
+          ))}
+        </ul>
+      </section>
+    </>
+  )
+}
+
+<style>
+  .block + .block {
+    margin-top: var(--space-10);
+  }
+
+  .block h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+  }
+
+  .muted {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .attention {
+    list-style: none;
+    display: grid;
+    gap: var(--space-2);
+    max-width: 48rem;
+  }
+
+  .attention li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+  }
+
+  .attention li[data-tone='bad'] {
+    background: var(--bad-soft);
+    border: 1px solid var(--bad-line);
+    color: var(--bad);
+  }
+
+  .attention li[data-tone='warn'] {
+    background: var(--warn-soft);
+    border: 1px solid var(--warn-line);
+    color: var(--warn);
+  }
+
+  .notice {
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-4);
+  }
+
+  .notice--ok {
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+
+  .notice--bad {
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+
+  .windows {
+    list-style: none;
+    display: grid;
+    gap: var(--space-2);
+    max-width: 48rem;
+    margin-bottom: var(--space-5);
+  }
+
+  .windows li {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+  }
+
+  .windows__what {
+    font-weight: var(--weight-semibold);
+  }
+
+  .windows__when,
+  .windows__note {
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .windows form {
+    margin-inline-start: auto;
+  }
+
+  .link-quiet {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .link-quiet:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .window-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: var(--space-3);
+    align-items: end;
+    max-width: 48rem;
+    padding: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .window-form label {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .window-form span {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--ink-2);
+  }
+
+  .window-form input,
+  .window-form select {
+    width: 100%;
+    padding: var(--space-3);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+  }
+
+  .window-form__note {
+    grid-column: 1 / -1;
+  }
+
+  .window-form__submit {
+    justify-self: start;
+    padding: 0.8rem 1.2rem;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .window-form__submit:hover {
+    background: var(--accent-strong);
+  }
+
+  .register {
+    list-style: none;
+    display: grid;
+    gap: var(--space-2);
+    max-width: 48rem;
+  }
+
+  .register li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+  }
+
+  .register__name {
+    font-weight: var(--weight-semibold);
+    min-width: 10rem;
+  }
+
+  .register__detail {
+    color: var(--muted);
+  }
+
+  .register li :global(.badge) {
+    margin-inline-start: auto;
+  }
+
+  .tree {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex-wrap: wrap;
+    padding: var(--space-4) var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    color: var(--ink-2);
+  }
+
+  .revision {
+    padding: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    max-width: 44rem;
+  }
+
+  .revision strong {
+    display: block;
+    font-size: var(--text-md);
+  }
+
+  .revision .muted {
+    margin-top: var(--space-3);
+  }
+
+  .revision__date {
+    color: var(--faint);
+    font-size: var(--text-xs);
+    margin-top: var(--space-2);
+  }
+
+  .counts {
+    display: flex;
+    gap: var(--space-4);
+    margin-top: var(--space-4);
+  }
+
+  .count {
+    flex: 1;
+    max-width: 12rem;
+    padding: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .count__value {
+    display: block;
+    font-size: var(--text-xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tighter);
+  }
+
+  .count__label {
+    display: block;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    margin-top: var(--space-1);
+  }
+
+  .groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    list-style: none;
+  }
+</style>

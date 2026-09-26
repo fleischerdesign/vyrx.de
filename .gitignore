@@ -10,3 +10,9 @@ result-*
 
 # Notizen des Agenten gehören nicht ins Anwendungs-Repository.
 memory/
+
+# Der eigene Speicher des Portals (Favoriten, Meldungen).
+.data/
+
+# Bildschirmfotos der Werkzeugumgebung - keine Projektdateien.
+.openchamber/

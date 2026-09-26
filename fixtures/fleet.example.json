@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "revision": "fixture-2026-09-26",
+  "generatedAt": "2026-09-26T18:00:00Z",
+  "locales": ["de", "en"],
+  "adminGroups": ["infra-admins"],
+  "categories": [
+    { "id": "home", "label": { "de": "Zuhause", "en": "Home" }, "order": 10 },
+    { "id": "media", "label": { "de": "Medien", "en": "Media" }, "order": 20 },
+    { "id": "everyday", "label": { "de": "Alltag", "en": "Everyday" }, "order": 30 },
+    { "id": "work", "label": { "de": "Arbeit", "en": "Work" }, "order": 40 }
+  ],
+  "services": [
+    {
+      "id": "home-automation",
+      "name": { "de": "Hausautomation", "en": "Home automation" },
+      "summary": { "de": "Zuhause und Sensoren an einem Ort.", "en": "Home and sensors in one place." },
+      "categoryId": "home",
+      "icon": "home",
+      "scope": "internal",
+      "accessGroups": ["family"],
+      "owners": ["philipp"],
+      "url": "https://home.vyrx.de/",
+      "monitored": true
+    },
+    {
+      "id": "media-requests",
+      "name": { "de": "Medienwünsche", "en": "Media requests" },
+      "summary": { "de": "Filme und Serien anfragen.", "en": "Request films and series." },
+      "categoryId": "media",
+      "icon": "play",
+      "scope": "public",
+      "accessGroups": ["family", "media-users"],
+      "adminGroups": ["infra-admins"],
+      "owners": ["philipp"],
+      "actions": ["restart"],
+      "url": "https://requests.vyrx.de/",
+      "monitored": true
+    },
+    {
+      "id": "media-library",
+      "name": { "de": "Mediathek", "en": "Media library" },
+      "summary": { "de": "Filme und Serien ansehen.", "en": "Watch films and series." },
+      "categoryId": "media",
+      "icon": "play",
+      "scope": "public",
+      "accessGroups": ["family", "media-users"],
+      "owners": ["philipp"],
+      "dependsOn": ["media-database"],
+      "url": "https://watch.vyrx.de/",
+      "monitored": true
+    },
+    {
+      "id": "recipes",
+      "name": { "de": "Rezepte", "en": "Recipes" },
+      "summary": { "de": "Gemeinsam kochen und planen.", "en": "Cook and plan together." },
+      "categoryId": "everyday",
+      "icon": "files",
+      "scope": "public",
+      "accessGroups": ["family", "recipe-users"],
+      "owners": ["katja"],
+      "url": "https://recipes.vyrx.de/",
+      "monitored": true
+    },
+    {
+      "id": "notes",
+      "name": { "de": "Notizen", "en": "Notes" },
+      "summary": { "de": "Gemeinsame Notizen und Listen.", "en": "Shared notes and lists." },
+      "categoryId": "everyday",
+      "icon": "document",
+      "scope": "mesh",
+      "accessGroups": ["family"],
+      "owners": ["katja"],
+      "url": "https://notes.vyrx.de/",
+      "monitored": true
+    },
+    {
+      "id": "files",
+      "name": { "de": "Dateien", "en": "Files" },
+      "summary": { "de": "Gemeinsame Ablage für Dokumente.", "en": "Shared storage for documents." },
+      "categoryId": "everyday",
+      "icon": "files",
+      "scope": "internal",
+      "accessGroups": ["family"],
+      "owners": ["philipp"],
+      "url": "https://files.vyrx.de/",
+      "monitored": false
+    },
+    {
+      "id": "media-database",
+      "name": { "de": "Medien-Datenbank", "en": "Media database" },
+      "summary": { "de": "Gemeinsame Datenbank der Medienanwendungen.", "en": "Shared database of the media applications." },
+      "categoryId": "work",
+      "icon": "grid",
+      "scope": "isolated",
+      "accessGroups": ["infra-admins"],
+      "adminGroups": ["infra-admins"],
+      "owners": ["philipp"],
+      "url": "https://db.vyrx.de/",
+      "monitored": true
+    },
+    {
+      "id": "fleet-view",
+      "name": { "de": "Betriebsübersicht", "en": "Operations view" },
+      "summary": { "de": "Zustand und Abweichungen der Flotte.", "en": "State and deviations of the fleet." },
+      "categoryId": "work",
+      "icon": "activity",
+      "scope": "internal",
+      "accessGroups": ["infra-admins"],
+      "adminGroups": ["infra-admins"],
+      "owners": ["philipp"],
+      "dependsOn": ["home-automation", "media-requests", "media-library", "notes", "recipes"],
+      "url": "https://ops.vyrx.de/",
+      "monitored": true
+    }
+  ]
+}

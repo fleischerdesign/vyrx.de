@@ -1,0 +1,101 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<button
+  type="button"
+  class="theme-toggle"
+  data-theme-toggle
+  aria-pressed="false"
+  aria-label={t('themeSwitch')}
+  title={t('themeSwitch')}
+>
+  <span class="theme-toggle__icon theme-toggle__icon--sun"><Icon name="sun" size="1rem" /></span>
+  <span class="theme-toggle__icon theme-toggle__icon--moon"><Icon name="moon" size="1rem" /></span>
+</button>
+
+<script>
+  import { THEME_KEY } from '@/lib/theme';
+
+  const root = document.documentElement;
+  const buttons = document.querySelectorAll<HTMLButtonElement>('[data-theme-toggle]');
+
+  const effective = (): 'light' | 'dark' =>
+    root.dataset.theme === 'dark' || root.dataset.theme === 'light'
+      ? (root.dataset.theme as 'light' | 'dark')
+      : window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark'
+        : 'light';
+
+  const reflect = (): void => {
+    const dark = effective() === 'dark';
+    for (const button of buttons) button.setAttribute('aria-pressed', String(dark));
+  };
+
+  for (const button of buttons) {
+    button.addEventListener('click', () => {
+      const next = effective() === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      try {
+        localStorage.setItem(THEME_KEY, next);
+      } catch {
+        // Kein Speicher: die Wahl gilt für diese Seite.
+      }
+      reflect();
+    });
+  }
+
+  reflect();
+</script>
+
+<style>
+  .theme-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--muted);
+    transition:
+      color var(--fast) var(--ease),
+      border-color var(--fast) var(--ease);
+  }
+
+  .theme-toggle:hover {
+    color: var(--ink);
+    border-color: var(--line-strong);
+  }
+
+  .theme-toggle__icon--sun {
+    display: none;
+  }
+
+  :global(html[data-theme='dark']) .theme-toggle__icon--sun {
+    display: grid;
+  }
+
+  :global(html[data-theme='dark']) .theme-toggle__icon--moon {
+    display: none;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :global(html:not([data-theme='light'])) .theme-toggle__icon--sun {
+      display: grid;
+    }
+
+    :global(html:not([data-theme='light'])) .theme-toggle__icon--moon {
+      display: none;
+    }
+  }
+</style>

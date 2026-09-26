@@ -1,0 +1,19 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import ServicesPage from '@/components/pages/ServicesPage.astro';
+import { useTranslations } from '@/i18n';
+import { loginPathFor } from '@/lib/locale';
+import { readSession } from '@/lib/session';
+
+// Liest die Identität: serverseitig, nicht vorgerendert.
+export const prerender = false;
+
+const session = readSession(Astro.request);
+if (!session.identity) return Astro.redirect(loginPathFor(Astro.url.pathname));
+
+const t = useTranslations('de');
+---
+
+<AppShell locale="de" session={session} title={t('servicesTitle')} description={t('servicesIntro')}>
+  <ServicesPage locale="de" session={session} />
+</AppShell>

@@ -1,0 +1,189 @@
+/*
+ * Die Gestaltung als Tokens, einmal.
+ *
+ * Kein Bauteil nennt eine rohe Farbe, einen rohen Abstand oder eine rohe
+ * Schriftgröße. Wer etwas ändert, ändert es hier - und alle Ansichten folgen.
+ * Hell ist die Vorgabe; Dunkel überschreibt dieselben Namen, damit keine
+ * Komponente zwei Gestalten kennt.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Schrift */
+  --font-sans: 'DM Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --text-xs: 0.75rem;   /* 12 */
+  --text-sm: 0.8125rem; /* 13 */
+  --text-base: 0.9375rem; /* 15 */
+  --text-md: 1.0625rem; /* 17 */
+  --text-lg: 1.25rem;   /* 20 */
+  --text-xl: 1.5rem;    /* 24 */
+  --text-2xl: clamp(1.75rem, 1.45rem + 1.2vw, 2.375rem);
+  --text-3xl: clamp(2.2rem, 1.6rem + 2.6vw, 3.5rem);
+  --text-hero: clamp(3.125rem, 2rem + 5.4vw, 5.875rem);
+
+  --leading-tight: 1.05;
+  --leading-snug: 1.3;
+  --leading-normal: 1.6;
+  --leading-relaxed: 1.75;
+
+  --tracking-tight: -0.02em;
+  --tracking-tighter: -0.055em;
+  --tracking-hero: -0.075em;
+  --tracking-wide: 0.06em;
+  --tracking-wider: 0.12em;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Flächen und Tinte */
+  --canvas: #eef0f4;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --surface-3: #eceef3;
+  --ink: #20242c;
+  --ink-2: #4b5462;
+  --muted: #69717d;
+  --faint: #8b939e;
+  --line: #e3e6eb;
+  --line-strong: #d2d6dd;
+
+  /* Akzent */
+  --accent: #5144c7;
+  --accent-strong: #3f34a6;
+  --accent-soft: #ecebf9;
+  --accent-soft-line: #dcd8f4;
+  --accent-weaker: #f2f1fb;
+  --accent-ink: #ffffff;
+  --ring: #9188f0;
+
+  /* Dunkle Bühnen (Werkzeugleiste, Atlas, Banner) */
+  --panel: #171b26;
+  --panel-2: #191c29;
+  --panel-line: #353748;
+  --panel-ink: #f3f1fc;
+  --panel-muted: #b3aec4;
+  --panel-accent: #c6b9ff;
+
+  /* Zustand */
+  --ok: #23826b;
+  --ok-soft: #e9f6f1;
+  --ok-line: #cfe8df;
+  --warn: #9c5a31;
+  --warn-soft: #fbf3ed;
+  --warn-line: #eedbca;
+  --unknown: #677383;
+  --unknown-soft: #f0f2f5;
+  --unknown-line: #dce0e5;
+  --bad: #b9683e;
+  --bad-soft: #fbeeea;
+  --bad-line: #f0d6cc;
+
+  /* Abstand (4px-Raster) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+  --space-24: 6rem;
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  /* Schatten */
+  --shadow-sm: 0 1px 2px rgb(23 27 38 / 0.05);
+  --shadow-md: 0 10px 23px rgb(81 68 199 / 0.15);
+  --shadow-lg: 0 24px 50px -30px rgb(23 27 38 / 0.35);
+  --shadow-float: 0 18px 40px -24px rgb(23 27 38 / 0.45);
+
+  /* Maße */
+  --container: 1360px;
+  --container-narrow: 900px;
+  --measure: 68ch;
+  --measure-narrow: 34rem;
+  --shell-bar: 82px;
+
+  /* Bewegung */
+  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
+  --fast: 140ms;
+  --normal: 220ms;
+}
+
+/*
+ * Dunkel: dieselben Namen, andere Werte. Kein Bauteil wird umgebaut - es liest
+ * weiter `--surface`, `--ink` und `--line`.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --canvas: #101218;
+  --surface: #171a22;
+  --surface-2: #12151c;
+  --surface-3: #1e222c;
+  --ink: #f1f2f6;
+  --ink-2: #c3c8d3;
+  --muted: #9aa1af;
+  --faint: #7c8492;
+  --line: #262b36;
+  --line-strong: #333a48;
+  --accent: #8f83f2;
+  --accent-strong: #a79cff;
+  --accent-soft: #23233a;
+  --accent-soft-line: #34345a;
+  --accent-weaker: #1b1b2a;
+  --accent-ink: #12101f;
+  --ring: #a79cff;
+  --ok-soft: #14251f;
+  --ok-line: #24443a;
+  --warn-soft: #271c14;
+  --warn-line: #4a3626;
+  --unknown-soft: #1b1e25;
+  --unknown-line: #2f343f;
+  --bad-soft: #271813;
+  --bad-line: #4a2d24;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --canvas: #101218;
+    --surface: #171a22;
+    --surface-2: #12151c;
+    --surface-3: #1e222c;
+    --ink: #f1f2f6;
+    --ink-2: #c3c8d3;
+    --muted: #9aa1af;
+    --faint: #7c8492;
+    --line: #262b36;
+    --line-strong: #333a48;
+    --accent: #8f83f2;
+    --accent-strong: #a79cff;
+    --accent-soft: #23233a;
+    --accent-soft-line: #34345a;
+    --accent-weaker: #1b1b2a;
+    --accent-ink: #12101f;
+    --ring: #a79cff;
+    --ok-soft: #14251f;
+    --ok-line: #24443a;
+    --warn-soft: #271c14;
+    --warn-line: #4a3626;
+    --unknown-soft: #1b1e25;
+    --unknown-line: #2f343f;
+    --bad-soft: #271813;
+    --bad-line: #4a2d24;
+  }
+}

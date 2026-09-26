@@ -1,0 +1,53 @@
+---
+interface Props {
+  overline?: string;
+  title: string;
+  description?: string;
+  class?: string;
+}
+
+const { overline, title, description, class: className } = Astro.props;
+---
+
+<header class={`page-header ${className ?? ''}`}>
+  <div>
+    {overline && <p class="overline">{overline}</p>}
+    <h1>{title}</h1>
+    {description && <p class="page-header__lead">{description}</p>}
+  </div>
+  <slot name="aside" />
+</header>
+
+<style>
+  .page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-6);
+    margin-bottom: var(--space-8);
+  }
+
+  .page-header .overline {
+    margin-bottom: var(--space-3);
+  }
+
+  .page-header h1 {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tighter);
+    line-height: var(--leading-tight);
+    margin-bottom: var(--space-3);
+  }
+
+  .page-header__lead {
+    color: var(--muted);
+    max-width: var(--measure-narrow);
+  }
+
+  @media (max-width: 720px) {
+    .page-header {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+  }
+</style>

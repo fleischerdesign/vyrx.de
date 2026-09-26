@@ -126,6 +126,10 @@ Kollektor-Adresse; nur der Portalprozess öffnet die Datei, der Browser nie;
 Migrationen laufen beim Start über die Schemaversion. **Grenze, ausdrücklich:**
 Bekommen Vorgänge Kommentare, Zuständige und Fälligkeiten, entsteht ein zweites
 Aufgabensystem — dann ist der Entwurf falsch, nicht die Tabelle.
+*Erweitert 2026-09-26:* um die Tabelle `maintenance` (C2, Wartungsfenster).
+Sie ist Betriebswissen mit einer Zeit, kein Personendatum: alle lesen sie, nur
+Berechtigte setzen sie, und sie läuft von selbst ab - gepflegt wird sie nicht.
+Die Zahl der Tabellen wächst damit auf fünf; die Grenze oben gilt unverändert.
 
 ### E-0010 — Geprüft wird mit `node --test`, ohne neues Paket
 *Kontext:* H1 verlangt eine Prüfung der Übersetzungsparität. Das Repository hatte
@@ -250,6 +254,102 @@ Schlüssel den Benutzernamen tragen und die Wahl wandert auf das Konto. Und:
 vorher fest dunkel. Wer es umgekehrt will, dreht in `daisy.css` zwei Wörter um
 (`dark --default, light --prefersdark`) und nichts sonst.
 
+### E-0015 — Der öffentliche Einstieg dient zuerst den Nutzern
+*Kontext:* VYRX soll zugleich Zugang für Familie/Freunde und vorzeigbares
+Infrastrukturprojekt sein. Die jetzige Landing stellt Hosts und Mesh in den
+Vordergrund. Der öffentlich abrufbare Katalog (geprüft am 2026-09-26) bestätigt
+u. a. Hausautomation, Medienwünsche und Rezeptplanung als Angebote; das
+„Dateien“-Beispiel der ersten Designstudie ist kein belegtes allgemeines Angebot.
+*Entscheidung:* `/` erklärt den Zugang und drei reale Alltagsfälle in Klartext;
+der Workspace ist die primäre Handlung. Beispiele sind keine Zugangsversprechen:
+Rezeptplanung erfordert eine passende Freigabe. Die Projekt-Fallstudie steht
+unter `/project/` als zweite, klar erkennbare Ebene, nicht als zweiter Hero.
+Die bereits bestehende separate Portfolio-Website bleibt ein anderer Ort;
+`/project/` beschreibt VYRX und nicht Philipps vollständiges Portfolio.
+*Begründung:* Wer etwas benutzen will, soll sich nicht zuerst durch eine
+Architekturführung lesen. Wer die Architektur sehen will, bekommt eine richtige
+Fallstudie statt technisch klingender Werbesätze.
+*Alternativen:* alles auf `/` (beide Zielgruppen verlieren ihren Einstieg);
+Portfolio auslagern (VYRX erklärt sich am eigenen Ort nicht); Live-Dashboard
+öffentlich lassen (zu viele Details ohne Bezug zu einer Nutzerhandlung).
+*Konsequenzen:* Redaktionelle Texte DE/EN, eigene Metadaten für `/project/` und
+ein Weiterweg von beiden Seiten zum Workspace. Die öffentliche Navigation
+bleibt klein. Das ist eine Produktentscheidung, noch keine Implementierung.
+
+### E-0016 — Veröffentlichung ist eine explizite, getrennte Projektion
+*Kontext:* Die öffentliche Landing zeigt heute Hosts mit Namen, Adressen,
+Zonen, laufenden Diensten und Zustand. Zusätzlich ist `/portal.json` öffentlich
+abrufbar und enthält mehr als nur das, was die Landing zeigt: auch interne
+Dienstadressen und Gruppenzuordnungen. Eine optische Bereinigung der Landing
+würde die Datenquelle allein nicht verändern.
+*Entscheidung:* Die öffentliche Erzählung über die Architektur ist redaktionell
+und abstrahiert. Der produktive Katalog für angemeldete Ansichten und eine
+eventuelle öffentliche Projektion sind **getrennte Veröffentlichungsflächen**;
+ein `scope: public` bedeutet nicht automatisch „alle Metadaten öffentlich“.
+Vor dem Relaunch werden Datei, vorgerenderte Dienstseiten und Endpunkte auf
+freigegebene Felder und Zugriffe geprüft. Das bisherige Verhalten wird hier
+nicht stillschweigend als sicher oder unsicher bewertet – die Veröffentlichung
+ist eine eigene bewusste Entscheidung.
+*Begründung:* Verstecken im UI ist kein Zugriffsschutz; ein Portfolio braucht
+keine Live-Inventardaten, um technisch glaubwürdig zu sein.
+*Alternativen:* Host-Raster nur ausblenden (Quelle bleibt abrufbar); kompletten
+Katalog unverändert als Projektinhalt zeigen (vermischt Nutzerdaten mit
+Betriebsfakten); alle technischen Informationen entfernen (verhindert eine
+ehrliche Fallstudie).
+*Konsequenzen:* Freigabeliste für öffentliche Inhalte und gesonderter Test der
+Auslieferung, nicht nur der Browseransicht. E-0013 bleibt für das Prinzip
+„vorgerenderte Seiten sind ohne Skripte lesbar“ bestehen, aber die dortige
+öffentliche Ausgabe aller Knoten und die uneingeschränkte Katalog-Datei werden
+bei Umsetzung neu abgegrenzt. Angemeldete Daten brauchen eine eigene
+autorisierte Quelle; eine statische Datei kennt keine Identität. Verträge
+bleiben einzige Quelle für Fakten; die Projektion filtert sie, statt sie in
+Prosa zu duplizieren.
+
+### E-0017 — Öffentliche Hilfe ja, öffentliche Betriebsstatusseite vorerst nein
+*Kontext:* Personen ohne Anmeldung brauchen Hilfe beim ersten Zugang. Ein
+öffentlicher Status wäre nur dann hilfreich, wenn er unabhängig von der
+betroffenen Infrastruktur erreichbar bleibt, verlässlich aktualisiert wird und
+keine privaten Betriebsdetails veröffentlicht. Das ist nicht belegt.
+*Entscheidung:* `/help/` erklärt Zugang und erste Schritte ohne technische
+Interna. Zugang entsteht durch eine Einladung beziehungsweise Freigabe durch
+Philipp, nicht durch öffentliche Selbstregistrierung; ein befristeter Gastmodus
+braucht vor seiner Bewerbung die in F3/Q1 vorgesehenen erzwungenen Abläufe.
+`/status/` bleibt angemeldet; `/availability/` wird **nicht** mit dem
+Redesign eingeführt. Bestehende öffentliche Artikel der Wissensbasis bleiben
+gemäß Entscheidung 9 unten möglich, müssen aber redaktionell explizit für
+Öffentlichkeit freigegeben werden. Öffentliche Hilfe und internes Wissen sind
+zwei Zielgruppen, nicht zwei Wahrheiten über einen Dienst.
+*Begründung:* Hilfe vor der Anmeldung löst ein belegtes Problem; eine
+halbverlässliche Statusampel würde Vertrauen eher schädigen.
+*Alternativen:* alle Hilfe hinter Anmeldung (hilft beim Anmeldeproblem nicht);
+Host-Status öffentlich wiederverwenden (zu detailliert); sofort eine zweite
+Statusplattform bauen (unverhältnismäßig für den Gestaltungsumbau).
+*Konsequenzen:* Login- und Problemwege werden als Text verifiziert. Eine
+öffentliche Kurzstatusseite braucht später einen eigenen Beschluss über Quelle,
+Auslieferung, Aussage und Sichtbarkeit.
+
+### E-0018 — Erste Workspace-Aufgaben vor dem Funktionskatalog
+*Kontext:* Das Backlog enthält viele sinnvolle Vorhaben, aber Navigation und
+Mockups können nicht jede Idee als schon vorhanden darstellen. Der Katalog
+enthält reale Alltagsangebote mit unterschiedlichen Gruppen und Scopes.
+*Entscheidung:* Der erste neue Workspace optimiert zwei Aufgaben:
+**(1) eine passende, freigegebene Anwendung finden und öffnen** und
+**(2) bei einem Problem verstehen, ob es bekannt ist, wie alt die Aussage ist
+und was als Nächstes zu tun ist**. Start, Anwendungen und Status bedienen
+diese Wege; Wissen bekommt erst mit geprüften Artikeln einen Haupteintrag.
+Anliegen bleiben ein kontextueller Weg, bis es einen betreuten Ablauf gibt.
+Admin zeigt Abweichungen und leitet zu den zuständigen Arbeitsorten, statt
+Nix-Dauerzustand im Portal zu ändern.
+*Begründung:* Ein kleiner, durchgängiger Weg ist für Nutzer wertvoller als ein
+vollständiges Menü mit halben Funktionen. Die Entscheidungen zur Wissensbasis
+(zehn Rezepte zuerst) und zum gemeinsamen Katalog bleiben bestehen.
+*Alternativen:* alle Backlog-Bereiche sofort in die Navigation (leere Routen);
+nur Optik ändern (Nutzerwege bleiben falsch); ein zweiter Aufgaben-Einstieg
+(verworfen als V1 im Backlog).
+*Konsequenzen:* Designs und Tests starten bei realen End-to-End-Szenarien und
+prüfen Rechte, Lade-, Leer-, Fehler- und Alterungszustände. Demo-Werte bleiben
+auf die Studie beschränkt.
+
 ## Entscheidungen zu den offenen Fragen (2026-09-23)
 
 Diese zehn Fragen waren als offen notiert und sind am 2026-09-23 entschieden.
@@ -294,3 +394,90 @@ Eintrag, und der alte Eintrag bleibt mit Verweis stehen.
    über den Dienst und für mehrere Leser nützlich (Alarmierung, Statusseiten,
    Übersichten); eine Anleitung ist eine Aussage über den Menschen davor und
    gehört der Darstellung.
+
+## Neubau der Anwendung (2026-09-26)
+
+### E-0019 — Die Anwendung wird neu geschrieben, nicht umgebaut
+
+*Kontext:* Die bestehende App war gewachsen: eine Hülle, die im Browser
+zwischen Besucher und Angemeldetem umschaltete, Ansichten als Zeichenketten,
+ein Hash-Router, der zu echten Pfaden umgebaut wurde, und eine Gestaltung, die
+aus daisyUI-Klassen bestand. Jede Ansicht kannte die Flotte, und die Tabelle
+kannte das Portal.
+*Entscheidung:* `src/` wird vollständig neu geschrieben. Astro mit
+Datei-Routing, serverseitigem Rendern als Vorgabe, einem Token-System, einem
+Satz wiederverwendbarer Bauteile und Content Collections für redaktionelle
+Inhalte. Die alte App wird gelöscht, nicht daneben weiterbetrieben.
+*Begründung:* Was die Struktur selbst ist, darf nicht die Struktur des Neubaus
+vorgeben. Ein Umbau hätte die vier Ursachen mitgenommen (Hülle, Zeichenketten,
+zweite Datenwege, Klassen-Gestaltung).
+*Alternativen:* schrittweise migrieren (billiger heute, trägt die Ursachen
+weiter); nur die Gestaltung tauschen (die Datenwege blieben falsch).
+*Konsequenzen:* `astro check` prüft die Typen, `design-concept.html` bleibt
+Referenz und wird **nicht** kopiert. Der Backlog wird nicht neu geschrieben,
+sondern je Eintrag nachgezogen.
+
+### E-0020 — Die Infrastruktur kommt als Projektion zur Laufzeit
+
+*Kontext:* Das Portal las einen Katalog, den `nixfiles` aus den Contracts
+ableitete, als **Bau-Eingang** und lieferte dieselbe Datei öffentlich unter
+`/portal.json` aus - samt Hostnamen, Adressen und Gruppenzuordnungen. Der Bau
+war damit an einen Flottenvorgang gekettet, und „gebaut" las sich wie
+„ausgerollt".
+*Entscheidung:* `nixfiles` erzeugt weiterhin eine Ableitung (Schema 1, siehe
+`08-ziel-rewrite.md` §6), aber die App liest sie **zur Laufzeit**
+(`PORTAL_FLEET`), gibt sie **nie** an den Browser und filtert pro Anfrage nach
+Identität und Gruppen. Öffentliche Seiten sind rein redaktionell und brauchen
+den Katalog nicht.
+*Begründung:* Eine Datei kennt keinen Leser; eine Berechtigung, die nur in der
+Ansicht geprüft wird, ist keine. Und eine Projektion im Artefakt kann einer
+anderen Revision angehören als der laufende Dienst.
+*Alternativen:* `/portal.json` öffentlich lassen und nur die Ansicht filtern
+(war der Zustand); serverseitig rendern und den Katalog bei jeder Anfrage aus
+`nixfiles` holen (neue Netzabhängigkeit im Hot Path).
+*Konsequenzen:* Die Auslieferung muss `/portal.json` und das pauschale `/en/*`
+aus den ausgenommenen Pfaden entfernen; der Prüflauf in `nixfiles`
+(`lib/checks/vyrx-portal.nix`), der genau dieses öffentliche Artefakt belegt,
+wird ersetzt. Der Betrieb braucht zwei Umgebungsvariablen: `PORTAL_FLEET` und
+`PORTAL_PROMETHEUS_URL`.
+
+### E-0021 — Node 24, und der eine Speicher aus E-0009
+
+*Kontext:* E-0009 nennt SQLite über `node:sqlite`, setzt aber Node 24 voraus,
+während die Flotte mit `nodejs_22` baute und der Startbefehl des Dienstes
+ebenso.
+*Entscheidung:* Dieses Repository baut und startet mit **Node 24**
+(`flake.nix`). Der Speicher ist eine SQLite-Datei; der Zugriff liegt in
+`src/lib/store.ts` und bindet **jede** Abfrage an den Eigentümer.
+*Begründung:* Node 24 trägt `node:sqlite` ohne Versuchsflagge; auf Node 22 wäre
+es eine Versuchsfunktion mit Warnung. Und eine Datenbank nur für Favoriten
+wäre unverhältnismäßig, solange der Prozess einer ist und die Datei eine Kopie
+als Sicherung erlaubt.
+*Alternativen:* Node 22 behalten und `node:sqlite` mit Flagge benutzen (eine
+Warnung im Betrieb, eine Ausnahme im Bau); PostgreSQL (Netzabhängigkeit für
+vier kleine Tabellen).
+*Konsequenzen:* `nixfiles` muss im Startbefehl des Dienstes auf Node 24 gehen
+(eigener Schritt). Die Datei liegt unter `PORTAL_STORE`; ohne Angabe in der
+Entwicklung unter `.data/portal.sqlite`. **Grenze, wie in E-0009:** bekommen
+Vorgänge Kommentare, Zuständige und Fälligkeiten, ist der Entwurf falsch, nicht
+die Tabelle.
+
+### E-0022 — Sichtbarkeit ist eine Regel, kein Verstecken
+
+*Kontext:* Ein Artikel der Wissensbasis kann öffentlich oder intern sein; ein
+Dienst kann für alle oder für Gruppen freigegeben sein. Vorher entschied die
+Ansicht darüber.
+*Entscheidung:* `visibility` (Artikel) und `accessGroups` (Dienste) sind
+Eigenschaften der Daten. Dieselbe Regel entscheidet über Liste, Direktadresse,
+Suche, Statusabfrage und Sprachvariante; sie steht in `src/lib/visibility.ts`
+und `src/lib/authz.ts`. Wer nicht darf, bekommt „gibt es nicht".
+*Begründung:* Ein Menüversteck ist kein Zugriffsschutz, und zwei Wege mit zwei
+Antworten sind zwei Wahrheiten.
+*Alternativen:* im Browser filtern (heute der Zustand, und der Katalog lag
+offen); jede Ansicht selbst entscheiden lassen (vier Gelegenheiten, es falsch
+zu machen).
+*Konsequenzen:* **Offen und nicht in diesem Schritt entschieden:** ob
+öffentliche Artikel unter `/knowledge/` erreichbar bleiben, obwohl der Ingress
+diesen Pfad schützt. Dafür braucht es entweder einen eigenen öffentlichen Pfad
+oder eine Ausnahme je Artikel, die Caddy nicht kennt. Das ist eine
+Auslieferungsfrage, keine Frage der Anwendung.

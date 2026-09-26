@@ -1,0 +1,42 @@
+---
+import { render } from 'astro:content';
+import ArticleView from '@/components/knowledge/ArticleView.astro';
+import EmptyState from '@/components/ui/EmptyState.astro';
+import { useTranslations } from '@/i18n';
+import { articlesFor, articleSlug, type Article } from '@/lib/knowledge';
+import type { Locale } from '@/lib/locale';
+import type { Session } from '@/lib/session';
+
+/*
+ * Die Seite entscheidet über die *Antwort* (gefunden oder nicht, erlaubt oder
+ * nicht) und den Status; diese Komponente zeichnet nur, was sie bekommt.
+ */
+interface Props {
+  locale: Locale;
+  article: Article | undefined;
+  readable: boolean;
+  session: Session;
+}
+
+const { locale, article, readable, session } = Astro.props;
+const t = useTranslations(locale);
+
+const rendered = article && readable ? await render(article) : null;
+const all = article && readable ? await articlesFor(locale) : [];
+const related = article ? all.filter((entry) => article.data.related.includes(articleSlug(entry))) : [];
+---
+
+{
+  article && readable && rendered ? (
+    <ArticleView
+      locale={locale}
+      article={article}
+      Content={rendered.Content}
+      headings={rendered.headings}
+      related={related}
+      fleet={session.fleet}
+    />
+  ) : (
+    <EmptyState title={t('knowledgeNotFoundTitle')} text={t('knowledgeNotFoundBody')} icon="document" />
+  )
+}

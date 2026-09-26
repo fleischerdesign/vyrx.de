@@ -1,13 +1,13 @@
 ---
-// The landing: what a visitor sees before signing in, and the same page a signed-in reader gets replaced
-// at (the shell reveals its own chrome, the client fills the slot with the views).
-//
-// It is content, not chrome: hero, fleet and footer belong to the start page, which is why they live here
-// and not in the shell. Both languages render this component - there is one landing, not one per language.
-import { useTranslations } from '../../i18n';
-import type { Locale } from '../../i18n';
-import { icon } from '../../lib/icons.ts';
-import { loginPathFor } from '../../lib/routes.ts';
+/*
+ * Der öffentliche Einstieg: die eine Handlung für Besucher, das Bild der
+ * Grundstruktur und drei Beispiele aus dem Katalog. Rein redaktionell - hier
+ * steht keine Angabe über die laufende Flotte.
+ */
+import SystemAtlas from './SystemAtlas.astro';
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { loginPathFor, pathFor, type Locale } from '@/lib/locale';
 
 interface Props {
   locale: Locale;
@@ -15,42 +15,192 @@ interface Props {
 
 const { locale } = Astro.props;
 const t = useTranslations(locale);
-const loginUrl = loginPathFor(locale, 'overview');
+const login = loginPathFor(pathFor(locale, 'start'));
+
+const examples = [
+  { number: t('example1Number'), title: t('example1Title'), text: t('example1Text') },
+  { number: t('example2Number'), title: t('example2Title'), text: t('example2Text') },
+  { number: t('example3Number'), title: t('example3Title'), text: t('example3Text') },
+];
 ---
 
-<section class="hero rounded-box border border-base-300 bg-base-200 py-14">
-  <div class="hero-content text-center">
-    <div class="max-w-2xl">
-      <span class="badge badge-ghost mb-4">{t.eyebrow}</span>
-      <h1 class="text-4xl font-bold sm:text-5xl">
-        {t.heroTitlePrefix}<br /><span class="text-primary">{t.heroTitleSuffix}</span>
-      </h1>
-      <p class="py-6 opacity-70">{t.heroDescription}</p>
-      <div class="flex flex-wrap items-center justify-center gap-3">
-        <a href={loginUrl} class="btn btn-primary">
-          {t.openWorkspace}
-          <Fragment set:html={icon('arrow-right', { size: 'size-4' })} />
-        </a>
-        <span class="badge badge-outline badge-lg gap-2">
-          <Fragment set:html={icon('lock', { size: 'size-4' })} />
-          {t.authProtection}
-        </span>
-      </div>
+<section class="hero container">
+  <div class="hero__copy">
+    <p class="kicker">{t('heroEyebrow')}</p>
+    <h1 class="hero__title">
+      {t('heroTitleLead')}<br /><em>{t('heroTitleAccent')}</em>
+    </h1>
+    <p class="hero__intro">{t('heroIntro')}</p>
+    <div class="hero__actions">
+      <a class="btn-primary" href={login}>
+        {t('heroPrimary')}
+        <Icon name="arrowRight" size="0.95rem" />
+      </a>
+      <a class="hero__more" href={pathFor(locale, 'help')}>{t('heroSecondary')}</a>
     </div>
+  </div>
+
+  <SystemAtlas locale={locale} projectHref={pathFor(locale, 'project')} />
+</section>
+
+<section class="examples" aria-label={t('examplesLabel')}>
+  <div class="container examples__grid">
+    {
+      examples.map((example) => (
+        <article class="example">
+          <p class="example__number">{example.number}</p>
+          <h2>{example.title}</h2>
+          <p>{example.text}</p>
+        </article>
+      ))
+    }
   </div>
 </section>
 
-<div class="mt-10 mb-3 flex flex-wrap items-baseline gap-3">
-  <h2 class="text-lg font-semibold">{t.meshSectionTitle}</h2>
-  <span class="text-sm opacity-50">{t.meshSectionDesc}</span>
-</div>
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" id="hosts-grid"></div>
+<style>
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: clamp(var(--space-8), 6vw, var(--space-16));
+    align-items: center;
+    padding-block: clamp(var(--space-12), 8vw, var(--space-24));
+  }
 
-<footer class="footer footer-horizontal mt-12 border-t border-base-300 pt-6 text-sm">
-  <aside><p class="opacity-60">{t.footerPlatform}</p></aside>
-  <nav>
-    <a class="link link-hover" href="https://github.com/fleischerdesign/nixfiles" target="_blank" rel="noreferrer">{t.gitopsFlake}</a>
-    <a class="link link-hover" href="/.well-known/security.txt">{t.securityPolicy}</a>
-    <a class="link link-hover" href="https://auth.vyrx.de">{t.ssoPortal}</a>
-  </nav>
-</footer>
+  .kicker {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-6);
+    color: var(--accent-strong);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .kicker::before {
+    content: '';
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+
+  .hero__title {
+    font-size: var(--text-hero);
+    line-height: 0.99;
+    letter-spacing: var(--tracking-hero);
+    font-weight: var(--weight-medium);
+    margin-bottom: var(--space-6);
+  }
+
+  .hero__title em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .hero__intro {
+    max-width: 30rem;
+    color: var(--muted);
+    font-size: var(--text-md);
+    line-height: var(--leading-normal);
+    margin-bottom: var(--space-8);
+  }
+
+  .hero__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 1rem 1.4rem;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-strong);
+  }
+
+  .hero__more {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    border-bottom: 1px solid var(--line-strong);
+    padding-block: var(--space-2);
+  }
+
+  .hero__more:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .examples {
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .examples__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .example {
+    padding: var(--space-8) var(--space-8) var(--space-8) 0;
+  }
+
+  .example + .example {
+    border-left: 1px solid var(--line);
+    padding-left: var(--space-8);
+  }
+
+  .example__number {
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .example h2 {
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    margin: var(--space-4) 0 var(--space-2);
+  }
+
+  .example p:last-child {
+    color: var(--muted);
+    font-size: var(--text-sm);
+    max-width: 20rem;
+  }
+
+  @media (max-width: 900px) {
+    .hero {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .examples__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .example,
+    .example + .example {
+      border-left: 0;
+      border-bottom: 1px solid var(--line);
+      padding: var(--space-6) 0;
+    }
+
+    .example:last-child {
+      border-bottom: 0;
+    }
+  }
+</style>

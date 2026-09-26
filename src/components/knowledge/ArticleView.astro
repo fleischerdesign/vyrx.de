@@ -1,0 +1,359 @@
+---
+/*
+ * Ein Artikel: erst die Antwort, dann der Text, zuletzt die Querverweise. Der
+ * Dienstbezug ist ein *Kontext*, keine Heimat - darum steht er unten und nicht
+ * im Aufbau des Artikels.
+ */
+import Icon from '@/components/ui/Icon.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { useTranslations } from '@/i18n';
+import { text, type Fleet } from '@/lib/fleet';
+import { KIND_KEY, articleSlug, type Article } from '@/lib/knowledge';
+import type { Locale } from '@/lib/locale';
+import { topicLabel } from '@/lib/topics';
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
+
+interface Props {
+  locale: Locale;
+  article: Article;
+  Content: AstroComponentFactory;
+  headings: readonly { depth: number; slug: string; text: string }[];
+  related: readonly Article[];
+  fleet: Fleet | null;
+}
+
+const { locale, article, Content, headings, related, fleet } = Astro.props;
+const t = useTranslations(locale);
+const words = (article.body ?? '').trim().split(/\s+/).length;
+const minutes = Math.max(1, Math.round(words / 200));
+const sections = headings.filter((heading) => heading.depth === 2 && heading.text);
+const services = (fleet?.services ?? []).filter((service) => article.data.services.includes(service.id));
+const prefix = locale === 'en' ? '/en' : '';
+---
+
+<div class="article">
+  <a class="back" href={`${prefix}/knowledge/`}>
+    <Icon name="arrowLeft" size="1rem" />
+    {t('knowledgeBack')}
+  </a>
+
+  <div class="article__grid">
+    <article class="paper">
+      <p class="overline">{`${t('knowledgeEyebrow')} / ${topicLabel(article.data.topics[0] ?? '', locale)}`}</p>
+      <h1>{article.data.title}</h1>
+      <p class="lead">{article.data.summary}</p>
+
+      <div class="meta">
+        <Badge tone="accent">{t(KIND_KEY[article.data.kind])}</Badge>
+        <Badge tone={article.data.visibility === 'public' ? 'ok' : 'neutral'}>
+          {article.data.visibility === 'public' ? t('knowledgeVisibilityPublic') : t('knowledgeVisibilityInternal')}
+        </Badge>
+        <span class="meta__item">{t('knowledgeReadTime', { min: minutes })}</span>
+        <span class="meta__item">
+          {article.data.reviewed
+            ? `${t('knowledgeUpdated')} ${article.data.reviewed}`
+            : t('knowledgeUpdatedUnknown')}
+        </span>
+      </div>
+
+      {
+        article.data.outcome && (
+          <div class="outcome">
+            <p class="overline">{t('knowledgeOutcomeLabel')}</p>
+            <p>{article.data.outcome}</p>
+          </div>
+        )
+      }
+
+      <div class="prose">
+        <Content />
+      </div>
+
+      {
+        article.data.technical && (
+          <details class="technical">
+            <summary>{t('knowledgeTechnical')}</summary>
+            <p>{article.data.technical}</p>
+          </details>
+        )
+      }
+
+      {
+        services.length > 0 && (
+          <section class="context">
+            <p class="overline">{t('knowledgeContextTitle')}</p>
+            <p>{t('knowledgeContextText')}</p>
+            <ul>
+              {services.map((service) => (
+                <li>
+                  <a href={`${prefix}/services/${service.id}/`}>{text(service.name, locale)} →</a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+
+      {
+        related.length > 0 && (
+          <section class="related">
+            <p class="overline">{t('knowledgeRelated')}</p>
+            <ul>
+              {related.map((entry) => (
+                <li>
+                  <a href={`${prefix}/knowledge/${articleSlug(entry)}/`}>
+                    {entry.data.title}
+                    <Icon name="arrowRight" size="0.95rem" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )
+      }
+    </article>
+
+    <aside class="aside">
+      {
+        sections.length > 0 && (
+          <>
+            <p class="overline">{t('knowledgeOnThisPage')}</p>
+            <nav class="toc" aria-label={t('knowledgeOnThisPage')}>
+              {sections.map((section) => (
+                <a href={`#${section.slug}`}>{section.text}</a>
+              ))}
+            </nav>
+          </>
+        )
+      }
+      <button type="button" class="print" data-print>
+        <Icon name="print" size="1rem" />
+        {t('knowledgePrint')}
+      </button>
+    </aside>
+  </div>
+</div>
+
+<script>
+  document.querySelector('[data-print]')?.addEventListener('click', () => window.print());
+
+  // Beim Drucken gehört die technische Tiefe mit aufs Papier, auch wenn sie
+  // am Bildschirm zugeklappt war.
+  const details = document.querySelectorAll('details');
+  window.addEventListener('beforeprint', () => details.forEach((entry) => (entry.open = true)));
+</script>
+
+<style>
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--accent);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-8);
+  }
+
+  .article__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 44rem) minmax(160px, 1fr);
+    gap: clamp(var(--space-6), 5vw, var(--space-16));
+    align-items: start;
+  }
+
+  .paper {
+    min-width: 0;
+  }
+
+  .paper h1 {
+    font-size: var(--text-3xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tighter);
+    line-height: var(--leading-tight);
+    margin: var(--space-3) 0 var(--space-4);
+  }
+
+  .lead {
+    color: var(--muted);
+    font-size: var(--text-md);
+    max-width: var(--measure);
+    margin-bottom: var(--space-6);
+  }
+
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4) 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .meta__item {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--faint);
+  }
+
+  .outcome {
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    padding: var(--space-5) var(--space-6);
+    margin: var(--space-6) 0 var(--space-8);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  .outcome p:last-child {
+    margin-top: var(--space-2);
+    color: var(--ink);
+    font-size: var(--text-sm);
+  }
+
+  .context,
+  .related {
+    margin-top: var(--space-10);
+    border-top: 1px solid var(--line);
+    padding-top: var(--space-5);
+  }
+
+  .technical {
+    margin-top: var(--space-10);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .technical summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-5) 0;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .technical summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .technical summary::after {
+    content: '+';
+    color: var(--accent);
+    font-size: var(--text-lg);
+    line-height: 1;
+  }
+
+  .technical[open] summary::after {
+    content: '−';
+  }
+
+  .technical p {
+    color: var(--muted);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    padding-bottom: var(--space-5);
+    max-width: var(--measure);
+  }
+
+  .context p,
+  .related .overline {
+    margin-bottom: var(--space-2);
+  }
+
+  .context > p:not(.overline) {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .context ul,
+  .related ul {
+    list-style: none;
+    margin-top: var(--space-3);
+  }
+
+  .context a {
+    font-weight: var(--weight-semibold);
+    color: var(--accent);
+    font-size: var(--text-sm);
+  }
+
+  .related li + li {
+    margin-top: var(--space-1);
+  }
+
+  .related a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-2);
+    border-bottom: 1px solid var(--line);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--accent-strong);
+  }
+
+  .aside {
+    position: sticky;
+    top: calc(70px + var(--space-6));
+    border-top: 2px solid var(--accent);
+    padding-top: var(--space-5);
+  }
+
+  .toc {
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+  }
+
+  .toc a {
+    font-size: var(--text-sm);
+    color: var(--ink-2);
+  }
+
+  .toc a:hover {
+    color: var(--accent);
+  }
+
+  .print {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-6);
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--accent);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  @media (max-width: 900px) {
+    .article__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .aside {
+      position: static;
+      order: -1;
+      margin-bottom: var(--space-8);
+    }
+
+    .toc {
+      grid-auto-flow: column;
+      grid-auto-columns: max-content;
+      gap: var(--space-4);
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+  }
+
+  @media print {
+    .back,
+    .context,
+    .related {
+      display: none;
+    }
+  }
+</style>

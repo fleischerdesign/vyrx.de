@@ -1,0 +1,79 @@
+---
+/*
+ * Ein Stern als Formular, kein Skript: Merken funktioniert auch ohne
+ * JavaScript, weil es ein gewöhnlicher Formularabsatz ist.
+ */
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  serviceId: string;
+  favorited: boolean;
+  locale: Locale;
+  /** `icon` nur der Stern, `label` mit Wort. */
+  variant?: 'icon' | 'label';
+  next: string;
+}
+
+const { serviceId, favorited, locale, variant = 'icon', next } = Astro.props;
+const t = useTranslations(locale);
+const label = favorited ? t('favoriteRemove') : t('favoriteAdd');
+---
+
+<form class="fav" method="post" action="/api/favorites">
+  <input type="hidden" name="id" value={serviceId} />
+  <input type="hidden" name="next" value={next} />
+  <button type="submit" class:list={['fav__button', `fav__button--${variant}`, favorited && 'is-on']} aria-pressed={favorited}>
+    <Icon name="star" size={variant === 'label' ? '1rem' : '1.05rem'} />
+    {variant === 'label' && <span>{label}</span>}
+    {variant === 'icon' && <span class="visually-hidden">{label}</span>}
+  </button>
+</form>
+
+<style>
+  .fav {
+    display: contents;
+  }
+
+  .fav__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--muted);
+    transition:
+      color var(--fast) var(--ease),
+      border-color var(--fast) var(--ease);
+  }
+
+  .fav__button--icon {
+    width: 2.1rem;
+    height: 2.1rem;
+    flex: none;
+  }
+
+  .fav__button--label {
+    padding: 0.7rem 0.95rem;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .fav__button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .fav__button.is-on {
+    color: var(--accent);
+    border-color: var(--accent-soft-line);
+    background: var(--accent-soft);
+  }
+
+  .fav__button.is-on :global(svg) {
+    fill: currentColor;
+  }
+</style>

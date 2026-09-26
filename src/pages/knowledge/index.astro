@@ -1,0 +1,25 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import KnowledgeIndexPage from '@/components/pages/KnowledgeIndexPage.astro';
+import { useTranslations } from '@/i18n';
+import { articlesFor, isPublicArticle } from '@/lib/knowledge';
+import { loginPathFor, pathFor } from '@/lib/locale';
+import { readSession } from '@/lib/session';
+
+export const prerender = false;
+
+const session = readSession(Astro.request);
+
+// Solange kein Artikel öffentlich ist, hat ein Besucher hier nichts zu sehen:
+// dann führt die Seite zur Anmeldung, statt eine leere Liste zu zeigen. Gibt
+// jemand später einen Artikel frei, trägt die Regel ihn ohne Umbau mit.
+if (!session.identity && !(await articlesFor('de')).some(isPublicArticle)) {
+  return Astro.redirect(loginPathFor(pathFor('de', 'knowledge')));
+}
+
+const t = useTranslations('de');
+---
+
+<AppShell locale="de" session={session} title={t('knowledgeTitle')} description={t('knowledgeIntro')}>
+  <KnowledgeIndexPage locale="de" session={session} />
+</AppShell>

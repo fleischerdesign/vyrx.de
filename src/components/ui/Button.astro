@@ -1,0 +1,128 @@
+---
+/*
+ * Ein Knopf oder ein Verweis - dieselbe Gestalt, ein Element.
+ * Wer eine Handlung auslöst, nimmt `<button>`; wer ein Ziel öffnet, `<a>`.
+ * Die Gestalt entscheidet `variant`, nicht die Ansicht.
+ */
+import Icon from './Icon.astro';
+import type { IconName } from '@/lib/icons';
+
+interface Props {
+  href?: string;
+  type?: 'button' | 'submit';
+  variant?: 'primary' | 'secondary' | 'quiet';
+  size?: 'md' | 'sm';
+  /** Ein Symbol rechts vom Text. */
+  icon?: IconName;
+  /** Öffnet in einem neuen Tab (nur mit `href`). */
+  external?: boolean;
+  disabled?: boolean;
+  class?: string;
+  'aria-label'?: string;
+}
+
+const {
+  href,
+  type = 'button',
+  variant = 'primary',
+  size = 'md',
+  icon,
+  external = false,
+  disabled = false,
+  class: className,
+  'aria-label': ariaLabel,
+} = Astro.props;
+
+const classes = ['btn', `btn--${variant}`, `btn--${size}`, className].filter(Boolean).join(' ');
+---
+
+{
+  href ? (
+    <a
+      href={href}
+      class={classes}
+      aria-label={ariaLabel}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noreferrer' : undefined}
+    >
+      <span><slot /></span>
+      {icon && <Icon name={icon} />}
+    </a>
+  ) : (
+    <button type={type} class={classes} disabled={disabled} aria-label={ariaLabel}>
+      <span><slot /></span>
+      {icon && <Icon name={icon} />}
+    </button>
+  )
+}
+
+<style>
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    font-weight: var(--weight-semibold);
+    line-height: 1;
+    text-align: center;
+    transition:
+      background var(--fast) var(--ease),
+      border-color var(--fast) var(--ease),
+      color var(--fast) var(--ease),
+      transform var(--fast) var(--ease);
+  }
+
+  .btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .btn--sm {
+    padding: 0.6rem 0.85rem;
+    font-size: var(--text-xs);
+  }
+
+  .btn--md {
+    padding: 0.95rem 1.35rem;
+    font-size: var(--text-sm);
+  }
+
+  .btn--primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow: var(--shadow-md);
+  }
+
+  .btn--primary:hover {
+    background: var(--accent-strong);
+  }
+
+  .btn--primary:active {
+    transform: translateY(1px);
+  }
+
+  .btn--secondary {
+    background: var(--surface);
+    border-color: var(--line-strong);
+    color: var(--ink);
+  }
+
+  .btn--secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .btn--quiet {
+    padding-inline: 0;
+    background: none;
+    color: var(--accent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .btn--quiet:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>

@@ -1,19 +1,40 @@
-// The navigation, declared once.
-//
-// It used to exist twice: as a table in the shell (for the drawer and the dock) and as a second table in
-// `app.ts` (for the command palette), with the same five entries, the same order and the same glyphs kept
-// in step by hand. The icons in the second copy were never even rendered - the shell renders them.
-//
-// Order is the only thing this file decides beyond the route table: what the drawer carries, and what the
-// bottom dock carries. Addresses and labels come from `routes.ts`; a nav entry that named its own address
-// would be the beginning of the second table again.
+/*
+ * Die Navigation, einmal deklariert. Adressen und Beschriftungen kommen aus
+ * der Routentabelle und den Texten - ein Eintrag nennt nie selbst eine Adresse.
+ */
 
-import { ROUTES } from './routes.ts';
-import type { Route } from './routes.ts';
+import type { IconName } from './icons.ts';
+import type { MessageKey } from '../i18n/index.ts';
+import type { RouteName } from './locale.ts';
 
-/** What the drawer carries: every view the viewer may open, in reading order, start page first. */
-export const NAV: readonly Route[] = ROUTES;
+export interface NavItem {
+  readonly name: RouteName;
+  readonly key: MessageKey;
+  readonly icon: IconName;
+  /** Nur für Berechtigte sichtbar. */
+  readonly admin?: boolean;
+}
 
-// What the bottom dock carries: at most five entries, and never a view that is only reachable as an
-// administrator. A visitor who is not one should not see the entry and be refused by it.
-export const PRIMARY_NAV: readonly Route[] = ROUTES.filter((route) => !route.admin);
+/** Die Hauptnavigation des Workspace, in Leserichtung. */
+export const WORKSPACE_NAV: readonly NavItem[] = [
+  { name: 'start', key: 'navOverview', icon: 'home' },
+  { name: 'services', key: 'navServices', icon: 'grid' },
+  { name: 'knowledge', key: 'navKnowledge', icon: 'book' },
+  { name: 'status', key: 'navStatus', icon: 'activity' },
+  { name: 'account', key: 'navAccount', icon: 'user' },
+  { name: 'admin', key: 'navAdmin', icon: 'shield', admin: true },
+];
+
+/** Die Navigation für Besucher: schmal, ohne Betriebsdaten. */
+export const PUBLIC_NAV: readonly NavItem[] = [
+  { name: 'project', key: 'navProject', icon: 'document' },
+  { name: 'help', key: 'navHelp', icon: 'chat' },
+];
+
+/** Der Eintrag, der auf dieser Adresse aktiv ist. */
+export function isCurrent(item: NavItem, current: RouteName): boolean {
+  if (item.name === 'start') return current === 'start';
+  if (item.name === 'services') return current === 'services' || current === 'service';
+  if (item.name === 'knowledge') return current === 'knowledge' || current === 'article';
+  return item.name === current;
+}

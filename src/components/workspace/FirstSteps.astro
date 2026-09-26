@@ -1,0 +1,114 @@
+---
+/*
+ * Erste Schritte: eine kurze Leiste, kein Fortschrittsbalken.
+ *
+ * Sie zeigt nur, was das Portal wirklich weiß - dass jemand angemeldet ist,
+ * wie viele Angebote daraus folgen und wie viele Anleitungen dazu passen.
+ * Alles Weitere (Gerät, Passkey) weiß es nicht und behauptet es deshalb auch
+ * nicht; dort steht der Verweis auf die Person, die den Zugang eingerichtet hat.
+ */
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { pathFor, type Locale } from '@/lib/locale';
+
+interface Props {
+  locale: Locale;
+  services: number;
+  guides: number;
+}
+
+const { locale, services, guides } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<section class="steps" aria-label={t('firstStepsTitle')}>
+  <h2>{t('firstStepsTitle')}</h2>
+  <ol>
+    <li>
+      <span class="steps__number">01</span>
+      <a href={pathFor(locale, 'services')}>
+        {t('firstStepsServices')}
+        <Icon name="arrowRight" size="0.95rem" />
+      </a>
+      <p>{t('firstStepsServicesHint', { count: services })}</p>
+    </li>
+    <li>
+      <span class="steps__number">02</span>
+      <a href={pathFor(locale, 'knowledge')}>
+        {t('firstStepsKnowledge')}
+        <Icon name="arrowRight" size="0.95rem" />
+      </a>
+      <p>{t('firstStepsKnowledgeHint', { count: guides })}</p>
+    </li>
+    <li>
+      <span class="steps__number">03</span>
+      <strong>{t('firstStepsHelp')}</strong>
+      <p>{t('firstStepsHelpText')}</p>
+    </li>
+  </ol>
+</section>
+
+<style>
+  .steps {
+    margin-top: var(--space-4);
+  }
+
+  .steps h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    margin-bottom: var(--space-4);
+  }
+
+  .steps ol {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+
+  .steps li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-5);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .steps__number {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--accent-strong);
+  }
+
+  .steps a {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--accent-strong);
+  }
+
+  .steps a:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .steps strong {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .steps p {
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  @media (max-width: 720px) {
+    .steps ol {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

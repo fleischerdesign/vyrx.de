@@ -1,0 +1,71 @@
+---
+/*
+ * Das Dokument: ein `<html>`, ein Kopf, eine Stelle für den Inline-Start.
+ *
+ * Die Darstellungswahl wird vor dem ersten Bild gesetzt - eine Wahl, die erst
+ * nach dem Malen greift, wäre ein Blitz bei jedem Seitenwechsel.
+ */
+import '../styles/tokens.css';
+import '../styles/base.css';
+import '@fontsource-variable/dm-sans';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
+import '@fontsource/ibm-plex-mono/600.css';
+import { switchLocale, type Locale } from '@/lib/locale';
+import { THEME_KEY } from '@/lib/theme';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  /** Private Ansichten werden nicht in einen Index aufgenommen. */
+  noindex?: boolean;
+}
+
+const { locale, title, description, noindex = false } = Astro.props;
+const site = Astro.site ?? new URL('https://vyrx.de');
+const pathname = Astro.url.pathname;
+const fullTitle = title === 'VYRX' ? title : `${title} · VYRX`;
+const canonical = new URL(pathname, site).href;
+const alternate = new URL(switchLocale(locale, pathname), site).href;
+const other: Locale = locale === 'de' ? 'en' : 'de';
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+
+    <script is:inline define:vars={{ themeKey: THEME_KEY }}>
+      try {
+        const stored = localStorage.getItem(themeKey);
+        if (stored === 'light' || stored === 'dark') document.documentElement.dataset.theme = stored;
+      } catch {
+        // Kein Speicher: die Systemeinstellung bleibt die Antwort.
+      }
+      document.documentElement.classList.add('js');
+    </script>
+
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#171a22" media="(prefers-color-scheme: dark)" />
+
+    {noindex ? <meta name="robots" content="noindex" /> : <link rel="canonical" href={canonical} />}
+    {!noindex && <link rel="alternate" hreflang={other} href={alternate} />}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="VYRX" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:locale" content={locale} />
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

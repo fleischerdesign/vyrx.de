@@ -1,0 +1,63 @@
+---
+import { useTranslations } from '@/i18n';
+import { KIND_KEY, articleSlug, searchText, type Article } from '@/lib/knowledge';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  article: Article;
+  locale: Locale;
+}
+
+const { article, locale } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<a
+  class="article"
+  href={`/${locale === 'en' ? 'en/' : ''}knowledge/${articleSlug(article)}/`}
+  data-topic={article.data.topics.join(' ')}
+  data-search={searchText(article)}
+>
+  <span class="article__kind">{t(KIND_KEY[article.data.kind])}</span>
+  <span class="article__title">{article.data.title}</span>
+  <span class="article__summary">{article.data.summary}</span>
+</a>
+
+<style>
+  .article {
+    display: block;
+    padding: var(--space-5) var(--space-2);
+    border-bottom: 1px solid var(--line);
+    transition: background var(--fast) var(--ease);
+  }
+
+  .article:hover {
+    background: var(--accent-weaker);
+  }
+
+  .article__kind {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    margin-bottom: var(--space-2);
+  }
+
+  .article__title {
+    display: block;
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .article__summary {
+    display: block;
+    color: var(--muted);
+    font-size: var(--text-sm);
+    margin-top: var(--space-2);
+    max-width: var(--measure);
+  }
+</style>
