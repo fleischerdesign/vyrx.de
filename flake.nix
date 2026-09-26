@@ -37,7 +37,7 @@
 
           # Belongs to `package-lock.json` and changes with it. Recompute with:
           #   nix run nixpkgs#prefetch-npm-deps -- package-lock.json
-          npmDepsHash = "sha256-faw3RROZLlyz7kqcyZ0xDHj5uhVFXXPWrA4556EEfBY=";
+          npmDepsHash = "sha256-57dyWDhv6xuVg1aqhf0Fnc1yOwB3TYJaV6kPEUpda0E=";
 
           inherit nodejs;
 
