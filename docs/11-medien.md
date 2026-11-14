@@ -80,7 +80,8 @@ Die schreibende Strecke ist implementiert und über
   steht als zusätzliche Zeile darunter.
 - Das Detail-Modal führt „Anfragen“ direkt über `POST /api/media/request`
   (Direktmodus) aus. Das Modal ist die Bestätigung; es gibt keinen weiteren
-  Chat-Turn, und das Ergebnis erscheint im Modal.
+  Chat-Turn, und das Ergebnis erscheint im Modal. Der Direktmodus ist derzeit
+  auf Filme beschränkt; Serien zeigen keinen Anfrage-Button.
 - `POST /api/media/request` ist die einzige Schreibstelle. Sie beansprucht das
   Proposal **vor** dem Seerr-Aufruf, setzt `X-Api-User` und schreibt
   `{mediaType:'movie', mediaId, is4k:false}`.

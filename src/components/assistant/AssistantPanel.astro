@@ -734,7 +734,7 @@ const labels = {
 
         const actions = document.createElement('div');
         actions.className = 'ui-media-dialog__actions';
-        if (block.status === 'unknown' && block.requestable) {
+        if (block.mediaType === 'movie' && block.status === 'unknown' && block.requestable) {
           const request = document.createElement('button');
           request.type = 'button';
           request.className = 'ui-media-dialog__request';
