@@ -170,3 +170,31 @@ test('render_ui returns the validated tree as native blocks', async () => {
   assert.equal((outcome.content as { ok?: boolean }).ok, true);
   assert.equal(outcome.blocks?.[0]?.type, 'card');
 });
+
+test('progress and chart are bounded presentation components', () => {
+  const result = validateUiNodes(
+    [
+      { type: 'progress', label: 'Speicher', value: 72, max: 100, tone: 'warn' },
+      {
+        type: 'chart',
+        kind: 'bar',
+        label: 'Anfragen',
+        points: [
+          { label: 'Mo', value: 3 },
+          { label: 'Di', value: 5 },
+        ],
+      },
+    ],
+    data,
+    session,
+    'de',
+  );
+  assert.equal(result.error, undefined);
+  assert.equal(result.nodes[0]?.type, 'progress');
+  assert.equal(result.nodes[1]?.type, 'chart');
+
+  const emptyChart = validateUiNodes([{ type: 'chart', points: [] }], data, session, 'de');
+  assert.equal(emptyChart.error, 'invalid_chart');
+  const negativeProgress = validateUiNodes([{ type: 'progress', label: 'X', value: -1 }], data, session, 'de');
+  assert.equal(negativeProgress.error, 'invalid_progress');
+});

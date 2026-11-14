@@ -411,9 +411,164 @@ const labels = {
         });
       };
 
+      const isRowType = (node: AssistantBlock): boolean =>
+        node.type === 'summary' ||
+        node.type === 'status' ||
+        node.type === 'service' ||
+        node.type === 'article' ||
+        node.type === 'maintenance';
+
+      const renderRows = (parent: HTMLElement, rows: readonly AssistantBlock[]): void => {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        const container = document.createElement('div');
+        container.className = 'ui-rows';
+        let start = 0;
+
+        if (rows[0]?.type === 'summary') {
+          const summary = rows[0];
+          const href = safeHref(summary.href);
+          const head = document.createElement(href ? 'a' : 'div');
+          head.className = 'ui-rows__head';
+          head.dataset.state = summary.tone === 'ok' ? 'up' : summary.tone === 'warn' ? 'down' : 'unknown';
+          if (href) (head as HTMLAnchorElement).href = href;
+          const dot = document.createElement('span');
+          dot.className = 'assistant-card__dot';
+          dot.setAttribute('aria-hidden', 'true');
+          const body = document.createElement('span');
+          body.className = 'ui-rows__body';
+          const title = document.createElement('strong');
+          title.textContent = summary.title;
+          const text = document.createElement('small');
+          text.textContent = [summary.text, summary.asOf ? formatTime(summary.asOf) : ''].filter(Boolean).join(' · ');
+          body.append(title, text);
+          head.append(dot, body);
+          if (href) {
+            const arrow = document.createElement('span');
+            arrow.className = 'ui-rows__arrow';
+            arrow.textContent = '→';
+            head.append(arrow);
+          }
+          container.append(head);
+          start = 1;
+        }
+
+        for (let index = start; index < rows.length; index += 1) {
+          const row = rows[index];
+          if (!row) continue;
+
+          if (row.type === 'status') {
+            const href = safeHref(row.href);
+            if (!href) continue;
+            const link = document.createElement('a');
+            link.className = 'ui-row ui-row--status';
+            link.href = href;
+            link.dataset.state = row.state;
+            const dot = document.createElement('span');
+            dot.className = 'assistant-card__dot';
+            dot.setAttribute('aria-hidden', 'true');
+            const body = document.createElement('span');
+            body.className = 'ui-row__body';
+            const name = document.createElement('strong');
+            name.textContent = row.name;
+            const meta = document.createElement('small');
+            meta.textContent = [row.stateText, row.asOf ? formatTime(row.asOf) : ''].filter(Boolean).join(' · ');
+            body.append(name, meta);
+            const arrow = document.createElement('span');
+            arrow.className = 'ui-rows__arrow';
+            arrow.textContent = '→';
+            link.append(dot, body, arrow);
+            container.append(link);
+            continue;
+          }
+
+          if (row.type === 'service') {
+            const href = safeHref(row.href);
+            if (!href) continue;
+            const link = document.createElement('a');
+            link.className = 'ui-row ui-row--service';
+            link.href = href;
+            const body = document.createElement('span');
+            body.className = 'ui-row__body';
+            const name = document.createElement('strong');
+            name.textContent = row.name;
+            const summary = document.createElement('small');
+            summary.textContent = row.summary;
+            const meta = document.createElement('small');
+            meta.className = 'ui-row__meta';
+            meta.textContent = [row.stateText, row.asOf ? formatTime(row.asOf) : ''].filter(Boolean).join(' · ');
+            body.append(name, summary, meta);
+            const arrow = document.createElement('span');
+            arrow.className = 'ui-rows__arrow';
+            arrow.textContent = '→';
+            link.append(body, arrow);
+            container.append(link);
+            continue;
+          }
+
+          if (row.type === 'article') {
+            const href = safeHref(row.href);
+            if (!href) continue;
+            const link = document.createElement('a');
+            link.className = 'ui-row ui-row--article';
+            link.href = href;
+            const body = document.createElement('span');
+            body.className = 'ui-row__body';
+            const kind = document.createElement('span');
+            kind.className = 'ui-row__kind';
+            kind.textContent = row.kindText || row.kind || '';
+            const title = document.createElement('strong');
+            title.textContent = row.title;
+            const summary = document.createElement('small');
+            summary.textContent = row.summary;
+            body.append(kind, title, summary);
+            const arrow = document.createElement('span');
+            arrow.className = 'ui-rows__arrow';
+            arrow.textContent = '→';
+            link.append(body, arrow);
+            container.append(link);
+            continue;
+          }
+
+          if (row.type === 'maintenance') {
+            const item = document.createElement('div');
+            item.className = 'ui-row ui-row--maintenance';
+            const body = document.createElement('span');
+            body.className = 'ui-row__body';
+            const name = document.createElement('strong');
+            name.textContent = row.serviceName ?? (locale === 'de' ? 'Alle Angebote' : 'All applications');
+            const time = document.createElement('small');
+            time.textContent = `${formatTime(Date.parse(row.startsAt))} – ${formatTime(Date.parse(row.endsAt))}`;
+            body.append(name, time);
+            if (row.note) {
+              const note = document.createElement('small');
+              note.textContent = row.note;
+              body.append(note);
+            }
+            item.append(body);
+            container.append(item);
+          }
+        }
+
+        if (container.childElementCount > 0) parent.append(container);
+      };
+
       const renderChildren = (parent: HTMLElement, children: readonly AssistantBlock[] | undefined): void => {
         if (!Array.isArray(children)) return;
-        for (const child of children) renderNode(parent, child);
+        let buffer: AssistantBlock[] = [];
+        const flush = (): void => {
+          if (buffer.length === 0) return;
+          renderRows(parent, buffer);
+          buffer = [];
+        };
+        for (const child of children) {
+          if (isRowType(child)) {
+            buffer.push(child);
+          } else {
+            flush();
+            renderNode(parent, child);
+          }
+        }
+        flush();
       };
 
       const renderNode = (parent: HTMLElement, block: AssistantBlock): void => {
@@ -592,6 +747,115 @@ const labels = {
           return;
         }
 
+        if (block.type === 'progress') {
+          const max = block.max && block.max > 0 ? block.max : 100;
+          const percent = Math.max(0, Math.min(100, Math.round((block.value / max) * 100)));
+          const wrap = document.createElement('div');
+          wrap.className = 'ui-progress';
+          wrap.dataset.tone = block.tone ?? 'neutral';
+          const head = document.createElement('div');
+          head.className = 'ui-progress__head';
+          const label = document.createElement('span');
+          label.className = 'ui-progress__label';
+          label.textContent = block.label;
+          const value = document.createElement('span');
+          value.className = 'ui-progress__value';
+          value.textContent = block.max ? `${block.value} / ${block.max}` : `${percent}%`;
+          head.append(label, value);
+          const track = document.createElement('div');
+          track.className = 'ui-progress__track';
+          track.setAttribute('role', 'progressbar');
+          track.setAttribute('aria-label', block.label);
+          track.setAttribute('aria-valuemin', '0');
+          track.setAttribute('aria-valuemax', String(max));
+          track.setAttribute('aria-valuenow', String(Math.min(block.value, max)));
+          const bar = document.createElement('div');
+          bar.className = 'ui-progress__bar';
+          bar.style.width = `${percent}%`;
+          track.append(bar);
+          wrap.append(head, track);
+          if (block.hint) {
+            const hint = document.createElement('span');
+            hint.className = 'ui-progress__hint';
+            hint.textContent = block.hint;
+            wrap.append(hint);
+          }
+          parent.append(wrap);
+          return;
+        }
+
+        if (block.type === 'chart') {
+          const values = block.points.map((point) => point.value);
+          const max = block.max && block.max > 0 ? block.max : Math.max(...values, 1);
+          const wrap = document.createElement('div');
+          wrap.className = 'ui-chart';
+          wrap.dataset.tone = block.tone ?? 'neutral';
+          wrap.setAttribute('role', 'img');
+          wrap.setAttribute(
+            'aria-label',
+            [block.label, block.hint, ...block.points.map((point) => `${point.label}: ${point.value}`)].filter(Boolean).join(', '),
+          );
+          if (block.label) {
+            const label = document.createElement('p');
+            label.className = 'ui-chart__label';
+            label.textContent = block.label;
+            wrap.append(label);
+          }
+
+          if (block.kind === 'sparkline') {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 100 32');
+            svg.setAttribute('preserveAspectRatio', 'none');
+            svg.setAttribute('role', 'img');
+            svg.setAttribute('aria-label', block.label ?? block.hint ?? 'Verlauf');
+            const points = block.points
+              .map((point, index) => {
+                const x = block.points.length === 1 ? 50 : (index / (block.points.length - 1)) * 100;
+                const y = 30 - (point.value / max) * 26;
+                return `${x.toFixed(2)},${y.toFixed(2)}`;
+              })
+              .join(' ');
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            line.setAttribute('points', points);
+            line.setAttribute('fill', 'none');
+            line.setAttribute('stroke', 'currentColor');
+            line.setAttribute('stroke-width', '1.6');
+            line.setAttribute('stroke-linecap', 'round');
+            line.setAttribute('stroke-linejoin', 'round');
+            svg.append(line);
+            wrap.append(svg);
+          } else {
+            const bars = document.createElement('div');
+            bars.className = 'ui-chart__bars';
+            for (const point of block.points) {
+              const item = document.createElement('div');
+              item.className = 'ui-chart__item';
+              const track = document.createElement('div');
+              track.className = 'ui-chart__track';
+              const bar = document.createElement('div');
+              bar.className = 'ui-chart__bar';
+              bar.style.height = `${Math.max(2, (point.value / max) * 100)}%`;
+              bar.title = `${point.label}: ${point.value}`;
+              track.append(bar);
+              const label = document.createElement('span');
+              label.className = 'ui-chart__bar-label';
+              label.textContent = point.label;
+              item.append(track, label);
+              bars.append(item);
+            }
+            wrap.append(bars);
+          }
+
+          if (block.hint) {
+            const hint = document.createElement('span');
+            hint.className = 'ui-chart__hint';
+            hint.textContent = block.hint;
+            wrap.append(hint);
+          }
+          parent.append(wrap);
+          return;
+        }
+
         if (block.type === 'timeline') {
           const timeline = document.createElement('ol');
           timeline.className = 'ui-timeline';
@@ -667,126 +931,6 @@ const labels = {
           return;
         }
 
-        if (block.type === 'summary') {
-          const href = safeHref(block.href);
-          const card = document.createElement(href ? 'a' : 'div');
-          card.className = 'assistant-card assistant-card--summary';
-          card.dataset.state = block.tone === 'ok' ? 'up' : block.tone === 'warn' ? 'down' : 'unknown';
-          if (href) (card as HTMLAnchorElement).href = href;
-          const dot = document.createElement('span');
-          dot.className = 'assistant-card__dot';
-          dot.setAttribute('aria-hidden', 'true');
-          const body = document.createElement('span');
-          body.className = 'assistant-card__body';
-          const title = document.createElement('strong');
-          title.textContent = block.title;
-          const text = document.createElement('small');
-          text.textContent = [block.text, block.asOf ? formatTime(block.asOf) : ''].filter(Boolean).join(' · ');
-          body.append(title, text);
-          card.append(dot, body);
-          if (href) {
-            const arrow = document.createElement('span');
-            arrow.className = 'assistant-card__arrow';
-            arrow.textContent = '→';
-            card.append(arrow);
-          }
-          parent.append(card);
-          return;
-        }
-
-        if (block.type === 'status') {
-          const href = safeHref(block.href);
-          if (!href) return;
-          const card = document.createElement('a');
-          card.className = 'assistant-card assistant-card--status';
-          card.href = href;
-          card.dataset.state = block.state;
-          const dot = document.createElement('span');
-          dot.className = 'assistant-card__dot';
-          dot.setAttribute('aria-hidden', 'true');
-          const body = document.createElement('span');
-          body.className = 'assistant-card__body';
-          const name = document.createElement('strong');
-          name.textContent = block.name;
-          const meta = document.createElement('small');
-          meta.textContent = [block.stateText, block.asOf ? formatTime(block.asOf) : ''].filter(Boolean).join(' · ');
-          body.append(name, meta);
-          const arrow = document.createElement('span');
-          arrow.className = 'assistant-card__arrow';
-          arrow.textContent = '→';
-          card.append(dot, body, arrow);
-          parent.append(card);
-          return;
-        }
-
-        if (block.type === 'service') {
-          const href = safeHref(block.href);
-          if (!href) return;
-          const card = document.createElement('a');
-          card.className = 'assistant-card assistant-card--service';
-          card.href = href;
-          const body = document.createElement('span');
-          body.className = 'assistant-card__body';
-          const name = document.createElement('strong');
-          name.textContent = block.name;
-          const summary = document.createElement('small');
-          summary.textContent = block.summary;
-          const meta = document.createElement('small');
-          meta.className = 'assistant-card__meta';
-          meta.textContent = [block.stateText, block.asOf ? formatTime(block.asOf) : ''].filter(Boolean).join(' · ');
-          body.append(name, summary, meta);
-          const arrow = document.createElement('span');
-          arrow.className = 'assistant-card__arrow';
-          arrow.textContent = '→';
-          card.append(body, arrow);
-          parent.append(card);
-          return;
-        }
-
-        if (block.type === 'article') {
-          const href = safeHref(block.href);
-          if (!href) return;
-          const card = document.createElement('a');
-          card.className = 'assistant-card assistant-card--article';
-          card.href = href;
-          const body = document.createElement('span');
-          body.className = 'assistant-card__body';
-          const kind = document.createElement('span');
-          kind.className = 'assistant-card__kind';
-          kind.textContent = block.kindText || block.kind || '';
-          const title = document.createElement('strong');
-          title.textContent = block.title;
-          const summary = document.createElement('small');
-          summary.textContent = block.summary;
-          body.append(kind, title, summary);
-          const arrow = document.createElement('span');
-          arrow.className = 'assistant-card__arrow';
-          arrow.textContent = '→';
-          card.append(body, arrow);
-          parent.append(card);
-          return;
-        }
-
-        if (block.type === 'maintenance') {
-          const card = document.createElement('div');
-          card.className = 'assistant-card assistant-card--maintenance';
-          const body = document.createElement('span');
-          body.className = 'assistant-card__body';
-          const name = document.createElement('strong');
-          name.textContent = block.serviceName ?? (locale === 'de' ? 'Alle Angebote' : 'All applications');
-          const time = document.createElement('small');
-          time.textContent = `${formatTime(Date.parse(block.startsAt))} – ${formatTime(Date.parse(block.endsAt))}`;
-          body.append(name, time);
-          if (block.note) {
-            const note = document.createElement('small');
-            note.textContent = block.note;
-            body.append(note);
-          }
-          card.append(body);
-          parent.append(card);
-          return;
-        }
-
         if (block.type === 'step') {
           if (!Array.isArray(block.options) || block.options.length === 0) return;
           const card = document.createElement('div');
@@ -837,14 +981,31 @@ const labels = {
         }
       };
 
+      const filtered: AssistantBlock[] = [];
       for (const node of nodes) {
         const key = blockKey(node);
         if (key) {
           if (seen.has(key)) continue;
           seen.add(key);
         }
-        renderNode(wrap, node);
+        filtered.push(node);
       }
+
+      let buffer: AssistantBlock[] = [];
+      const flush = (): void => {
+        if (buffer.length === 0) return;
+        renderRows(wrap, buffer);
+        buffer = [];
+      };
+      for (const node of filtered) {
+        if (isRowType(node)) {
+          buffer.push(node);
+        } else {
+          flush();
+          renderNode(wrap, node);
+        }
+      }
+      flush();
       if (wrap.childElementCount > 0) turn.append(wrap);
     };
 
@@ -1540,6 +1701,13 @@ const labels = {
     text-underline-offset: 2px;
   }
 
+  .assistant__turn .ui-row,
+  .assistant__turn .ui-rows__head,
+  .assistant__turn .assistant-card,
+  .assistant__turn .assistant__navigate {
+    text-decoration: none;
+  }
+
   .assistant__turn--user {
     align-self: flex-end;
     max-width: 88%;
@@ -1587,41 +1755,39 @@ const labels = {
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
-    margin-top: var(--space-4);
+    margin-top: var(--space-3);
   }
 
   .ui-stack {
     display: flex;
     flex-direction: column;
+    gap: var(--space-3);
   }
 
   .ui-stack[data-gap='none'] {
     gap: 0;
   }
 
-  .ui-stack[data-gap='xs'],
-  .ui-grid[data-gap='xs'] {
+  .ui-stack[data-gap='xs'] {
     gap: var(--space-1);
   }
 
-  .ui-stack[data-gap='sm'],
-  .ui-grid[data-gap='sm'] {
+  .ui-stack[data-gap='sm'] {
     gap: var(--space-2);
   }
 
-  .ui-stack[data-gap='md'],
-  .ui-grid[data-gap='md'] {
+  .ui-stack[data-gap='md'] {
     gap: var(--space-3);
   }
 
-  .ui-stack[data-gap='lg'],
-  .ui-grid[data-gap='lg'] {
+  .ui-stack[data-gap='lg'] {
     gap: var(--space-5);
   }
 
   .ui-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
   }
 
   .ui-grid[data-columns='1'] {
@@ -1632,21 +1798,47 @@ const labels = {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .ui-grid[data-gap='xs'] {
+    gap: var(--space-1);
+  }
+
+  .ui-grid[data-gap='sm'] {
+    gap: var(--space-2);
+  }
+
+  .ui-grid[data-gap='md'] {
+    gap: var(--space-3);
+  }
+
+  .ui-grid[data-gap='lg'] {
+    gap: var(--space-5);
+  }
+
   .ui-card {
     min-width: 0;
     padding: var(--space-4);
     border: 1px solid var(--line);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
     background: var(--surface);
+    box-shadow: var(--shadow-sm);
   }
 
   .ui-card[data-tone='subtle'] {
     background: var(--surface-2);
+    box-shadow: none;
   }
 
   .ui-card[data-tone='accent'] {
     border-color: var(--accent-soft-line);
     background: var(--accent-weaker);
+    box-shadow: none;
+  }
+
+  .ui-card .ui-card {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
   }
 
   .ui-card__head {
@@ -1658,6 +1850,8 @@ const labels = {
     color: var(--ink);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
+    letter-spacing: -0.01em;
+    line-height: var(--leading-snug);
   }
 
   .ui-card__description,
@@ -1675,42 +1869,63 @@ const labels = {
     min-width: 0;
   }
 
+  .ui-section > .ui-heading {
+    margin-bottom: 2px;
+  }
+
   .ui-text {
     color: var(--ink-2);
     font-size: var(--text-sm);
-    line-height: var(--leading-relaxed);
+    line-height: 1.65;
   }
 
   .ui-text[data-variant='small'] {
     font-size: var(--text-xs);
+    line-height: 1.55;
   }
 
   .ui-text[data-variant='muted'] {
     color: var(--muted);
     font-size: var(--text-xs);
+    line-height: 1.55;
   }
 
   .ui-text[data-variant='lead'] {
     color: var(--ink);
-    font-size: var(--text-md);
-    line-height: var(--leading-normal);
+    font-size: var(--text-base);
+    line-height: 1.55;
   }
 
   .ui-heading {
     color: var(--ink);
-    font-size: var(--text-lg);
     font-weight: var(--weight-semibold);
-    letter-spacing: var(--tracking-tight);
+    letter-spacing: -0.015em;
+    line-height: var(--leading-snug);
+  }
+
+  h2.ui-heading {
+    font-size: var(--text-md);
+  }
+
+  h3.ui-heading {
+    font-size: var(--text-sm);
+  }
+
+  h4.ui-heading {
+    color: var(--muted);
+    font-size: 0.6875rem;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
   }
 
   .ui-list {
     display: flex;
     flex-direction: column;
     gap: var(--space-1);
-    padding-left: 1.15rem;
+    padding-left: 1.1rem;
     color: var(--ink-2);
     font-size: var(--text-sm);
-    line-height: var(--leading-relaxed);
+    line-height: 1.55;
   }
 
   .ui-list:not(ol) {
@@ -1721,16 +1936,30 @@ const labels = {
     list-style: decimal;
   }
 
+  .ui-list li::marker {
+    color: var(--accent);
+  }
+
   .ui-kv {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
-    gap: var(--space-2) var(--space-4);
+    grid-template-columns: minmax(92px, max-content) minmax(0, 1fr);
+    gap: 0 var(--space-4);
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
+  }
+
+  .ui-kv dt,
+  .ui-kv dd {
+    padding: var(--space-2) 0;
+    border-bottom: 1px solid var(--line);
   }
 
   .ui-kv dt {
     color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
   }
 
   .ui-kv dd {
@@ -1739,16 +1968,24 @@ const labels = {
     overflow-wrap: anywhere;
   }
 
+  .ui-kv dt:last-of-type,
+  .ui-kv dd:last-of-type {
+    border-bottom: 0;
+  }
+
   .ui-badge {
     display: inline-flex;
     align-items: center;
     align-self: flex-start;
-    padding: 0.18rem 0.55rem;
+    padding: 0.2rem 0.5rem;
     border: 1px solid var(--line);
     border-radius: var(--radius-pill);
-    background: var(--surface);
+    background: var(--surface-2);
     color: var(--muted);
-    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
 
   .ui-badge[data-tone='accent'] {
@@ -1777,7 +2014,7 @@ const labels = {
 
   .ui-callout {
     padding: var(--space-3) var(--space-4);
-    border-left: 3px solid var(--line-strong);
+    border-left: 2px solid var(--line-strong);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     background: var(--surface-2);
   }
@@ -1805,20 +2042,20 @@ const labels = {
   .ui-callout__title {
     display: block;
     color: var(--ink);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
   }
 
   .ui-callout p {
-    margin-top: var(--space-1);
+    margin-top: 2px;
     color: var(--ink-2);
-    font-size: var(--text-sm);
-    line-height: var(--leading-relaxed);
+    font-size: var(--text-xs);
+    line-height: 1.55;
   }
 
   .ui-divider {
     width: 100%;
-    margin: var(--space-2) 0;
+    margin: var(--space-1) 0;
     border: 0;
     border-top: 1px solid var(--line);
   }
@@ -1827,31 +2064,195 @@ const labels = {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: var(--space-3) var(--space-4);
-    border: 1px solid var(--line);
+    min-width: 0;
+    padding: var(--space-3);
     border-radius: var(--radius-md);
-    background: var(--surface);
+    background: var(--surface-2);
   }
 
   .ui-stat__label {
     color: var(--faint);
     font-family: var(--font-mono);
     font-size: 0.625rem;
-    letter-spacing: var(--tracking-wider);
+    letter-spacing: var(--tracking-wide);
+    line-height: 1.3;
     text-transform: uppercase;
   }
 
   .ui-stat__value {
     color: var(--ink);
-    font-size: var(--text-md);
+    font-size: var(--text-base);
     font-weight: var(--weight-semibold);
-    line-height: 1.25;
+    line-height: 1.2;
     overflow-wrap: anywhere;
   }
 
   .ui-stat__hint {
     color: var(--muted);
+    font-size: 0.625rem;
+    line-height: 1.4;
+  }
+
+  .ui-stat[data-tone='ok'] .ui-stat__value {
+    color: var(--ok);
+  }
+
+  .ui-stat[data-tone='warn'] .ui-stat__value {
+    color: var(--warn);
+  }
+
+  .ui-stat[data-tone='bad'] .ui-stat__value {
+    color: var(--bad);
+  }
+
+  .ui-stat[data-tone='unknown'] .ui-stat__value {
+    color: var(--unknown);
+  }
+
+  .ui-progress {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+  }
+
+  .ui-progress__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+  }
+
+  .ui-progress__label {
+    color: var(--ink-2);
     font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+  }
+
+  .ui-progress__value {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    white-space: nowrap;
+  }
+
+  .ui-progress__track {
+    height: 6px;
+    overflow: hidden;
+    border-radius: var(--radius-pill);
+    background: var(--line);
+  }
+
+  .ui-progress__bar {
+    height: 100%;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+  }
+
+  .ui-progress[data-tone='ok'] .ui-progress__bar {
+    background: var(--ok);
+  }
+
+  .ui-progress[data-tone='warn'] .ui-progress__bar {
+    background: var(--warn);
+  }
+
+  .ui-progress[data-tone='bad'] .ui-progress__bar {
+    background: var(--bad);
+  }
+
+  .ui-progress__hint {
+    color: var(--muted);
+    font-size: 0.625rem;
+    line-height: 1.4;
+  }
+
+  .ui-chart {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    color: var(--accent);
+  }
+
+  .ui-chart[data-tone='ok'] {
+    color: var(--ok);
+  }
+
+  .ui-chart[data-tone='warn'] {
+    color: var(--warn);
+  }
+
+  .ui-chart[data-tone='bad'] {
+    color: var(--bad);
+  }
+
+  .ui-chart__label {
+    color: var(--ink);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .ui-chart svg {
+    display: block;
+    width: 100%;
+    height: 44px;
+    overflow: visible;
+  }
+
+  .ui-chart__bars {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(22px, 1fr));
+    align-items: end;
+    gap: 5px;
+    height: 72px;
+  }
+
+  .ui-chart__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    height: 100%;
+    min-width: 0;
+  }
+
+  .ui-chart__track {
+    display: flex;
+    align-items: flex-end;
+    width: 100%;
+    flex: 1;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--surface-3);
+  }
+
+  .ui-chart__bar {
+    width: 100%;
+    min-height: 2px;
+    border-radius: 3px 3px 0 0;
+    background: currentColor;
+  }
+
+  .ui-chart__bar-label {
+    max-width: 100%;
+    overflow: hidden;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .ui-chart__hint {
+    color: var(--muted);
+    font-size: 0.625rem;
+    line-height: 1.4;
   }
 
   .ui-timeline {
@@ -1864,7 +2265,8 @@ const labels = {
 
   .ui-timeline li {
     position: relative;
-    display: flex;
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr);
     gap: var(--space-3);
     padding-bottom: var(--space-4);
   }
@@ -1873,7 +2275,7 @@ const labels = {
     content: '';
     position: absolute;
     left: 3px;
-    top: 10px;
+    top: 11px;
     bottom: 0;
     width: 1px;
     background: var(--line);
@@ -1904,32 +2306,35 @@ const labels = {
   .ui-timeline__body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
     min-width: 0;
   }
 
   .ui-timeline__time {
     color: var(--faint);
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
+    letter-spacing: 0.03em;
   }
 
   .ui-timeline__title {
     color: var(--ink);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
+    line-height: 1.4;
   }
 
   .ui-timeline__body p {
     color: var(--muted);
-    font-size: var(--text-xs);
-    line-height: var(--leading-normal);
+    font-size: 0.625rem;
+    line-height: 1.45;
   }
 
   .ui-table-wrap {
     overflow-x: auto;
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
+    background: var(--surface);
   }
 
   .ui-table {
@@ -1940,7 +2345,7 @@ const labels = {
 
   .ui-table th,
   .ui-table td {
-    padding: 0.55rem 0.7rem;
+    padding: 8px 10px;
     border-bottom: 1px solid var(--line);
     text-align: left;
     vertical-align: top;
@@ -1949,8 +2354,21 @@ const labels = {
   .ui-table th {
     background: var(--surface-2);
     color: var(--muted);
-    font-weight: var(--weight-semibold);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
     white-space: nowrap;
+  }
+
+  .ui-table td {
+    color: var(--ink-2);
+  }
+
+  .ui-table td:first-child {
+    color: var(--ink);
+    font-weight: var(--weight-medium);
   }
 
   .ui-table tr:last-child td {
@@ -1958,21 +2376,41 @@ const labels = {
   }
 
   .ui-details {
-    padding: var(--space-3) var(--space-4);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-md);
-    background: var(--surface);
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--line);
   }
 
   .ui-details summary {
-    color: var(--ink);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--ink-2);
     cursor: pointer;
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
+    list-style: none;
   }
 
-  .ui-details[open] summary {
-    margin-bottom: var(--space-3);
+  .ui-details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .ui-details summary::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(-45deg);
+    transition: transform var(--fast) var(--ease);
+  }
+
+  .ui-details[open] summary::before {
+    transform: rotate(45deg);
+  }
+
+  .ui-details > *:not(summary) {
+    margin-top: var(--space-2);
   }
 
   .ui-link {
@@ -1980,10 +2418,7 @@ const labels = {
     align-items: center;
     align-self: flex-start;
     gap: var(--space-2);
-    padding: 0.55rem 0.8rem;
-    border: 1px solid var(--accent-soft-line);
-    border-radius: var(--radius-md);
-    background: var(--accent-soft);
+    padding: 2px 0;
     color: var(--accent-strong);
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
@@ -1991,7 +2426,9 @@ const labels = {
   }
 
   .ui-link:hover {
-    background: var(--accent-weaker);
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 3px;
   }
 
   .ui-chips {
@@ -2001,16 +2438,17 @@ const labels = {
   }
 
   .ui-chips button {
-    padding: 0.35rem 0.65rem;
+    padding: 0.3rem 0.6rem;
     border: 1px solid var(--line);
     border-radius: var(--radius-pill);
-    background: var(--surface-2);
+    background: transparent;
     color: var(--muted);
-    font-size: var(--text-xs);
+    font-size: 0.6875rem;
   }
 
   .ui-chips button:hover {
     border-color: var(--accent-soft-line);
+    background: var(--accent-weaker);
     color: var(--accent-strong);
   }
 
@@ -2018,17 +2456,132 @@ const labels = {
     opacity: 0.55;
   }
 
-  @media (max-width: 560px) {
+  .ui-rows {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+
+  .ui-rows__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .ui-rows__head:hover {
+    background: var(--surface-3);
+  }
+
+  .ui-rows__body {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .ui-rows__body strong {
+    color: var(--ink);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .ui-rows__body small {
+    color: var(--muted);
+    font-size: 0.625rem;
+    line-height: 1.4;
+  }
+
+  .ui-rows__arrow {
+    color: var(--faint);
+    flex: none;
+    font-size: 0.75rem;
+  }
+
+  .ui-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 10px var(--space-4);
+    border-bottom: 1px solid var(--line);
+    color: inherit;
+    text-decoration: none;
+  }
+
+  .ui-row:last-child {
+    border-bottom: 0;
+  }
+
+  .ui-row:hover {
+    background: var(--surface-2);
+  }
+
+  .ui-row:focus-visible,
+  .ui-rows__head:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: -2px;
+  }
+
+  .ui-row__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .ui-row__body strong {
+    color: var(--ink);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    line-height: 1.35;
+  }
+
+  .ui-row__body small {
+    color: var(--muted);
+    font-size: 0.625rem;
+    line-height: 1.45;
+  }
+
+  .ui-row__kind {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .ui-row__meta {
+    color: var(--faint) !important;
+  }
+
+  .ui-row[data-state='up'] .assistant-card__dot,
+  .ui-rows__head[data-state='up'] .assistant-card__dot {
+    background: var(--ok);
+  }
+
+  .ui-row[data-state='down'] .assistant-card__dot,
+  .ui-rows__head[data-state='down'] .assistant-card__dot {
+    background: var(--bad);
+  }
+
+  .ui-row[data-state='unmonitored'] .assistant-card__dot,
+  .ui-rows__head[data-state='unmonitored'] .assistant-card__dot {
+    background: var(--line-strong);
+  }
+
+  @media (max-width: 360px) {
     .ui-grid,
     .ui-grid[data-columns='2'],
     .ui-grid[data-columns='3'] {
       grid-template-columns: minmax(0, 1fr);
     }
-  }
-
-  .assistant__turn .assistant-card,
-  .assistant__turn .assistant__navigate {
-    text-decoration: none;
   }
 
   .assistant-card {
@@ -2066,68 +2619,39 @@ const labels = {
     background: var(--line-strong);
   }
 
-  .assistant-card__body {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .assistant-card__body strong {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
-  }
-
-  .assistant-card__body small {
-    overflow: hidden;
-    color: var(--muted);
-    font-size: var(--text-xs);
-    text-overflow: ellipsis;
-  }
-
-  .assistant-card__kind {
-    color: var(--faint);
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    letter-spacing: var(--tracking-wider);
-    text-transform: uppercase;
-  }
-
-  .assistant-card__arrow {
-    color: var(--faint);
-    flex: none;
-  }
-
-  .assistant-card--summary {
-    background: var(--surface-2);
-  }
-
   .assistant-card--step {
     display: block;
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
     background: var(--surface-2);
+    box-shadow: none;
   }
 
   .assistant-card__question {
     color: var(--ink);
+    font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
+    line-height: 1.45;
   }
 
   .assistant-card__options {
     display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
+    flex-direction: column;
+    gap: 6px;
     margin-top: var(--space-3);
   }
 
   .assistant-card__options button {
-    min-height: 2.25rem;
-    padding: 0.4rem 0.7rem;
+    width: 100%;
+    min-height: 2.375rem;
+    padding: 8px 10px;
     border: 1px solid var(--line);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     background: var(--surface);
     color: var(--ink-2);
     font-size: var(--text-xs);
+    line-height: 1.35;
+    text-align: left;
   }
 
   .assistant-card__options button:hover {
@@ -2151,7 +2675,8 @@ const labels = {
     margin-top: var(--space-2);
     color: var(--faint);
     font-family: var(--font-mono);
-    font-size: 0.625rem;
+    font-size: 0.5625rem;
+    letter-spacing: var(--tracking-wide);
   }
 
   .assistant__navigate-row {

@@ -129,6 +129,23 @@ export type AssistantBlock =
       readonly type: 'divider';
     }
   | {
+      readonly type: 'progress';
+      readonly label: string;
+      readonly value: number;
+      readonly max?: number;
+      readonly tone?: UiTone;
+      readonly hint?: string;
+    }
+  | {
+      readonly type: 'chart';
+      readonly kind: 'bar' | 'sparkline';
+      readonly label?: string;
+      readonly points: readonly { readonly label: string; readonly value: number }[];
+      readonly max?: number;
+      readonly tone?: UiTone;
+      readonly hint?: string;
+    }
+  | {
       readonly type: 'stat';
       readonly label: string;
       readonly value: string;

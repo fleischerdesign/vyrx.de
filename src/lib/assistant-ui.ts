@@ -258,6 +258,45 @@ export function validateUiNodes(
         };
       }
 
+      case 'progress': {
+        const label = asText(node.label, 80);
+        const value = typeof node.value === 'number' && Number.isFinite(node.value) && node.value >= 0 ? Math.min(node.value, 1_000_000) : null;
+        const max = node.max === undefined ? undefined : typeof node.max === 'number' && Number.isFinite(node.max) && node.max > 0 ? Math.min(node.max, 1_000_000) : null;
+        if (!label || value === null || max === null) return fail('invalid_progress');
+        return {
+          type: 'progress',
+          label,
+          value,
+          ...(max !== undefined ? { max } : {}),
+          tone: asTone(node.tone),
+          ...(optionalText(node.hint, 200) ? { hint: optionalText(node.hint, 200) } : {}),
+        };
+      }
+
+      case 'chart': {
+        const kind = node.kind === 'sparkline' ? 'sparkline' : 'bar';
+        if (!Array.isArray(node.points) || node.points.length === 0 || node.points.length > 12) return fail('invalid_chart');
+        const points: { label: string; value: number }[] = [];
+        for (const entry of node.points) {
+          const object = asObject(entry);
+          const label = object ? asText(object.label, 40) : null;
+          const value = object && typeof object.value === 'number' && Number.isFinite(object.value) && object.value >= 0 ? Math.min(object.value, 1_000_000_000) : null;
+          if (!label || value === null) return fail('invalid_chart');
+          points.push({ label, value });
+        }
+        const max = node.max === undefined ? undefined : typeof node.max === 'number' && Number.isFinite(node.max) && node.max > 0 ? Math.min(node.max, 1_000_000_000) : null;
+        if (max === null) return fail('invalid_chart');
+        return {
+          type: 'chart',
+          kind,
+          points,
+          ...(optionalText(node.label, 120) ? { label: optionalText(node.label, 120) } : {}),
+          ...(max !== undefined ? { max } : {}),
+          tone: asTone(node.tone),
+          ...(optionalText(node.hint, 200) ? { hint: optionalText(node.hint, 200) } : {}),
+        };
+      }
+
       case 'timeline': {
         if (!Array.isArray(node.items) || node.items.length === 0 || node.items.length > 12) return fail('invalid_timeline');
         const items: { time: string; title: string; text?: string; tone?: UiTone }[] = [];
