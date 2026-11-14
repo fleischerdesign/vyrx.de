@@ -110,8 +110,8 @@ Ziel: Antworten sehen aus wie das Portal, nicht wie ein Chat.
 
 - [x] **D1 UI-Baum:** generische Knoten `stack`, `grid`, `card`, `section`,
   `text`, `heading`, `list`, `keyValue`, `badge`, `callout`, `divider`, `stat`,
-  `timeline`, `table`, `details`, `link`; Domain-Knoten `summary`, `service`,
-  `status`, `article`, `maintenance`, `suggestions`, `step`.
+  `progress`, `chart`, `timeline`, `table`, `details`, `link`; Domain-Knoten
+  `summary`, `service`, `status`, `article`, `maintenance`, `suggestions`, `step`.
 - [x] **D2 Client rendert native Komponenten.** Der Server validiert IDs,
   Tiefe, Knotenzahl und Links; Domain-Knoten werden aus der Sitzung neu gebaut,
   generische Knoten nur als Text/Tabellen/Timeline/Layout akzeptiert. Der
@@ -129,6 +129,14 @@ Ziel: Antworten sehen aus wie das Portal, nicht wie ein Chat.
 entgegen. Das Modell komponiert Layout und Präsentation; Fakten kommen aus den
 Domain-Knoten (aus der Sitzung neu gebaut) oder aus Werkzeugen. `summary`,
 `maintenance` und `step` bleiben Server-Werkzeugen vorbehalten.
+
+**Gestaltung:** Die Blöcke folgen dem Portal-Rhythmus (4/8/12 px), nicht dem
+Karten-Baukasten. Status, Dienste und Artikel werden zu **einer ruhigen
+Zeilengruppe** mit einem Kopf, nicht zu einem Stapel gleich aussehender Boxen.
+Karten haben genau eine Fläche; Kennzahlen, Fortschritt und Diagramme liegen
+als weiche Insets darin. Tabellen bleiben tabellarisch, Details sind native
+`<details>`, Schritte sind eine senkrechte Optionsliste mit 44-px-Zielen auf
+Touch. Kein freies HTML, keine Rohfarben, keine Schatten ohne Funktion.
 
 **Streaming:** Der Client rendert Markdown während des Streams (Absätze,
 Listen, fett, Code, lokale Links) und zeigt einen Cursor; unvollständige
@@ -200,7 +208,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 64
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 65
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
@@ -211,10 +219,11 @@ Tastatur erreichbar.
   sichtbare Abhängigkeiten, Tool-Aufrufe, Statuskarten, Navigation und der
   geführte Schritt geprüft. Die Statusleiste auf Dienstseiten zeigt den
   gemessenen Zustand unabhängig vom Modelltext.
-- Browser: Streaming-Markdown ohne sichtbare `**`-Reste, Statuskarten,
-  Status-Summary ohne Tool-Aufruf, Öffnen-Link, Schritt mit vier Optionen,
-  Follow-up-Chips und ein vom echten Modell komponierter UI-Baum (Karte, Grid,
-  Stats, KeyValue, Callout).
+- Browser: Streaming-Markdown ohne sichtbare `**`-Reste, Status-Summary ohne
+  Tool-Aufruf, Öffnen-Link, Schritt mit vier Optionen, Follow-up-Chips und ein
+  vom echten Modell komponierter UI-Baum. Design-QA bei 390/1200 px und im
+  Dark Mode: Zeilengruppe statt Kartenstapel, Kennzahlen, Fortschritt, Chart,
+  Tabelle, Zeitachse, Details, Callout und Link.
 
 ## Offene Entscheidungen
 
