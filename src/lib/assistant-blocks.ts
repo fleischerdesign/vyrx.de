@@ -62,6 +62,15 @@ export type AssistantBlock =
       readonly posterPath: string | null;
       readonly backdropPath: string | null;
       readonly rating: number | null;
+      readonly releaseDate: string | null;
+      readonly runtime: number | null;
+      readonly tagline: string | null;
+      readonly genres: readonly string[];
+      readonly director: string | null;
+      readonly cast: readonly { readonly name: string; readonly character: string | null }[];
+      readonly voteCount: number | null;
+      readonly numberOfSeasons: number | null;
+      readonly numberOfEpisodes: number | null;
       readonly status: 'available' | 'requested' | 'processing' | 'partial' | 'unknown' | 'blocklisted';
       readonly statusText: string;
       readonly requestable: boolean;

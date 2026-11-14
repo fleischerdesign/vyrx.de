@@ -54,6 +54,15 @@ export interface MediaItem {
   readonly posterPath: string | null;
   readonly backdropPath: string | null;
   readonly rating: number | null;
+  readonly releaseDate: string | null;
+  readonly runtime: number | null;
+  readonly tagline: string | null;
+  readonly genres: readonly string[];
+  readonly director: string | null;
+  readonly cast: readonly { readonly name: string; readonly character: string | null }[];
+  readonly voteCount: number | null;
+  readonly numberOfSeasons: number | null;
+  readonly numberOfEpisodes: number | null;
   readonly status: MediaStatusKey;
   readonly statusText: string;
   readonly requestable: boolean;
@@ -70,6 +79,15 @@ interface RawMedia {
   posterPath?: unknown;
   backdropPath?: unknown;
   voteAverage?: unknown;
+  voteCount?: unknown;
+  runtime?: unknown;
+  episodeRunTime?: unknown;
+  tagline?: unknown;
+  genres?: unknown;
+  credits?: unknown;
+  createdBy?: unknown;
+  numberOfSeasons?: unknown;
+  numberOfEpisodes?: unknown;
   mediaInfo?: { status?: unknown; status4k?: unknown; requests?: unknown } | null;
 }
 
@@ -225,6 +243,46 @@ const mediaFromRaw = (
   if (!title) return null;
   const date = stringOrNull(row.releaseDate) ?? stringOrNull(row.firstAirDate);
   const status = statusOf(row.mediaInfo);
+  const genres = Array.isArray(row.genres)
+    ? row.genres.flatMap((entry) => {
+        if (entry === null || typeof entry !== 'object') return [];
+        const name = stringOrNull((entry as Record<string, unknown>).name);
+        return name ? [name] : [];
+      })
+    : [];
+  const credits = row.credits && typeof row.credits === 'object' ? (row.credits as Record<string, unknown>) : null;
+  const cast = Array.isArray(credits?.cast)
+    ? credits.cast
+        .flatMap((entry) => {
+          if (entry === null || typeof entry !== 'object') return [];
+          const person = entry as Record<string, unknown>;
+          const name = stringOrNull(person.name);
+          return name ? [{ name, character: stringOrNull(person.character) }] : [];
+        })
+        .slice(0, 5)
+    : [];
+  const crew = Array.isArray(credits?.crew)
+    ? credits.crew.flatMap((entry) => {
+        if (entry === null || typeof entry !== 'object') return [];
+        const person = entry as Record<string, unknown>;
+        return typeof person.name === 'string' && typeof person.job === 'string'
+          ? [{ name: person.name, job: person.job }]
+          : [];
+      })
+    : [];
+  const createdBy = Array.isArray(row.createdBy)
+    ? row.createdBy.flatMap((entry) => {
+        if (entry === null || typeof entry !== 'object') return [];
+        const name = stringOrNull((entry as Record<string, unknown>).name);
+        return name ? [name] : [];
+      })
+    : [];
+  const runtime =
+    typeof row.runtime === 'number' && Number.isFinite(row.runtime) && row.runtime > 0
+      ? row.runtime
+      : Array.isArray(row.episodeRunTime)
+        ? (row.episodeRunTime.find((value) => typeof value === 'number' && value > 0) as number | undefined) ?? null
+        : null;
   return {
     tmdbId: row.id,
     mediaType,
@@ -237,6 +295,17 @@ const mediaFromRaw = (
       typeof row.voteAverage === 'number' && Number.isFinite(row.voteAverage) && row.voteAverage > 0
         ? row.voteAverage
         : null,
+    releaseDate: date,
+    runtime,
+    tagline: stringOrNull(row.tagline),
+    genres,
+    director: crew.find((entry) => entry.job === 'Director')?.name ?? createdBy[0] ?? null,
+    cast,
+    voteCount: typeof row.voteCount === 'number' && Number.isFinite(row.voteCount) ? row.voteCount : null,
+    numberOfSeasons:
+      typeof row.numberOfSeasons === 'number' && Number.isFinite(row.numberOfSeasons) ? row.numberOfSeasons : null,
+    numberOfEpisodes:
+      typeof row.numberOfEpisodes === 'number' && Number.isFinite(row.numberOfEpisodes) ? row.numberOfEpisodes : null,
     status,
     statusText: mediaStatusText(status, locale),
     requestable: status === 'unknown',

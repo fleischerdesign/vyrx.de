@@ -604,15 +604,27 @@ const labels = {
 
         const body = document.createElement('div');
         body.className = 'ui-media-dialog__body';
+        const runtimeText = (minutes: number | null | undefined): string => {
+          if (!minutes || minutes <= 0) return '';
+          const hours = Math.floor(minutes / 60);
+          const rest = minutes % 60;
+          if (locale === 'de') return hours > 0 ? `${hours} Std. ${rest} Min.` : `${rest} Min.`;
+          return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
+        };
+        const metaLine = (item: AssistantBlock): string => {
+          if (item.type !== 'media') return '';
+          return [
+            item.year,
+            item.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie' : 'Series',
+            runtimeText(item.runtime),
+            item.rating !== null ? `★ ${item.rating.toFixed(1)}` : '',
+          ]
+            .filter(Boolean)
+            .join(' · ');
+        };
         const meta = document.createElement('span');
         meta.className = 'ui-media-dialog__meta';
-        meta.textContent = [
-          block.year,
-          block.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie' : 'Series',
-          block.rating !== null ? `★ ${block.rating.toFixed(1)}` : '',
-        ]
-          .filter(Boolean)
-          .join(' · ');
+        meta.textContent = metaLine(block);
         const title = document.createElement('h2');
         title.id = titleId;
         title.className = 'ui-media-dialog__title';
@@ -624,7 +636,74 @@ const labels = {
         const overview = document.createElement('p');
         overview.className = 'ui-media-dialog__overview';
         overview.textContent = block.overview || (locale === 'de' ? 'Keine Beschreibung verfügbar.' : 'No description available.');
-        body.append(meta, title, status, overview);
+
+        const details = document.createElement('div');
+        details.className = 'ui-media-dialog__details';
+        const renderDetails = (item: AssistantBlock): void => {
+          if (item.type !== 'media') return;
+          details.replaceChildren();
+          meta.textContent = metaLine(item);
+          if (item.overview) overview.textContent = item.overview;
+          if (item.tagline) {
+            const tagline = document.createElement('p');
+            tagline.className = 'ui-media-dialog__tagline';
+            tagline.textContent = item.tagline;
+            details.append(tagline);
+          }
+          const genreList = Array.isArray(item.genres) ? item.genres : [];
+          const castList = Array.isArray(item.cast) ? item.cast : [];
+          const seasons = item.numberOfSeasons ?? null;
+          const episodes = item.numberOfEpisodes ?? null;
+          const votes = item.voteCount ?? null;
+          if (genreList.length > 0) {
+            const genres = document.createElement('div');
+            genres.className = 'ui-media-dialog__genres';
+            for (const genre of genreList) {
+              const chip = document.createElement('span');
+              chip.className = 'ui-media-dialog__genre';
+              chip.textContent = genre;
+              genres.append(chip);
+            }
+            details.append(genres);
+          }
+          const creditBlock = document.createElement('div');
+          creditBlock.className = 'ui-media-dialog__credits';
+          const addCredit = (label: string, value: string): void => {
+            const row = document.createElement('p');
+            const term = document.createElement('span');
+            term.textContent = label;
+            const text = document.createElement('span');
+            text.textContent = value;
+            row.append(term, text);
+            creditBlock.append(row);
+          };
+          if (item.director) addCredit(locale === 'de' ? 'Regie' : 'Director', item.director);
+          if (castList.length > 0) addCredit(locale === 'de' ? 'Cast' : 'Cast', castList.map((person) => person.name).join(', '));
+          if (seasons !== null) {
+            addCredit(
+              locale === 'de' ? 'Staffeln' : 'Seasons',
+              `${seasons}${episodes !== null ? ` · ${episodes} ${locale === 'de' ? 'Folgen' : 'episodes'}` : ''}`,
+            );
+          }
+          if (votes !== null) {
+            addCredit(
+              locale === 'de' ? 'Bewertungen' : 'Votes',
+              new Intl.NumberFormat(locale === 'de' ? 'de-DE' : 'en-GB').format(votes),
+            );
+          }
+          if (creditBlock.childElementCount > 0) details.append(creditBlock);
+        };
+        const hasRichDetails =
+          (block.runtime ?? null) !== null || (block.genres?.length ?? 0) > 0 || (block.cast?.length ?? 0) > 0;
+        if (hasRichDetails) renderDetails(block);
+        else {
+          const loading = document.createElement('span');
+          loading.className = 'ui-media-dialog__loading';
+          loading.textContent = locale === 'de' ? 'Details werden geladen …' : 'Loading details …';
+          details.append(loading);
+        }
+
+        body.append(meta, title, status, overview, details);
 
         const actions = document.createElement('div');
         actions.className = 'ui-media-dialog__actions';
@@ -667,6 +746,31 @@ const labels = {
         dialog.addEventListener('close', restore, { once: true });
         dialog.showModal();
         close.focus();
+
+        if (!hasRichDetails) {
+          const controller = new AbortController();
+          dialog.addEventListener('close', () => controller.abort(), { once: true });
+          void (async () => {
+            try {
+              const response = await fetch(
+                `/api/media/title?mediaType=${encodeURIComponent(block.mediaType)}&tmdbId=${block.tmdbId}&locale=${locale}`,
+                { signal: controller.signal },
+              );
+              const data = (await response.json()) as { item?: AssistantBlock };
+              if (data.item?.type === 'media') renderDetails(data.item);
+              else details.replaceChildren();
+            } catch {
+              if (!controller.signal.aborted) {
+                details.replaceChildren();
+                const failure = document.createElement('span');
+                failure.className = 'ui-media-dialog__loading';
+                failure.textContent =
+                  locale === 'de' ? 'Weitere Details sind gerade nicht verfügbar.' : 'More details are currently unavailable.';
+                details.append(failure);
+              }
+            }
+          })();
+        }
       };
 
       const renderMediaCard = (parent: HTMLElement, block: AssistantBlock): void => {
@@ -3108,6 +3212,67 @@ const labels = {
     color: var(--ink-2);
     font-size: var(--text-xs);
     line-height: 1.65;
+  }
+
+  .ui-media-dialog__details {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+
+  .ui-media-dialog__loading {
+    color: var(--muted);
+    font-size: 0.625rem;
+    line-height: 1.4;
+  }
+
+  .ui-media-dialog__tagline {
+    color: var(--muted);
+    font-size: var(--text-xs);
+    font-style: italic;
+    line-height: 1.5;
+  }
+
+  .ui-media-dialog__genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .ui-media-dialog__genre {
+    padding: 3px 7px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: 0.5625rem;
+    white-space: nowrap;
+  }
+
+  .ui-media-dialog__credits {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-top: var(--space-2);
+    border-top: 1px solid var(--line);
+  }
+
+  .ui-media-dialog__credits p {
+    display: grid;
+    grid-template-columns: 74px minmax(0, 1fr);
+    gap: var(--space-2);
+    color: var(--ink-2);
+    font-size: 0.625rem;
+    line-height: 1.45;
+  }
+
+  .ui-media-dialog__credits p span:first-child {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
   }
 
   .ui-media-dialog__actions {

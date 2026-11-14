@@ -48,7 +48,9 @@ Request/Canary steht noch aus.**
 - Native Medienkarten mit Poster-Proxy, Status, Jahr und Kurztext. Die Karte
   bleibt bewusst ruhig: Ein Klick öffnet ein Modal (Desktop) bzw. ein
   Bottom-Sheet (Mobil) mit Backdrop, Poster, Beschreibung, Status und
-  „Anfragen“; der Request läuft über den bestätigten Flow.
+  „Anfragen“; der Request läuft über den bestätigten Flow. Beim Öffnen lädt
+  `/api/media/title` Laufzeit, Tagline, Genres, Regie, Cast und
+  Bewertungsanzahl nach.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
 - **73 Tests** und vollständiger Build grün.
