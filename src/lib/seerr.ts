@@ -98,7 +98,12 @@ const base = (session: Session): string => {
 async function request<T>(
   session: Session,
   path: string,
-  options: { userId?: number; query?: Record<string, string | number | undefined> } = {},
+  options: {
+    userId?: number;
+    query?: Record<string, string | number | undefined>;
+    method?: 'GET' | 'POST' | 'DELETE';
+    body?: unknown;
+  } = {},
 ): Promise<T> {
   const url = new URL(`api/v1/${path.replace(/^\//, '')}`, base(session));
   for (const [key, value] of Object.entries(options.query ?? {})) {
@@ -107,10 +112,16 @@ async function request<T>(
 
   const headers = new Headers({ 'X-Api-Key': apiKey(), accept: 'application/json' });
   if (options.userId !== undefined) headers.set('X-Api-User', String(options.userId));
+  if (options.body !== undefined) headers.set('content-type', 'application/json');
 
   let response: Response;
   try {
-    response = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+    response = await fetch(url, {
+      method: options.method ?? 'GET',
+      headers,
+      ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
+      signal: AbortSignal.timeout(8000),
+    });
   } catch {
     throw new SeerrError('unavailable');
   }
@@ -268,6 +279,76 @@ export async function discoverMedia(
   }
   const body = await request<unknown>(session, path, { userId });
   return mediaList(body, locale);
+}
+
+export interface SeerrRequestResult {
+  readonly requestId: number | null;
+  readonly status: number | null;
+}
+
+/** Die einzige schreibende Seerr-Operation. Wird nie direkt vom Modell gerufen. */
+export async function requestMedia(
+  session: Session,
+  userId: number,
+  input: { mediaType: 'movie'; tmdbId: number },
+): Promise<SeerrRequestResult> {
+  const body = await request<{ id?: unknown; status?: unknown }>(session, 'request', {
+    userId,
+    method: 'POST',
+    body: { mediaType: input.mediaType, mediaId: input.tmdbId, is4k: false },
+  });
+  return {
+    requestId: typeof body.id === 'number' ? body.id : null,
+    status: typeof body.status === 'number' ? body.status : null,
+  };
+}
+
+export interface SeerrQuota {
+  readonly movie: { readonly limit: number; readonly used: number; readonly restricted: boolean };
+  readonly tv: { readonly limit: number; readonly used: number; readonly restricted: boolean };
+}
+
+export async function seerrQuota(session: Session, userId: number): Promise<SeerrQuota> {
+  const body = await request<{
+    movie?: { limit?: unknown; used?: unknown; restricted?: unknown };
+    tv?: { limit?: unknown; used?: unknown; restricted?: unknown };
+  }>(session, `user/${userId}/quota`);
+  const part = (value: { limit?: unknown; used?: unknown; restricted?: unknown } | undefined) => ({
+    limit: typeof value?.limit === 'number' ? value.limit : 0,
+    used: typeof value?.used === 'number' ? value.used : 0,
+    restricted: value?.restricted === true,
+  });
+  return { movie: part(body.movie), tv: part(body.tv) };
+}
+
+export interface OwnMediaRequest {
+  readonly id: number;
+  readonly status: number;
+  readonly mediaType: 'movie' | 'tv' | null;
+  readonly tmdbId: number | null;
+}
+
+/** Eigene Requests; requestedBy ist auch für Admins Pflicht, sonst sieht ein Admin alle. */
+export async function ownRequests(session: Session, userId: number, take = 20): Promise<readonly OwnMediaRequest[]> {
+  const body = await request<{ results?: unknown[] }>(session, 'request', {
+    userId,
+    query: { take, requestedBy: userId },
+  });
+  return (body.results ?? []).flatMap((entry) => {
+    if (entry === null || typeof entry !== 'object') return [];
+    const row = entry as Record<string, unknown>;
+    const media = row.media && typeof row.media === 'object' ? (row.media as Record<string, unknown>) : null;
+    if (typeof row.id !== 'number') return [];
+    const mediaType = media?.mediaType === 'movie' || media?.mediaType === 'tv' ? media.mediaType : null;
+    return [
+      {
+        id: row.id,
+        status: typeof row.status === 'number' ? row.status : 0,
+        mediaType,
+        tmdbId: typeof media?.tmdbId === 'number' ? media.tmdbId : null,
+      },
+    ];
+  });
 }
 
 export async function mediaTitle(

@@ -415,6 +415,7 @@ export function validateUiNodes(
       case 'summary':
       case 'maintenance':
       case 'step':
+      case 'confirm':
       case 'media':
         return fail('server_only_component');
 

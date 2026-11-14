@@ -18,11 +18,12 @@
  * die teurere Antwort.
  */
 
+import { randomBytes } from 'node:crypto';
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 export interface Report {
   readonly id: number;
@@ -130,6 +131,27 @@ function migrate(db: DatabaseSync): void {
         seerr_username   TEXT,
         verified_at      TEXT NOT NULL
       );
+    `);
+  }
+
+  if (current < 5) {
+    // Ein Vorschlag ist noch keine Anfrage. Er ist an eine Person gebunden,
+    // läuft nach zehn Minuten ab und kann genau einmal ausgeführt werden.
+    db.exec(`
+      CREATE TABLE media_proposal (
+        id            TEXT PRIMARY KEY,
+        actor         TEXT NOT NULL,
+        service_id    TEXT NOT NULL,
+        action_id     TEXT NOT NULL,
+        payload_json  TEXT NOT NULL,
+        created_at    TEXT NOT NULL,
+        expires_at    TEXT NOT NULL,
+        consumed_at   TEXT,
+        outcome       TEXT,
+        result_json   TEXT
+      );
+
+      CREATE INDEX media_proposal_by_actor ON media_proposal (actor, created_at DESC);
     `);
   }
 
@@ -317,6 +339,127 @@ export function saveMediaUser(input: {
 
 export function removeMediaUser(owner: string): void {
   open().prepare('DELETE FROM media_user WHERE owner = ?').run(owner);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Medien-Vorschläge: vorbereitet, noch nicht geschrieben
+// ------------------------------------------------------------------------------------------------
+
+export interface MediaProposalPayload {
+  readonly mediaType: 'movie';
+  readonly tmdbId: number;
+  readonly title: string;
+  readonly year: string | null;
+  readonly seerrUserId: number;
+}
+
+export interface MediaProposal {
+  readonly id: string;
+  readonly actor: string;
+  readonly serviceId: string;
+  readonly actionId: string;
+  readonly payload: MediaProposalPayload;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly consumedAt: string | null;
+  readonly outcome: string | null;
+  readonly result: unknown;
+}
+
+export function createMediaProposal(input: {
+  actor: string;
+  serviceId: string;
+  actionId: string;
+  payload: MediaProposalPayload;
+  expiresAt: string;
+}): string {
+  const id = randomBytes(16).toString('base64url');
+  open()
+    .prepare(
+      'INSERT INTO media_proposal (id, actor, service_id, action_id, payload_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    )
+    .run(id, input.actor, input.serviceId, input.actionId, JSON.stringify(input.payload), now(), input.expiresAt);
+  return id;
+}
+
+export function mediaProposalOf(id: string, actor: string): MediaProposal | null {
+  const row = open()
+    .prepare(
+      'SELECT id, actor, service_id, action_id, payload_json, created_at, expires_at, consumed_at, outcome, result_json FROM media_proposal WHERE id = ? AND actor = ?',
+    )
+    .get(id, actor) as
+    | {
+        id: string;
+        actor: string;
+        service_id: string;
+        action_id: string;
+        payload_json: string;
+        created_at: string;
+        expires_at: string;
+        consumed_at: string | null;
+        outcome: string | null;
+        result_json: string | null;
+      }
+    | undefined;
+  if (!row) return null;
+  let payload: MediaProposalPayload;
+  try {
+    payload = JSON.parse(row.payload_json) as MediaProposalPayload;
+  } catch {
+    return null;
+  }
+  let result: unknown = null;
+  if (row.result_json) {
+    try {
+      result = JSON.parse(row.result_json);
+    } catch {
+      result = null;
+    }
+  }
+  return {
+    id: row.id,
+    actor: row.actor,
+    serviceId: row.service_id,
+    actionId: row.action_id,
+    payload,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    consumedAt: row.consumed_at,
+    outcome: row.outcome,
+    result,
+  };
+}
+
+/** Nach dem Claim: Ergebnis festhalten, ohne den Claim erneut zu öffnen. */
+export function finishMediaProposal(id: string, outcome: string, result: unknown): boolean {
+  const changed = open()
+    .prepare('UPDATE media_proposal SET outcome = ?, result_json = ? WHERE id = ? AND outcome = ?')
+    .run(outcome, JSON.stringify(result), id, 'pending');
+  return Number(changed.changes) === 1;
+}
+
+export function countRecentMediaProposals(actor: string, since: string): number {
+  const row = open()
+    .prepare(
+      'SELECT COUNT(*) AS n FROM media_proposal WHERE actor = ? AND consumed_at IS NOT NULL AND consumed_at >= ?',
+    )
+    .get(actor, since) as { n?: number } | undefined;
+  return Number(row?.n ?? 0);
+}
+
+/** Genau einmal: Der Vergleich auf consumed_at passiert in der UPDATE-Anweisung. */
+export function consumeMediaProposal(
+  id: string,
+  actor: string,
+  outcome: string,
+  result: unknown,
+): boolean {
+  const changed = open()
+    .prepare(
+      'UPDATE media_proposal SET consumed_at = ?, outcome = ?, result_json = ? WHERE id = ? AND actor = ? AND consumed_at IS NULL',
+    )
+    .run(now(), outcome, JSON.stringify(result), id, actor);
+  return Number(changed.changes) === 1;
 }
 
 // ------------------------------------------------------------------------------------------------

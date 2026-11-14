@@ -82,6 +82,16 @@ export type AssistantBlock =
       readonly total?: number;
     }
   | {
+      readonly type: 'confirm';
+      readonly proposalId: string;
+      readonly title: string;
+      readonly description: string;
+      readonly items: readonly { readonly label: string; readonly value: string }[];
+      readonly confirmLabel: string;
+      readonly cancelLabel: string;
+      readonly tone?: UiTone;
+    }
+  | {
       readonly type: 'suggestions';
       readonly items: readonly string[];
     }

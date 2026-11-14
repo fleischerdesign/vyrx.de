@@ -4,9 +4,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { resolveMediaUser } from '../src/lib/media-users.ts';
-import { mediaTitle, searchMedia } from '../src/lib/seerr.ts';
+import { mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
 import type { Session } from '../src/lib/session.ts';
-import { closeStore, mediaUserOf, saveMediaUser } from '../src/lib/store.ts';
+import {
+  closeStore,
+  consumeMediaProposal,
+  createMediaProposal,
+  finishMediaProposal,
+  mediaProposalOf,
+  mediaUserOf,
+  saveMediaUser,
+} from '../src/lib/store.ts';
 
 const baseSession = (groups: readonly string[] = ['media-users']): Session =>
   ({
@@ -165,5 +173,62 @@ test('a detail response inherits the requested media type', async () => {
   } finally {
     globalThis.fetch = original;
     delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});
+
+test('requestMedia writes with X-Api-User and a movie-only body', async () => {
+  process.env.PORTAL_SEERR_API_KEY = 'test-key';
+  const captured = { url: '', method: '', headers: new Headers(), body: '' };
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input, init) => {
+    captured.url = String(input);
+    captured.method = init?.method ?? 'GET';
+    captured.headers = new Headers(init?.headers);
+    captured.body = typeof init?.body === 'string' ? init.body : '';
+    return new Response(JSON.stringify({ id: 263, status: 1 }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+
+  try {
+    const result = await requestMedia(baseSession(), 2, { mediaType: 'movie', tmdbId: 438631 });
+    assert.equal(captured.url, 'https://seerr.test/api/v1/request');
+    assert.equal(captured.method, 'POST');
+    assert.equal(captured.headers.get('x-api-user'), '2');
+    assert.deepEqual(JSON.parse(captured.body), { mediaType: 'movie', mediaId: 438631, is4k: false });
+    assert.equal(result.requestId, 263);
+    assert.equal(result.status, 1);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});
+
+test('a proposal is actor-scoped and can be claimed once', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'vyrx-proposal-'));
+  const previous = process.env.PORTAL_STORE;
+  process.env.PORTAL_STORE = join(dir, 'portal.sqlite');
+  closeStore();
+
+  try {
+    const id = createMediaProposal({
+      actor: 'philipp',
+      serviceId: 'media-requests',
+      actionId: 'seerr.request',
+      payload: { mediaType: 'movie', tmdbId: 438631, title: 'Dune', year: '2021', seerrUserId: 2 },
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    assert.equal(mediaProposalOf(id, 'someone-else'), null);
+    assert.equal(mediaProposalOf(id, 'philipp')?.payload.seerrUserId, 2);
+    assert.equal(consumeMediaProposal(id, 'philipp', 'pending', null), true);
+    assert.equal(consumeMediaProposal(id, 'philipp', 'pending', null), false);
+    assert.equal(finishMediaProposal(id, 'accepted', { requestId: 263 }), true);
+    assert.equal(mediaProposalOf(id, 'philipp')?.outcome, 'accepted');
+  } finally {
+    closeStore();
+    if (previous === undefined) delete process.env.PORTAL_STORE;
+    else process.env.PORTAL_STORE = previous;
+    rmSync(dir, { recursive: true, force: true });
   }
 });

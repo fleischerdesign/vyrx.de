@@ -388,6 +388,8 @@ const labels = {
           return `article:${block.slug}`;
         case 'media':
           return `media:${block.mediaType}:${block.tmdbId}`;
+        case 'confirm':
+          return `confirm:${block.proposalId}`;
         case 'maintenance':
           return `maintenance:${block.startsAt}:${block.endsAt}:${block.serviceId ?? 'all'}`;
         case 'step':
@@ -1015,6 +1017,93 @@ const labels = {
           return;
         }
 
+        if (block.type === 'confirm') {
+          const card = document.createElement('div');
+          card.className = 'ui-confirm';
+          card.dataset.tone = block.tone ?? 'accent';
+          const title = document.createElement('strong');
+          title.className = 'ui-confirm__title';
+          title.textContent = block.title;
+          const description = document.createElement('p');
+          description.className = 'ui-confirm__description';
+          description.textContent = block.description;
+          card.append(title, description);
+
+          if (Array.isArray(block.items) && block.items.length > 0) {
+            const list = document.createElement('dl');
+            list.className = 'ui-kv ui-confirm__facts';
+            for (const item of block.items) {
+              const term = document.createElement('dt');
+              term.textContent = item.label;
+              const value = document.createElement('dd');
+              value.textContent = item.value;
+              list.append(term, value);
+            }
+            card.append(list);
+          }
+
+          const actions = document.createElement('div');
+          actions.className = 'ui-confirm__actions';
+          const confirm = document.createElement('button');
+          confirm.type = 'button';
+          confirm.className = 'ui-confirm__confirm';
+          confirm.textContent = block.confirmLabel;
+          const cancel = document.createElement('button');
+          cancel.type = 'button';
+          cancel.className = 'ui-confirm__cancel';
+          cancel.textContent = block.cancelLabel;
+
+          const result = document.createElement('p');
+          result.className = 'ui-confirm__result';
+          result.setAttribute('role', 'status');
+          result.hidden = true;
+
+          const finish = (tone: string, message: string): void => {
+            result.dataset.tone = tone;
+            result.textContent = message;
+            result.hidden = false;
+            confirm.disabled = true;
+            cancel.disabled = true;
+            scroll();
+          };
+
+          confirm.addEventListener('click', async () => {
+            confirm.disabled = true;
+            cancel.disabled = true;
+            result.hidden = false;
+            result.dataset.tone = 'neutral';
+            result.textContent = locale === 'de' ? 'Wird angefragt …' : 'Requesting …';
+            try {
+              const response = await fetch('/api/media/request', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ proposalId: block.proposalId, locale }),
+              });
+              const data = (await response.json()) as { outcome?: string; message?: string };
+              const tone =
+                data.outcome === 'accepted'
+                  ? 'ok'
+                  : data.outcome === 'already'
+                    ? 'warn'
+                    : data.outcome === 'unknown'
+                      ? 'warn'
+                      : 'bad';
+              finish(tone, data.message ?? (locale === 'de' ? 'Die Anfrage konnte nicht abgeschlossen werden.' : 'The request could not be completed.'));
+            } catch {
+              finish('bad', locale === 'de' ? 'Die Verbindung ist fehlgeschlagen.' : 'The connection failed.');
+            }
+          });
+
+          cancel.addEventListener('click', () => {
+            finish('neutral', locale === 'de' ? 'Abgebrochen.' : 'Cancelled.');
+          });
+
+          actions.append(confirm, cancel);
+          card.append(actions, result);
+          parent.append(card);
+          return;
+        }
+
         if (block.type === 'step') {
           if (!Array.isArray(block.options) || block.options.length === 0) return;
           const card = document.createElement('div');
@@ -1109,7 +1198,7 @@ const labels = {
 
     const renderFollowUps = (turn: HTMLElement, asked: string): void => {
       // Ein Schritt oder ein Öffnen-Link ist bereits der nächste Weg.
-      if (turn.querySelector('.assistant-card--step, .assistant__navigate, .ui-media-grid, .ui-chips')) return;
+      if (turn.querySelector('.assistant-card--step, .ui-confirm, .assistant__navigate, .ui-media-grid, .ui-chips')) return;
       const items = (config.suggestions ?? [])
         .filter((item): item is string => typeof item === 'string' && item.trim().length > 0 && item.trim() !== asked.trim())
         .slice(0, 2);
@@ -2531,6 +2620,102 @@ const labels = {
     text-underline-offset: 3px;
   }
 
+  .ui-confirm {
+    padding: var(--space-4);
+    border: 1px solid var(--accent-soft-line);
+    border-radius: var(--radius-lg);
+    background: var(--accent-weaker);
+  }
+
+  .ui-confirm__title {
+    display: block;
+    color: var(--ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-snug);
+  }
+
+  .ui-confirm__description {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    line-height: 1.5;
+  }
+
+  .ui-confirm__facts {
+    margin-top: var(--space-3);
+  }
+
+  .ui-confirm__actions {
+    display: flex;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+
+  .ui-confirm__confirm {
+    min-height: 2.375rem;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .ui-confirm__confirm:hover {
+    background: var(--accent-strong);
+  }
+
+  .ui-confirm__confirm:disabled,
+  .ui-confirm__cancel:disabled {
+    opacity: 0.55;
+  }
+
+  .ui-confirm__cancel {
+    min-height: 2.375rem;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+  }
+
+  .ui-confirm__cancel:hover {
+    border-color: var(--accent-soft-line);
+    color: var(--accent-strong);
+  }
+
+  .ui-confirm__result {
+    margin-top: var(--space-3);
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+    line-height: 1.45;
+  }
+
+  .ui-confirm__result[data-tone='ok'] {
+    border-color: var(--ok-line);
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+
+  .ui-confirm__result[data-tone='warn'] {
+    border-color: var(--warn-line);
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+
+  .ui-confirm__result[data-tone='bad'] {
+    border-color: var(--bad-line);
+    background: var(--bad-soft);
+    color: var(--bad);
+  }
+
   .ui-media-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3164,7 +3349,9 @@ const labels = {
     }
 
     .assistant-card__options button,
-    .assistant__followups button {
+    .assistant__followups button,
+    .ui-confirm__confirm,
+    .ui-confirm__cancel {
       min-height: 2.75rem;
     }
   }

@@ -240,6 +240,8 @@ function blockIdentity(block: AssistantBlock): string | null {
       return 'article:' + block.slug;
     case 'media':
       return 'media:' + block.mediaType + ':' + block.tmdbId;
+    case 'confirm':
+      return 'confirm:' + block.proposalId;
     case 'maintenance':
       return 'maintenance:' + block.startsAt + ':' + block.endsAt + ':' + (block.serviceId ?? 'all');
     case 'step':

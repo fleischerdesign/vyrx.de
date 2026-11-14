@@ -12,7 +12,8 @@ import type { AssistantBlock } from './assistant-blocks.ts';
 import { validateUiNodes } from './assistant-ui.ts';
 import { mediaBlock } from './media-blocks.ts';
 import { resolveMediaUser } from './media-users.ts';
-import { discoverMedia, mediaTitle, searchMedia, SeerrError, type DiscoverKind, type MediaItem } from './seerr.ts';
+import { discoverMedia, mediaTitle, searchMedia, seerrQuota, SeerrError, type DiscoverKind, type MediaItem } from './seerr.ts';
+import { createMediaProposal } from './store.ts';
 import type {
   AssistantArticle,
   AssistantData,
@@ -165,6 +166,23 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'media_propose_request',
+      description:
+        'Prepare a movie request and show a confirmation card. This does not write; the person must confirm. Movie only in this phase; use after the person picked a title.',
+      parameters: {
+        type: 'object',
+        properties: {
+          mediaType: { type: 'string', enum: ['movie'] },
+          tmdbId: { type: 'number' },
+        },
+        required: ['mediaType', 'tmdbId'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'render_ui',
       description:
         'Compose a native UI tree. Use only these node types: stack, grid, card, section, text, heading, list, keyValue, badge, callout, divider, stat, progress, chart, timeline, table, details, link, status, service, article, suggestions. No HTML, no styles, no markdown tables, no ::: directives. status, service and article take only serviceId or slug and are filled from the session. summary, maintenance and step are server-only; use get_status, get_maintenance or ask_step for those. Example: {"nodes":[{"type":"card","title":"Vergleich","children":[{"type":"grid","columns":2,"children":[{"type":"stat","label":"Medienwünsche","value":"nicht erreichbar"},{"type":"stat","label":"Mediathek","value":"erreichbar"}]},{"type":"callout","tone":"accent","title":"Empfehlung","text":"Nutze zuerst die Mediathek."}]}]}',
@@ -250,6 +268,8 @@ const mediaSuggestions = (title: string | null | undefined, locale: Locale): rea
         ];
   return [{ type: 'suggestions', items }];
 };
+
+const mediaRequestsEnabled = (): boolean => process.env.PORTAL_MEDIA_REQUESTS === 'on';
 
 const mediaError = (error: unknown): string => {
   if (error instanceof SeerrError) {
@@ -728,6 +748,72 @@ export async function executeTool(
           return {
             content: { result: mediaSummary([item])[0] },
             blocks: [mediaBlock(item), ...mediaSuggestions(item.title, locale)],
+          };
+        } catch (error) {
+          return { content: { error: mediaError(error) } };
+        }
+      }
+
+      case 'media_propose_request': {
+        if (!mediaRequestsEnabled()) return { content: { error: 'disabled' } };
+        if (args.mediaType !== 'movie') return { content: { error: 'unsupported_media_type' } };
+        const tmdbId = asPositiveInt(args.tmdbId);
+        if (!tmdbId) return { content: { error: 'invalid_id' } };
+        const mediaUser = await resolveMediaUser(session);
+        if ('reason' in mediaUser) return { content: { error: mediaUser.reason } };
+        const identity = session.identity;
+        if (!identity) return { content: { error: 'not_signed_in' } };
+        try {
+          const item = await mediaTitle(session, mediaUser.user.id, 'movie', tmdbId, locale);
+          if (!item) return { content: { error: 'not_found' } };
+          if (item.status === 'available') return { content: { error: 'already_available' } };
+          if (item.status === 'requested' || item.status === 'processing' || item.status === 'partial') {
+            return { content: { error: 'already_requested' } };
+          }
+          if (item.status === 'blocklisted') return { content: { error: 'blocklisted' } };
+
+          const quota = await seerrQuota(session, mediaUser.user.id);
+          if (quota.movie.restricted || (quota.movie.limit > 0 && quota.movie.used >= quota.movie.limit)) {
+            return { content: { error: 'quota' } };
+          }
+
+          const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+          const proposalId = createMediaProposal({
+            actor: identity.username,
+            serviceId: 'media-requests',
+            actionId: 'seerr.request',
+            payload: {
+              mediaType: 'movie',
+              tmdbId: item.tmdbId,
+              title: item.title,
+              year: item.year,
+              seerrUserId: mediaUser.user.id,
+            },
+            expiresAt,
+          });
+
+          return {
+            content: { prepared: true, proposalId, title: item.title, year: item.year },
+            blocks: [
+              {
+                type: 'confirm',
+                proposalId,
+                title: locale === 'de' ? 'Anfrage bestätigen' : 'Confirm request',
+                description:
+                  locale === 'de'
+                    ? `Soll ${item.title}${item.year ? ` (${item.year})` : ''} angefragt werden?`
+                    : `Request ${item.title}${item.year ? ` (${item.year})` : ''}?`,
+                items: [
+                  { label: locale === 'de' ? 'Typ' : 'Type', value: locale === 'de' ? 'Film' : 'Movie' },
+                  { label: locale === 'de' ? 'Jahr' : 'Year', value: item.year ?? '—' },
+                  { label: locale === 'de' ? 'Status' : 'Status', value: item.statusText },
+                  { label: locale === 'de' ? 'Konto' : 'Account', value: mediaUser.user.displayName },
+                ],
+                confirmLabel: locale === 'de' ? 'Anfragen' : 'Request',
+                cancelLabel: locale === 'de' ? 'Abbrechen' : 'Cancel',
+                tone: 'accent',
+              },
+            ],
           };
         } catch (error) {
           return { content: { error: mediaError(error) } };
