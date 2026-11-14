@@ -1,0 +1,917 @@
+---
+/*
+ * Der Assistent als ruhige Schublade, kein Chat-Fenster mit Sprechblasen.
+ *
+ * Er sitzt neben der Suche, weil er dieselbe Frage beantwortet wie sie: „Wo
+ * finde ich das?" Nur antwortet er in Sätzen und nennt seine Quellen. Ohne
+ * JavaScript bleibt der Knopf aus; die Funktion ist eine Zugabe, keine Pflicht.
+ */
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  readonly locale: Locale;
+  readonly name: string;
+  readonly suggestions: readonly string[];
+}
+
+const { locale, name, suggestions } = Astro.props;
+const t = useTranslations(locale);
+const greeting = name ? t('assistantGreeting', { name }) : t('assistantHello');
+
+const labels = {
+  thinking: t('assistantThinking'),
+  send: t('assistantSend'),
+  stop: t('assistantStop'),
+  retry: t('assistantRetry'),
+  error: t('assistantError'),
+  stopped: t('assistantStopped'),
+  empty: t('assistantEmpty'),
+  sources: t('assistantSources'),
+  tooMany: t('assistantTooMany'),
+  unavailable: t('assistantUnavailable'),
+  signIn: t('assistantSignIn'),
+};
+---
+
+<button
+  type="button"
+  class="assistant-trigger"
+  data-assistant-open
+  aria-haspopup="dialog"
+  aria-expanded="false"
+  aria-controls="assistant"
+  aria-label={t('assistantOpen')}
+  title={t('assistantOpen')}
+>
+  <Icon name="sparkles" size="1rem" />
+  <span>{t('assistantOpen')}</span>
+  <kbd aria-hidden="true">⌘J</kbd>
+</button>
+
+<dialog class="assistant" id="assistant" aria-labelledby="assistant-title">
+  <div class="assistant__panel">
+    <header class="assistant__head">
+      <span class="assistant__mark" aria-hidden="true"><Icon name="sparkles" size="1.05rem" /></span>
+      <span class="assistant__title">
+        <strong id="assistant-title">{t('assistantTitle')}</strong>
+        <small>{t('assistantSubtitle')}</small>
+      </span>
+      <button type="button" class="assistant__icon" data-assistant-new title={t('assistantNew')} aria-label={t('assistantNew')}>
+        <Icon name="plus" size="1rem" />
+      </button>
+      <button type="button" class="assistant__icon" data-assistant-close title={t('close')} aria-label={t('close')}>
+        <Icon name="close" size="1rem" />
+      </button>
+    </header>
+
+    <div class="assistant__log" data-assistant-log role="log" aria-live="polite" aria-relevant="additions text">
+      <div class="assistant__intro" data-assistant-intro>
+        <p class="assistant__hello">{greeting}</p>
+        <p class="assistant__sub">{t('assistantIntro')}</p>
+        <div class="assistant__suggestions">
+          {suggestions.map((suggestion) => (
+            <button type="button" data-assistant-suggestion>{suggestion}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <form class="assistant__composer" data-assistant-form>
+      <label class="visually-hidden" for="assistant-input">{t('assistantInputLabel')}</label>
+      <div class="assistant__field">
+        <textarea
+          id="assistant-input"
+          rows="1"
+          maxlength="2000"
+          placeholder={t('assistantPlaceholder')}
+          data-assistant-input></textarea>
+        <button type="submit" class="assistant__send" data-assistant-send aria-label={t('assistantSend')} title={t('assistantSend')}>
+          <Icon name="arrowUp" size="1rem" />
+        </button>
+      </div>
+      <div class="assistant__foot">
+        <span>{t('assistantFoot')}</span>
+        <span>{t('assistantDisclaimer')}</span>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<script type="application/json" data-assistant-config set:html={JSON.stringify({ locale, page: Astro.url.pathname, labels })}></script>
+
+<script>
+  import { SseParser } from '@/lib/sse.ts';
+
+  interface Config {
+    readonly locale: 'de' | 'en';
+    readonly page: string;
+    readonly labels: Record<string, string>;
+  }
+
+  interface Source {
+    readonly ref: string;
+    readonly kind: string;
+    readonly label: string;
+    readonly href: string;
+  }
+
+  type Message = { role: 'user' | 'assistant'; content: string };
+
+  const dialog = document.getElementById('assistant') as HTMLDialogElement | null;
+  const trigger = document.querySelector<HTMLButtonElement>('[data-assistant-open]');
+  const form = document.querySelector<HTMLFormElement>('[data-assistant-form]');
+  const input = document.querySelector<HTMLTextAreaElement>('[data-assistant-input]');
+  const sendButton = document.querySelector<HTMLButtonElement>('[data-assistant-send]');
+  const log = document.querySelector<HTMLElement>('[data-assistant-log]');
+  const intro = document.querySelector<HTMLElement>('[data-assistant-intro]');
+  const configNode = document.querySelector<HTMLScriptElement>('[data-assistant-config]');
+
+  if (dialog && trigger && form && input && sendButton && log && intro && configNode) {
+    let config: Config;
+    try {
+      config = JSON.parse(configNode.textContent ?? '{}') as Config;
+    } catch {
+      config = { locale: 'de', page: location.pathname, labels: {} };
+    }
+
+    const labels = config.labels ?? {};
+    const page = typeof config.page === 'string' ? config.page : location.pathname;
+    const locale = config.locale === 'en' ? 'en' : 'de';
+
+    let messages: Message[] = [];
+    let busy = false;
+    let controller: AbortController | null = null;
+    let run = 0;
+
+    const scroll = (): void => {
+      log.scrollTop = log.scrollHeight;
+    };
+
+    const setBusy = (value: boolean): void => {
+      busy = value;
+      sendButton.dataset.mode = value ? 'stop' : 'send';
+      sendButton.setAttribute('aria-label', value ? (labels.stop ?? '') : (labels.send ?? ''));
+      sendButton.title = value ? (labels.stop ?? '') : (labels.send ?? '');
+      log.setAttribute('aria-busy', String(value));
+    };
+
+    const renderInline = (parent: HTMLElement, value: string): void => {
+      const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)]+\))/g;
+      let last = 0;
+      let match: RegExpExecArray | null;
+
+      while ((match = pattern.exec(value)) !== null) {
+        if (match.index > last) parent.append(document.createTextNode(value.slice(last, match.index)));
+        const token = match[0];
+
+        if (token.startsWith('**')) {
+          const strong = document.createElement('strong');
+          strong.textContent = token.slice(2, -2);
+          parent.append(strong);
+        } else if (token.startsWith('`')) {
+          const code = document.createElement('code');
+          code.textContent = token.slice(1, -1);
+          parent.append(code);
+        } else {
+          const link = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
+          const href = link?.[2] ?? '';
+          if (link && href.startsWith('/') && !href.startsWith('//')) {
+            const anchor = document.createElement('a');
+            anchor.href = href;
+            anchor.textContent = link?.[1] ?? href;
+            parent.append(anchor);
+          } else {
+            parent.append(document.createTextNode(token));
+          }
+        }
+        last = pattern.lastIndex;
+      }
+
+      if (last < value.length) parent.append(document.createTextNode(value.slice(last)));
+    };
+
+    const renderAnswer = (answer: HTMLElement, value: string): void => {
+      answer.replaceChildren();
+      answer.classList.remove('is-streaming');
+      answer.classList.add('is-ready');
+      const textValue = value.trim() || (labels.empty ?? '');
+      const blocks = textValue.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+      if (blocks.length === 0) {
+        const paragraph = document.createElement('p');
+        paragraph.textContent = labels.empty ?? '';
+        answer.append(paragraph);
+        return;
+      }
+
+      for (const block of blocks) {
+        const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+        const bullets = lines.filter((line) => /^[•-]\s+/.test(line));
+        if (bullets.length === lines.length && lines.length > 0) {
+          const list = document.createElement('ul');
+          for (const line of lines) {
+            const item = document.createElement('li');
+            renderInline(item, line.replace(/^[•-]\s+/, ''));
+            list.append(item);
+          }
+          answer.append(list);
+        } else {
+          const paragraph = document.createElement('p');
+          lines.forEach((line, index) => {
+            if (index > 0) paragraph.append(document.createElement('br'));
+            renderInline(paragraph, line);
+          });
+          answer.append(paragraph);
+        }
+      }
+    };
+
+    const renderSources = (turn: HTMLElement, text: string, sources: readonly Source[]): void => {
+      if (sources.length === 0) return;
+      const cited = new Set((text.match(/\[(S\d+|A\d+|W\d+|N\d+)\]/g) ?? []).map((token) => token.slice(1, -1)));
+      const mentioned = sources.filter((source) => text.includes(source.label));
+      const chosen = (cited.size > 0 ? sources.filter((source) => cited.has(source.ref)) : mentioned.length > 0 ? mentioned : sources).slice(0, 5);
+      if (chosen.length === 0) return;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'assistant__sources';
+      const label = document.createElement('span');
+      label.className = 'assistant__sources-label';
+      label.textContent = labels.sources ?? '';
+      wrap.append(label);
+
+      for (const source of chosen) {
+        if (!source.href.startsWith('/') || source.href.startsWith('//')) continue;
+        const anchor = document.createElement('a');
+        anchor.className = 'assistant__source';
+        anchor.href = source.href;
+        anchor.textContent = source.label;
+        wrap.append(anchor);
+      }
+
+      if (wrap.childElementCount > 1) turn.append(wrap);
+    };
+
+    const addUser = (value: string): void => {
+      const turn = document.createElement('div');
+      turn.className = 'assistant__turn assistant__turn--user';
+      const paragraph = document.createElement('p');
+      paragraph.textContent = value;
+      turn.append(paragraph);
+      log.append(turn);
+      scroll();
+    };
+
+    const addAnswer = (): { turn: HTMLElement; answer: HTMLElement } => {
+      const turn = document.createElement('div');
+      turn.className = 'assistant__turn assistant__turn--bot';
+      const answer = document.createElement('div');
+      answer.className = 'assistant__answer is-streaming';
+      const typing = document.createElement('span');
+      typing.className = 'assistant__typing';
+      typing.setAttribute('aria-label', labels.thinking ?? '');
+      typing.append(document.createElement('i'), document.createElement('i'), document.createElement('i'));
+      answer.append(typing);
+      turn.append(answer);
+      log.append(turn);
+      scroll();
+      return { turn, answer };
+    };
+
+    const addError = (message: string, retry: boolean): void => {
+      const turn = document.createElement('div');
+      turn.className = 'assistant__turn assistant__turn--bot';
+      const box = document.createElement('div');
+      box.className = 'assistant__error';
+      const paragraph = document.createElement('p');
+      paragraph.textContent = message;
+      box.append(paragraph);
+
+      if (retry) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'assistant__retry';
+        button.textContent = labels.retry ?? '';
+        button.addEventListener('click', () => {
+          turn.remove();
+          void requestAnswer();
+        });
+        box.append(button);
+      }
+
+      turn.append(box);
+      log.append(turn);
+      scroll();
+    };
+
+    const requestAnswer = async (): Promise<void> => {
+      const last = messages[messages.length - 1];
+      if (!last || last.role !== 'user' || busy) return;
+
+      const id = ++run;
+      setBusy(true);
+      controller = new AbortController();
+      let streamed = '';
+      let sources: readonly Source[] = [];
+      let streamError = '';
+      const { turn, answer } = addAnswer();
+
+      try {
+        const response = await fetch('/api/assistant', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ messages, locale, page }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          const message =
+            response.status === 401
+              ? labels.signIn
+              : response.status === 429
+                ? labels.tooMany
+                : response.status === 503
+                  ? labels.unavailable
+                  : labels.error;
+          throw new Error(message ?? 'error');
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        const parser = new SseParser((event) => {
+          try {
+            if (event.event === 'sources') {
+              const data = JSON.parse(event.data) as { sources?: Source[] };
+              sources = data.sources ?? [];
+            } else if (event.event === 'delta') {
+              const data = JSON.parse(event.data) as { text?: string };
+              if (typeof data.text === 'string') {
+                streamed += data.text;
+                answer.textContent = streamed;
+                scroll();
+              }
+            } else if (event.event === 'error') {
+              const data = JSON.parse(event.data) as { message?: string };
+              streamError = data.message === 'rate' ? (labels.tooMany ?? 'error') : (labels.error ?? 'error');
+            }
+          } catch {
+            // Ein unbekannter Rahmen wird ignoriert; der Rest des Streams zählt.
+          }
+        });
+
+        for (;;) {
+          const chunk = await reader.read();
+          if (chunk.done) break;
+          parser.push(decoder.decode(chunk.value, { stream: true }));
+        }
+        parser.end();
+
+        if (streamError) throw new Error(streamError);
+        if (id !== run) return;
+
+        renderAnswer(answer, streamed);
+        renderSources(turn, streamed, sources);
+        if (streamed.trim()) messages.push({ role: 'assistant', content: streamed.trim() });
+        scroll();
+      } catch (error) {
+        if (id !== run) return;
+        turn.remove();
+
+        if (controller.signal.aborted) {
+          const stopped = document.createElement('p');
+          stopped.className = 'assistant__stopped';
+          stopped.textContent = labels.stopped ?? '';
+          log.append(stopped);
+        } else {
+          const message = error instanceof Error && error.message ? error.message : (labels.error ?? '');
+          addError(message, true);
+        }
+      } finally {
+        if (id === run) {
+          controller = null;
+          setBusy(false);
+          input.focus();
+          scroll();
+        }
+      }
+    };
+
+    const send = async (value: string): Promise<void> => {
+      if (busy) return;
+      const trimmed = value.trim();
+      if (!trimmed) return;
+      messages.push({ role: 'user', content: trimmed });
+      intro.hidden = true;
+      addUser(trimmed);
+      input.value = '';
+      input.style.height = 'auto';
+      await requestAnswer();
+    };
+
+    const stop = (): void => {
+      controller?.abort();
+    };
+
+    const newConversation = (): void => {
+      run += 1;
+      stop();
+      messages = [];
+      log.replaceChildren(intro);
+      intro.hidden = false;
+      input.value = '';
+      input.style.height = 'auto';
+      setBusy(false);
+      input.focus();
+    };
+
+    trigger.addEventListener('click', () => {
+      if (!dialog.open) dialog.showModal();
+      trigger.setAttribute('aria-expanded', 'true');
+      input.focus();
+      scroll();
+    });
+
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close();
+    });
+
+    dialog.addEventListener('close', () => {
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    });
+
+    document.querySelector('[data-assistant-close]')?.addEventListener('click', () => dialog.close());
+    document.querySelector('[data-assistant-new]')?.addEventListener('click', newConversation);
+
+    document.querySelectorAll<HTMLElement>('[data-assistant-suggestion]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const question = button.textContent?.trim() ?? '';
+        if (question) void send(question);
+      });
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (busy) {
+        stop();
+        return;
+      }
+      void send(input.value);
+    });
+
+    input.addEventListener('input', () => {
+      input.style.height = 'auto';
+      input.style.height = `${Math.min(input.scrollHeight, 160)}px`;
+    });
+
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase('de') === 'j') {
+        event.preventDefault();
+        if (dialog.open) dialog.close();
+        else {
+          dialog.showModal();
+          trigger.setAttribute('aria-expanded', 'true');
+          input.focus();
+        }
+      }
+    });
+  }
+</script>
+
+<style is:global>
+  .assistant-trigger {
+    display: none;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.5rem 0.7rem 0.5rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  html.js .assistant-trigger {
+    display: inline-flex;
+  }
+
+  .assistant-trigger:hover {
+    border-color: var(--line-strong);
+    color: var(--ink);
+  }
+
+  .assistant-trigger kbd {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-xs);
+    padding: 2px 5px;
+    color: var(--faint);
+  }
+
+  .assistant {
+    width: min(432px, 100vw);
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0 0 0 auto;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink);
+  }
+
+  .assistant::backdrop {
+    background: rgb(23 27 38 / 0.18);
+    backdrop-filter: blur(2px);
+  }
+
+  .assistant__panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    box-shadow: -24px 0 60px -34px rgb(23 27 38 / 0.5);
+  }
+
+  .assistant__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-height: 70px;
+    padding: 0 var(--space-5);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .assistant__mark {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent);
+    flex: none;
+  }
+
+  .assistant__title {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+    margin-right: auto;
+  }
+
+  .assistant__title strong {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .assistant__title small {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .assistant__icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--muted);
+  }
+
+  .assistant__icon:hover {
+    border-color: var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .assistant__log {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .assistant__hello {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .assistant__sub {
+    margin-top: var(--space-2);
+    color: var(--muted);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+  }
+
+  .assistant__suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+  }
+
+  .assistant__suggestions button {
+    text-align: left;
+    padding: 0.45rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+  }
+
+  .assistant__suggestions button:hover {
+    border-color: var(--accent-soft-line);
+    background: var(--accent-weaker);
+    color: var(--accent-strong);
+  }
+
+  .assistant__turn {
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+  }
+
+  .assistant__turn p + p {
+    margin-top: var(--space-3);
+  }
+
+  .assistant__turn strong {
+    color: var(--ink);
+    font-weight: var(--weight-semibold);
+  }
+
+  .assistant__turn code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--surface-3);
+    border-radius: var(--radius-xs);
+    padding: 0 0.25em;
+  }
+
+  .assistant__turn a {
+    color: var(--accent);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .assistant__turn--user {
+    align-self: flex-end;
+    max-width: 88%;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--accent-soft-line);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-xs) var(--radius-lg);
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+
+  .assistant__turn--bot {
+    color: var(--ink-2);
+  }
+
+  .assistant__turn--bot > .assistant__answer > p:first-child {
+    color: var(--ink);
+  }
+
+  .assistant__answer ul {
+    margin: var(--space-2) 0 0;
+    padding-left: 1.1rem;
+    list-style: disc;
+  }
+
+  .assistant__answer li + li {
+    margin-top: var(--space-1);
+  }
+
+  .assistant__answer p + ul,
+  .assistant__answer ul + p {
+    margin-top: var(--space-3);
+  }
+
+  .assistant__answer.is-streaming {
+    white-space: pre-wrap;
+  }
+
+  .assistant__typing {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    height: 1.4rem;
+  }
+
+  .assistant__typing i {
+    width: 0.35rem;
+    height: 0.35rem;
+    border-radius: 999px;
+    background: var(--faint);
+    animation: assistant-blink 1.2s infinite ease-in-out;
+  }
+
+  .assistant__typing i:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  .assistant__typing i:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+
+  .assistant__sources {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+  }
+
+  .assistant__sources-label {
+    margin-right: 0.1rem;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .assistant__source {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.18rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .assistant__source:hover {
+    border-color: var(--accent-soft-line);
+    color: var(--accent);
+  }
+
+  .assistant__error {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--bad-line);
+    border-radius: var(--radius-md);
+    background: var(--bad-soft);
+    color: var(--bad);
+  }
+
+  .assistant__error p {
+    color: var(--ink-2);
+  }
+
+  .assistant__retry {
+    margin-top: var(--space-2);
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .assistant__stopped {
+    align-self: flex-start;
+    color: var(--faint);
+    font-size: var(--text-xs);
+  }
+
+  .assistant__composer {
+    padding: var(--space-3) var(--space-4) var(--space-4);
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .assistant__field {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--space-2);
+    padding: 0.5rem 0.5rem 0.5rem 0.8rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+
+  .assistant__field:focus-within {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .assistant__field textarea {
+    flex: 1;
+    min-width: 0;
+    min-height: 1.6rem;
+    max-height: 10rem;
+    padding: 0.1rem 0;
+    border: 0;
+    outline: 0;
+    background: none;
+    color: var(--ink);
+    font-size: var(--text-sm);
+    line-height: 1.6;
+    resize: none;
+  }
+
+  .assistant__field textarea::placeholder {
+    color: var(--faint);
+  }
+
+  .assistant__send {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .assistant__send:hover {
+    background: var(--accent-strong);
+  }
+
+  .assistant__send[data-mode='stop'] {
+    background: var(--ink);
+  }
+
+  .assistant__send[data-mode='stop'] svg {
+    display: none;
+  }
+
+  .assistant__send[data-mode='stop']::after {
+    content: '';
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 1px;
+    background: var(--surface);
+  }
+
+  .assistant__foot {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-top: var(--space-2);
+    color: var(--faint);
+    font-size: 0.625rem;
+  }
+
+  @keyframes assistant-blink {
+    0%,
+    80%,
+    100% {
+      opacity: 0.25;
+    }
+    40% {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .assistant__typing i {
+      animation: none;
+      opacity: 1;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .assistant-trigger span,
+    .assistant-trigger kbd {
+      display: none;
+    }
+
+    .assistant {
+      width: 100vw;
+    }
+
+    .assistant__panel {
+      border-left: 0;
+    }
+
+    .assistant__foot span:first-child {
+      display: none;
+    }
+  }
+</style>

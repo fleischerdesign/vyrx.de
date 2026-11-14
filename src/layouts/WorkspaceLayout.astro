@@ -11,11 +11,12 @@ import LocaleSwitch from '@/components/shell/LocaleSwitch.astro';
 import WorkspaceNav from '@/components/shell/WorkspaceNav.astro';
 import MobileDock from '@/components/shell/MobileDock.astro';
 import CommandPalette, { type PaletteItem } from '@/components/shell/CommandPalette.astro';
+import AssistantPanel from '@/components/assistant/AssistantPanel.astro';
 import Wordmark from '@/components/brand/Wordmark.astro';
 import Icon from '@/components/ui/Icon.astro';
-import { useTranslations } from '@/i18n';
+import { useTranslations, type MessageKey } from '@/i18n';
 import { isCurrent, WORKSPACE_NAV } from '@/lib/nav';
-import { routeFrom, pathFor, type Locale } from '@/lib/locale';
+import { routeFrom, pathFor, type Locale, type RouteName } from '@/lib/locale';
 import { text } from '@/lib/fleet';
 import { articlesFor, articleSlug, canReadArticle } from '@/lib/knowledge';
 import type { Session } from '@/lib/session';
@@ -33,6 +34,17 @@ const here = routeFrom(Astro.url.pathname).name;
 const currentItem = WORKSPACE_NAV.find((item) => isCurrent(item, here));
 const identity = session.identity;
 const initial = (identity?.name || identity?.username || 'U').charAt(0).toUpperCase();
+const suggestionsFor: Partial<Record<RouteName, readonly MessageKey[]>> = {
+  overview: ['assistantSuggestOverview1', 'assistantSuggestOverview2', 'assistantSuggestOverview3'],
+  services: ['assistantSuggestOverview1', 'assistantSuggestOverview2', 'assistantSuggestOverview3'],
+  service: ['assistantSuggestService1', 'assistantSuggestService2', 'assistantSuggestService3'],
+  knowledge: ['assistantSuggestKnowledge1', 'assistantSuggestKnowledge2', 'assistantSuggestKnowledge3'],
+  article: ['assistantSuggestArticle1', 'assistantSuggestArticle2', 'assistantSuggestArticle3'],
+  status: ['assistantSuggestStatus1', 'assistantSuggestStatus2', 'assistantSuggestStatus3'],
+  account: ['assistantSuggestDefault1', 'assistantSuggestDefault2'],
+  admin: ['assistantSuggestDefault1', 'assistantSuggestDefault2'],
+};
+const suggestions = (suggestionsFor[here] ?? ['assistantSuggestDefault1', 'assistantSuggestDefault2']).map((key) => t(key));
 
 // Die Suche bekommt genau das, was diese Person sehen darf - serverseitig gebaut.
 const prefix = locale === 'en' ? '/en' : '';
@@ -97,6 +109,7 @@ const palette: PaletteItem[] = [
           <strong>{currentItem ? t(currentItem.key) : t('navOverview')}</strong>
         </nav>
         <div class="topbar__actions">
+          <AssistantPanel locale={locale} name={identity?.name || identity?.username || ''} suggestions={suggestions} />
           <span class="palette-slot"><CommandPalette locale={locale} items={palette} /></span>
           <LocaleSwitch locale={locale} class="topbar__locale" />
           <ThemeToggle locale={locale} />
