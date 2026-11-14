@@ -577,6 +577,16 @@ const labels = {
           hero.style.backgroundImage = `url("/api/media/poster?path=${encodeURIComponent(block.backdropPath)}&size=w780")`;
         }
 
+        const play = document.createElement('a');
+        play.className = 'ui-media-dialog__play';
+        play.hidden = true;
+        play.target = '_blank';
+        play.rel = 'noopener noreferrer';
+        play.textContent = '▶';
+        play.setAttribute('aria-label', locale === 'de' ? 'Trailer abspielen' : 'Play trailer');
+        play.title = locale === 'de' ? 'Trailer' : 'Trailer';
+        hero.append(play);
+
         const close = document.createElement('button');
         close.type = 'button';
         close.className = 'ui-media-dialog__close';
@@ -667,15 +677,8 @@ const labels = {
             details.append(genres);
           }
           const trailerKey = typeof item.trailerKey === 'string' && /^[A-Za-z0-9_-]{6,20}$/.test(item.trailerKey) ? item.trailerKey : null;
-          if (trailerKey) {
-            const trailer = document.createElement('a');
-            trailer.className = 'ui-media-dialog__trailer';
-            trailer.href = `https://www.youtube.com/watch?v=${encodeURIComponent(trailerKey)}`;
-            trailer.target = '_blank';
-            trailer.rel = 'noopener noreferrer';
-            trailer.textContent = locale === 'de' ? '▶ Trailer ansehen' : '▶ Watch trailer';
-            details.append(trailer);
-          }
+          play.hidden = !trailerKey;
+          if (trailerKey) play.href = `https://www.youtube.com/watch?v=${encodeURIComponent(trailerKey)}`;
           const creditBlock = document.createElement('div');
           creditBlock.className = 'ui-media-dialog__credits';
           const addCredit = (label: string, value: string): void => {
@@ -3127,7 +3130,7 @@ const labels = {
 
   .ui-media-dialog__hero {
     position: relative;
-    height: 180px;
+    height: 200px;
     background-color: var(--surface-3);
     background-position: center;
     background-size: cover;
@@ -3137,7 +3140,8 @@ const labels = {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(to bottom, rgb(0 0 0 / 0.06), var(--surface));
+    z-index: 0;
+    background: linear-gradient(to bottom, rgb(0 0 0 / 0.12), var(--surface));
     pointer-events: none;
   }
 
@@ -3260,23 +3264,36 @@ const labels = {
     white-space: nowrap;
   }
 
-  .ui-media-dialog__trailer {
-    display: inline-flex;
-    align-items: center;
-    align-self: flex-start;
-    gap: 4px;
-    padding: 5px 9px;
-    border: 1px solid var(--accent-soft-line);
-    border-radius: var(--radius-pill);
-    background: var(--accent-soft);
-    color: var(--accent-strong);
-    font-size: 0.625rem;
-    font-weight: var(--weight-semibold);
+  .ui-media-dialog__play {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border: 1px solid rgb(255 255 255 / 0.32);
+    border-radius: 50%;
+    background: rgb(10 12 18 / 0.58);
+    color: #fff;
+    font-size: 1.375rem;
     text-decoration: none;
+    transform: translate(-50%, -50%);
+    transition:
+      background var(--fast) var(--ease),
+      transform var(--fast) var(--ease);
+    backdrop-filter: blur(8px);
   }
 
-  .ui-media-dialog__trailer:hover {
-    background: var(--accent-weaker);
+  .ui-media-dialog__play:hover {
+    background: var(--accent);
+    transform: translate(-50%, -50%) scale(1.06);
+  }
+
+  .ui-media-dialog__play[hidden] {
+    display: none;
   }
 
   .ui-media-dialog__credits {
@@ -3356,7 +3373,13 @@ const labels = {
     }
 
     .ui-media-dialog__hero {
-      height: 150px;
+      height: 165px;
+    }
+
+    .ui-media-dialog__play {
+      width: 48px;
+      height: 48px;
+      font-size: 1.125rem;
     }
 
     .ui-media-dialog__content {

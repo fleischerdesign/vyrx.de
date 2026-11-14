@@ -41,6 +41,9 @@ Request/Canary steht noch aus.**
 - `media_user` speichert die eindeutige Zuordnung Portal-Person → Seerr-ID.
   `media-users` ist Pflicht; ein reiner `family`-Nutzer erreicht Seerr nicht.
 - Der Seerr-Client setzt bei jedem Aufruf `X-Api-Key` und `X-Api-User`.
+  Suchparameter werden als `%20` kodiert, nicht als `+`; Seerr lehnt
+  `+`-Leerzeichen mit 400 ab. Bei `Titel (Jahr)` fällt die Suche auf den
+  Titel zurück und filtert auf das Jahr.
   Lesende GETs werden bei 5xx/Netzfehlern genau einmal wiederholt; POSTs
   werden nie blind wiederholt.
 - Der Mediendienst wird über die Fleet-ID gefunden: Produktion heißt er
@@ -52,10 +55,11 @@ Request/Canary steht noch aus.**
   Bottom-Sheet (Mobil) mit Backdrop, Poster, Beschreibung, Status und
   „Anfragen“; der Request läuft über den bestätigten Flow. Beim Öffnen lädt
   `/api/media/title` Laufzeit, Tagline, Genres, Regie, Cast,
-  Bewertungsanzahl und – wenn vorhanden – den YouTube-Trailer nach.
+  Bewertungsanzahl und – wenn vorhanden – den YouTube-Trailer nach. Der
+  Trailer liegt als Play-Overlay auf dem Backdrop, nicht als Textlink.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
-- **73 Tests** und vollständiger Build grün.
+- **74 Tests** und vollständiger Build grün.
 
 Phase 1 ist live. Phase 2 ist implementiert, aber noch nicht scharf; TV-Staffeln,
 Cancel und Jellyfin-Personalisierung folgen danach.
@@ -78,7 +82,7 @@ Die schreibende Strecke ist implementiert und über
 - Audit und Rate Limit (3/Minute, 20/Tag) sind eingebaut.
 - Mit einem Mock-Seerr end-to-end geprüft: Confirm → POST → 201, Header
   `X-Api-User: 2`, Body `mediaId: 438631`; kein echter Schreibzugriff.
-- **73 Tests** und der vollständige Build sind grün.
+- **74 Tests** und der vollständige Build sind grün.
 
 **Der erste echte Request steht noch aus:** Der Flow ist aktiv, aber noch mit
 keinem realen Film/User durchgespielt. Der Mock-End-to-End-Test ist grün.

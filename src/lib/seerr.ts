@@ -16,6 +16,7 @@ import type { Session } from './session.ts';
 
 export type SeerrErrorCode =
   | 'not_configured'
+  | 'bad_request'
   | 'not_found'
   | 'forbidden'
   | 'duplicate'
@@ -140,6 +141,8 @@ async function request<T>(
   for (const [key, value] of Object.entries(options.query ?? {})) {
     if (value !== undefined && value !== '') url.searchParams.set(key, String(value));
   }
+  // Seerr rejects URLSearchParams' '+' for spaces; it requires percent encoding.
+  if (url.search) url.search = url.search.replace(/\+/g, '%20');
 
   const headers = new Headers({ 'X-Api-Key': apiKey(), accept: 'application/json' });
   if (options.userId !== undefined) headers.set('X-Api-User', String(options.userId));
@@ -176,6 +179,7 @@ async function request<T>(
     }
   }
 
+  if (response.status === 400) throw new SeerrError('bad_request', response.status);
   if (response.status === 401 || response.status === 403) throw new SeerrError('forbidden', response.status);
   if (response.status === 404) throw new SeerrError('not_found', response.status);
   if (response.status === 409) throw new SeerrError('duplicate', response.status);

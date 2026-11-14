@@ -295,6 +295,7 @@ const mediaReasonMessage = (reason: string, locale: Locale): string => {
       en: 'Seerr is currently unavailable.',
     },
     not_found: { de: 'Der Titel wurde nicht gefunden.', en: 'The title was not found.' },
+    bad_request: { de: 'Die Suchanfrage war ungültig.', en: 'The search query was invalid.' },
     not_configured: { de: 'Die Medienanbindung ist nicht konfiguriert.', en: 'Media access is not configured.' },
     forbidden: { de: 'Seerr hat den Zugriff verweigert.', en: 'Seerr denied access.' },
     rate: { de: 'Zu viele Anfragen; bitte kurz warten.', en: 'Too many requests; please wait.' },
@@ -316,6 +317,7 @@ const mediaFailure = (code: string, locale: Locale): { error: string; message: s
 
 const mediaError = (error: unknown): string => {
   if (error instanceof SeerrError) {
+    if (error.code === 'bad_request') return 'bad_request';
     if (error.code === 'not_found') return 'not_found';
     if (error.code === 'forbidden') return 'not_allowed';
     if (error.code === 'rate') return 'rate';
@@ -746,7 +748,22 @@ export async function executeTool(
           return { content: mediaFailure(mediaUser.reason, locale) };
         }
         try {
-          const items = await searchMedia(session, mediaUser.user.id, query, locale);
+          let items = await searchMedia(session, mediaUser.user.id, query, locale);
+          const yearMatch = query.match(/\s*\(?((?:19|20)\d{2})\)?\s*$/);
+          if (yearMatch) {
+            const year = yearMatch[1];
+            const exact = items.filter((item) => item.year === year);
+            if (exact.length > 0) {
+              items = exact;
+            } else if (items.length === 0) {
+              const fallbackQuery = query.slice(0, yearMatch.index ?? 0).trim();
+              if (fallbackQuery) {
+                const fallback = await searchMedia(session, mediaUser.user.id, fallbackQuery, locale);
+                const fallbackExact = fallback.filter((item) => item.year === year);
+                items = fallbackExact.length > 0 ? fallbackExact : fallback;
+              }
+            }
+          }
           return {
             content: { query, results: mediaSummary(items) },
             blocks: [...items.slice(0, 6).map(mediaBlock), ...mediaSuggestions(items[0]?.title, locale)],

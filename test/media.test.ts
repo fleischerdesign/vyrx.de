@@ -239,3 +239,25 @@ test('the media service supports the production jellyseerr id and the fixture id
   assert.equal(mediaService(production)?.id, 'jellyseerr');
   assert.equal(mediaService(fixture)?.id, 'media-requests');
 });
+
+test('searchMedia percent-encodes spaces for Seerr', async () => {
+  process.env.PORTAL_SEERR_API_KEY = 'test-key';
+  const captured = { url: '' };
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input) => {
+    captured.url = String(input);
+    return new Response(JSON.stringify({ results: [] }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+
+  try {
+    await searchMedia(baseSession(), 2, 'Model Citizen', 'de');
+    assert.match(captured.url, /query=Model%20Citizen/);
+    assert.doesNotMatch(captured.url, /query=Model\+Citizen/);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});
