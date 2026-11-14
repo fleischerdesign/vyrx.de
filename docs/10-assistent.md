@@ -89,7 +89,9 @@ Jeder Zustand trägt seinen Messzeitpunkt.
 Ziel: Der Assistent findet und öffnet, statt nur zu beschreiben.
 
 - [x] **C1 Interne Tools:** `search_knowledge`, `get_service`, `get_status`,
-  `get_history`, `get_maintenance`, `open_page`, `ask_step`.
+  `get_history`, `get_maintenance`, `open_page`, `ask_step`. Statusfragen
+  erzeugen zusätzlich serverseitig eine Summary-Karte, auch wenn das Modell
+  kein Werkzeug aufruft.
 - [x] **C2 Navigation.** Explizite „öffne/zeige“-Anfragen werden serverseitig
   aufgelöst und als `navigate`-Ereignis mit geprüftem Link geliefert; das Modell
   kann zusätzlich `open_page` aufrufen.
@@ -106,7 +108,7 @@ einen Link. Keine zusätzliche Netzwerkabhängigkeit außer dem Modell.
 
 Ziel: Antworten sehen aus wie das Portal, nicht wie ein Chat.
 
-- [x] **D1 Block-Schema:** `text`, `service`, `status`, `article`,
+- [x] **D1 Block-Schema:** `text`, `summary`, `service`, `status`, `article`,
   `maintenance`, `suggestions`, `step`.
 - [x] **D2 Client rendert native Komponenten.** Der Server validiert IDs und
   Links; der Client rendert kein fremdes HTML. Status-, Dienst- und
@@ -189,7 +191,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 53
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 56
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
@@ -201,7 +203,8 @@ Tastatur erreichbar.
   geführte Schritt geprüft. Die Statusleiste auf Dienstseiten zeigt den
   gemessenen Zustand unabhängig vom Modelltext.
 - Browser: Streaming-Markdown ohne sichtbare `**`-Reste, Statuskarten,
-  Öffnen-Link, Schritt mit vier Optionen und Follow-up-Chips.
+  Status-Summary ohne Tool-Aufruf, Öffnen-Link, Schritt mit vier Optionen und
+  Follow-up-Chips.
 
 ## Offene Entscheidungen
 
