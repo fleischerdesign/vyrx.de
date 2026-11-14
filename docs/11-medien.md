@@ -13,6 +13,9 @@ Nutzer-Mapping und Freigabe nicht geklärt sind.
    `X-Authentik-Username`, `-Name` und `-Groups`. Caddy kopiert zusätzlich
    `X-Authentik-Email` und `X-Authentik-Uid`; das Portal muss sie aufnehmen,
    sonst ist ein sauberes Mapping nur über den Benutzernamen möglich.
+   Seerr nutzt denselben Authentik-Provider; OIDC-Nutzer werden dort mit
+   `email` und `preferred_username` angelegt. Das ist der natürliche
+   Zuordnungsschlüssel.
 3. **Der richtige Hebel ist `X-Api-User`.** Seerr akzeptiert neben
    `X-Api-Key` den Header `X-Api-User: <seerrUserId>` und handelt dann als
    dieser Nutzer. Damit werden Suche, Quota, Berechtigungen und die Anfrage
@@ -78,9 +81,13 @@ X-Api-Key: <secret>
 Reihenfolge der Zuordnung:
 
 1. `seerr.email` exakt und case-insensitiv gleich `identity.email`.
-2. `seerr.jellyfinUsername` oder `seerr.username` gleich
-   `identity.username`.
-3. Explizite Zuordnung in der Portal-Datenbank.
+2. `seerr.username` oder `seerr.jellyfinUsername` gleich
+   `identity.username` (bevorzugt `preferred_username` aus Authentik).
+3. Falls die User-Antwort eine OIDC-Verknüpfung mitliefert:
+   `linkedAccounts.sub === identity.uid` (nur wenn der Authentik-Outpost
+   `X-Authentik-Uid` mit dem OIDC-`sub` gleichsetzt; das ist zu verifizieren,
+   nicht anzunehmen).
+4. Explizite Zuordnung in der Portal-Datenbank.
 
 Bei **null Treffern** oder **mehreren Treffern** wird nicht geraten. Die
 Aktion endet mit `not_linked`; die Oberfläche erklärt, dass das Seerr-Konto
@@ -418,6 +425,12 @@ Phase 1 darf lesen, Phase 2 schreiben; ohne Flag keine Schreibroute.
 5. **Poster-Proxy** und CSP-Entscheidung.
 6. **Scope**: v1 Filme, v1.5 Serien, 4K erst mit separatem Recht.
 7. **Jellyfin** erst danach; dafür eigener Key und User-Mapping.
+8. **Seerr-User-Antwort einmal lesen**: `GET /api/v1/user?q=<email>` mit dem
+   Key; prüfen, ob `email`, `username` und ggf. `linkedAccounts` enthalten
+   sind. Danach das Mapping-Verfahren festnageln.
+8. **Seerr-User-Antwort einmal lesen**: `GET /api/v1/user?q=<email>` mit dem
+   Key; prüfen, ob `email`, `username` und ggf. `linkedAccounts` enthalten
+   sind. Danach das Mapping-Verfahren festnageln.
 
 ## 14. Abnahmekriterien
 
