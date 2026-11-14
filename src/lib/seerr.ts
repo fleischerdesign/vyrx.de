@@ -363,7 +363,8 @@ export async function searchMedia(session: Session, userId: number, query: strin
   return mediaList(body, locale);
 }
 
-export type DiscoverKind = 'trending' | 'upcoming' | 'similar' | 'recommendations' | 'popular';
+export type DiscoverKind = 'trending' | 'upcoming' | 'similar' | 'recommendations' | 'popular' | 'genre';
+export type DiscoverSort = 'popularity' | 'rating' | 'newest';
 
 export async function discoverMedia(
   session: Session,
@@ -372,6 +373,9 @@ export async function discoverMedia(
   mediaType: 'movie' | 'tv',
   locale: Locale,
   tmdbId?: number,
+  genreId?: number,
+  sortBy: DiscoverSort = 'popularity',
+  recent = false,
 ): Promise<readonly MediaItem[]> {
   let path: string;
   switch (kind) {
@@ -392,6 +396,23 @@ export async function discoverMedia(
     case 'popular':
       path = `discover/${mediaType === 'movie' ? 'movies' : 'tv'}?sortBy=popularity.desc&language=${encodeURIComponent(locale)}`;
       break;
+    case 'genre': {
+      if (!genreId) throw new SeerrError('not_found');
+      const sort =
+        sortBy === 'rating'
+          ? 'vote_average.desc'
+          : sortBy === 'newest'
+            ? mediaType === 'movie'
+              ? 'primary_release_date.desc'
+              : 'first_air_date.desc'
+            : 'popularity.desc';
+      const voteFloor = sortBy === 'rating' ? '&voteCountGte=50' : '';
+      const dateFloor = recent
+        ? `&${mediaType === 'movie' ? 'primaryReleaseDateGte' : 'firstAirDateGte'}=${new Date(Date.now() - 2 * 365 * 86_400_000).toISOString().slice(0, 10)}`
+        : '';
+      path = `discover/${mediaType === 'movie' ? 'movies' : 'tv'}?genre=${genreId}&sortBy=${sort}${voteFloor}${dateFloor}&language=${encodeURIComponent(locale)}`;
+      break;
+    }
   }
   const body = await request<unknown>(session, path, { userId });
   return mediaList(body, locale);

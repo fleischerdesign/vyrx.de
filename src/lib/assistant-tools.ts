@@ -11,6 +11,7 @@
 import type { AssistantBlock } from './assistant-blocks.ts';
 import { validateUiNodes } from './assistant-ui.ts';
 import { mediaBlock } from './media-blocks.ts';
+import { genreIdFor, genresFor } from './media-genres.ts';
 import { resolveMediaUser } from './media-users.ts';
 import { discoverMedia, mediaTitle, searchMedia, seerrQuota, SeerrError, type DiscoverKind, type MediaItem } from './seerr.ts';
 import { createMediaProposal } from './store.ts';
@@ -134,13 +135,16 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
     function: {
       name: 'media_discover',
       description:
-        'Discover movies or series through Seerr: trending, upcoming, similar, recommendations or popular. Returns native media cards; read-only.',
+        'Discover movies or series through Seerr: trending, upcoming, similar, recommendations, popular or a genre such as Horror. Returns native media cards; read-only.',
       parameters: {
         type: 'object',
         properties: {
-          kind: { type: 'string', enum: ['trending', 'upcoming', 'similar', 'recommendations', 'popular'] },
+          kind: { type: 'string', enum: ['trending', 'upcoming', 'similar', 'recommendations', 'popular', 'genre'] },
           mediaType: { type: 'string', enum: ['movie', 'tv'] },
           tmdbId: { type: 'number', description: 'Required for similar and recommendations.' },
+          genre: { type: 'string', description: 'Genre name for kind=genre, e.g. Horror, Thriller, Komödie.' },
+          sortBy: { type: 'string', enum: ['popularity', 'rating', 'newest'] },
+          recent: { type: 'boolean', description: 'Only titles released or first aired in the last two years; use for "zur Zeit".' },
         },
         required: ['kind', 'mediaType'],
         additionalProperties: false,
@@ -776,7 +780,7 @@ export async function executeTool(
       case 'media_discover': {
         const kind = asString(args.kind, 40) as DiscoverKind | null;
         const mediaType = args.mediaType === 'movie' || args.mediaType === 'tv' ? args.mediaType : null;
-        if (!kind || !['trending', 'upcoming', 'similar', 'recommendations', 'popular'].includes(kind)) {
+        if (!kind || !['trending', 'upcoming', 'similar', 'recommendations', 'popular', 'genre'].includes(kind)) {
           return { content: { error: 'invalid_kind' } };
         }
         if (!mediaType) return { content: { error: 'invalid_media_type' } };
@@ -785,14 +789,46 @@ export async function executeTool(
         if ((kind === 'similar' || kind === 'recommendations') && !tmdbId) {
           return { content: { error: 'missing_id' } };
         }
+        const sortBy = args.sortBy === 'rating' || args.sortBy === 'newest' ? args.sortBy : 'popularity';
+        const recent = args.recent === true;
+        let genreId: number | undefined;
+        if (kind === 'genre') {
+          const genre = asString(args.genre, 80);
+          if (!genre) return { content: { error: 'missing_genre' } };
+          genreId = genreIdFor(genre, mediaType) ?? undefined;
+          if (!genreId) {
+            return {
+              content: {
+                error: 'genre_unsupported',
+                message: locale === 'de' ? 'Dieses Genre ist für diese Medienart nicht verfügbar.' : 'That genre is not available for this media type.',
+                genres: genresFor(mediaType).map((entry) => entry.name),
+              },
+            };
+          }
+        }
         const mediaUser = await resolveMediaUser(session);
         if ('reason' in mediaUser) {
           return { content: mediaFailure(mediaUser.reason, locale) };
         }
         try {
-          const items = await discoverMedia(session, mediaUser.user.id, kind, mediaType, locale, tmdbId ?? undefined);
+          let items = await discoverMedia(session, mediaUser.user.id, kind, mediaType, locale, tmdbId ?? undefined, genreId, sortBy, recent);
+          let fallback = false;
+          if (items.length === 0 && kind === 'genre') {
+            if (recent) {
+              items = await discoverMedia(session, mediaUser.user.id, kind, mediaType, locale, undefined, genreId, 'popularity', true);
+            }
+            if (items.length === 0) {
+              items = await discoverMedia(session, mediaUser.user.id, kind, mediaType, locale, undefined, genreId, 'popularity', false);
+            }
+            fallback = items.length > 0;
+          }
           return {
-            content: { kind, mediaType, results: mediaSummary(items) },
+            content: {
+              kind,
+              mediaType,
+              ...(kind === 'genre' ? { genre: asString(args.genre, 80), sortBy, recent, fallback } : {}),
+              results: mediaSummary(items),
+            },
             blocks: [...items.slice(0, 6).map(mediaBlock), ...mediaSuggestions(items[0]?.title, locale)],
           };
         } catch (error) {

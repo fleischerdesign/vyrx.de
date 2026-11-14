@@ -50,6 +50,12 @@ Request/Canary steht noch aus.**
   `jellyseerr`, die lokale Fixture `media-requests`; beide werden unterstützt.
   Das war die Ursache für das frühere `not_visible`.
 - Assistent-Werkzeuge: `media_search`, `media_discover`, `media_title`.
+- `media_discover` kann jetzt Genre: `kind:'genre'`, `genre:'Horror'`,
+  `sortBy:'popularity'|'rating'|'newest'` und `recent:true` (zwei Jahre).
+  Die Zuordnung der deutschen/englischen Genre-Namen zu TMDB-IDs liegt
+  serverseitig in `media-genres.ts`; TV hat bei TMDB kein Horror-Genre.
+  Leere Recent-Rating-Ergebnisse fallen auf aktuell populäre Titel zurück und
+  melden `fallback:true`.
 - Native Medienkarten mit Poster-Proxy, Status, Jahr und Kurztext. Die Karte
   bleibt bewusst ruhig: Ein Klick öffnet ein Modal (Desktop) bzw. ein
   Bottom-Sheet (Mobil) mit Backdrop, Poster, Beschreibung, Status und
