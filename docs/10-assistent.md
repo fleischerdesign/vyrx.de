@@ -112,7 +112,7 @@ Ziel: Antworten sehen aus wie das Portal, nicht wie ein Chat.
   `text`, `heading`, `list`, `keyValue`, `badge`, `callout`, `divider`, `stat`,
   `progress`, `chart`, `timeline`, `table`, `details`, `link`; Domain-Knoten
   `summary`, `service`, `status`, `article`, `media`, `maintenance`,
-  `suggestions`, `step`.
+  `confirm`, `suggestions`, `step`.
 - [x] **D2 Client rendert native Komponenten.** Der Server validiert IDs,
   Tiefe, Knotenzahl und Links; Domain-Knoten werden aus der Sitzung neu gebaut,
   generische Knoten nur als Text/Tabellen/Timeline/Layout akzeptiert. Der

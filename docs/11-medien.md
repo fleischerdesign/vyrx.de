@@ -1,7 +1,7 @@
 # 11 — Medien: Suche, Vorschläge und Anfragen
 
-**Status: Phase 1 (read-only) umgesetzt. Phase 2 (Anfragen) ist Entwurf.**
-Kein Schreibzugriff in Phase 1.
+**Status: Phase 1 live. Phase 2 (Movie-Anfragen) ist implementiert, aber
+standardmäßig über `PORTAL_MEDIA_REQUESTS` aus; Live-Canary steht aus.**
 
 ## 1. Kurzbefund
 
@@ -46,10 +46,33 @@ Kein Schreibzugriff in Phase 1.
   medienbezogenen Follow-ups.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
-- **70 Tests** und vollständiger Build grün.
+- **72 Tests** und vollständiger Build grün.
 
-Noch nicht umgesetzt: die schreibende Anfrage (Phase 2), TV-Staffeln,
-Cancel, Jellyfin-Personalisierung.
+Phase 1 ist live. Phase 2 ist implementiert, aber noch nicht scharf; TV-Staffeln,
+Cancel und Jellyfin-Personalisierung folgen danach.
+
+## 1b. Phase 2 vorbereitet (noch nicht scharf)
+
+Die schreibende Strecke ist implementiert, aber über
+`PORTAL_MEDIA_REQUESTS=on` geschützt und standardmäßig **aus**:
+
+- `media_proposal` speichert Actor, Payload, Ablauf und Einmaligkeit.
+- `media_propose_request` prüft Mapping, Status, Quota und legt nur einen
+  Vorschlag an; es schreibt nicht.
+- Die `confirm`-Karte zeigt Titel, Jahr, Status und Konto mit
+  „Anfragen“/„Abbrechen“.
+- `POST /api/media/request` ist die einzige Schreibstelle. Sie beansprucht das
+  Proposal **vor** dem Seerr-Aufruf, setzt `X-Api-User` und schreibt
+  `{mediaType:'movie', mediaId, is4k:false}`.
+- 409/403/429/Timeout: kein blinder Retry; nach Timeout werden die eigenen
+  Requests geprüft, sonst „unklar“.
+- Audit und Rate Limit (3/Minute, 20/Tag) sind eingebaut.
+- Mit einem Mock-Seerr end-to-end geprüft: Confirm → POST → 201, Header
+  `X-Api-User: 2`, Body `mediaId: 438631`; kein echter Schreibzugriff.
+- **72 Tests** und der vollständige Build sind grün.
+
+**Es fehlt nur der Live-Canary:** ein Testnutzer, ein Film, explizite Freigabe,
+danach `PORTAL_MEDIA_REQUESTS=on` und Deployment.
 
 ## 2. Ziel
 
@@ -433,24 +456,13 @@ Phase 1 darf lesen, Phase 2 schreiben; ohne Flag keine Schreibroute.
 
 ## 13. Was noch fehlt
 
-Phase 1 ist umgesetzt. Offen ist die schreibende Phase 2:
-
-1. **Proposal-Tabelle** `media_proposal` mit Actor, Payload, Ablauf,
-   Einmaligkeit und Ergebnis.
-2. **`confirm`-Block** als server-only Bestätigungskarte mit
-   „Anfragen“/„Abbrechen“.
-3. **`POST /api/media/request`**: Same-Origin, Sitzung, Proposal-ID,
-   `media-users`, Mapping; die einzige Schreibstelle.
-4. **Seerr-Schreibcall** mit `X-Api-Key` + `X-Api-User`, Body
-   `{ mediaType:'movie', mediaId, is4k:false }`.
-5. **Quota, Duplicate, Timeout**: 403/409/unklar sauber behandeln; nach
-   Timeout eigene Requests prüfen, nie blind wiederholen.
-6. **Audit**: Actor, Ziel-TMDB-ID, Request-ID, Ergebnis; jede Ablehnung
-   ebenfalls.
-7. **Canary**: ein Testnutzer, ein Film, explizite Freigabe; erst danach
-   `PORTAL_MEDIA_REQUESTS=on`.
-8. **Später**: TV-Staffeln, 4K mit separatem Recht, Cancel, Jellyfin
-   „Weiter schauen“.
+1. **Live-Canary**: ein Testnutzer, ein Film, explizite Freigabe; danach
+   `PORTAL_MEDIA_REQUESTS=on` setzen und deployen.
+2. **TV-Staffeln** mit Season-Auswahl und eigener Quota-Prüfung.
+3. **4K** nur mit separatem Recht und sichtbarer Entscheidung.
+4. **Cancel** eigener offener Requests.
+5. **Jellyfin** „Weiter schauen“, zuletzt gesehen und NextUp.
+6. **Benachrichtigungen** für Request-Status und neue Titel.
 
 ## 14. Abnahmekriterien
 
