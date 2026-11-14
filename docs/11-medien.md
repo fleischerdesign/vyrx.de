@@ -68,10 +68,10 @@ Request/Canary steht noch aus.**
   Nach erfolgreicher Anfrage wechselt die Karte auf „angefragt“.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
-- **75 Tests** und vollständiger Build grün.
+- **76 Tests** und vollständiger Build grün.
 
 Phase 1 ist live. Phase 2 ist scharf; Movie-, Serien- und Batch-Anfragen sind
-aktiv. 4K, Cancel, Status-Polling und Jellyfin-Personalisierung folgen danach.
+aktiv. 4K, Status-Polling und Jellyfin-Personalisierung folgen danach.
 
 ## 1b. Phase 2 scharf (Movie- und Serien-Anfragen)
 
@@ -92,6 +92,10 @@ Die schreibende Strecke ist implementiert und über
   Chat-Turn, und das Ergebnis erscheint im Modal. Bei Serien zeigt das Modal
   reguläre Staffeln als Checkboxen (Staffel 0/Specials nicht vorausgewählt);
   der Direktmodus sendet `{mediaType:tv, seasons:[…]}`.
+- Eigene offene (PENDING) Anfragen können im Titel-Dialog über
+  `POST /api/media/cancel` zurückgezogen werden; der Server sucht die eigene
+  Request-ID und ruft Seerrs DELETE auf. Bereits freigegebene Anfragen kann
+  nur ein Admin stornieren.
 - `POST /api/media/request` ist die einzige Schreibstelle. Sie beansprucht das
   Proposal **vor** dem Seerr-Aufruf, setzt `X-Api-User` und schreibt bei
   Filmen `{mediaType:'movie', mediaId, is4k:false}`, bei Serien
@@ -491,9 +495,8 @@ Phase 1 darf lesen, Phase 2 schreiben; ohne Flag keine Schreibroute.
 ## 13. Was noch fehlt
 
 1. **4K** nur mit separatem Recht und sichtbarer Entscheidung.
-2. **Cancel** eigener offener Requests.
-3. **Status-Polling** und Benachrichtigungen für Request-Status.
-4. **Jellyfin** „Weiter schauen“, zuletzt gesehen und NextUp.
+2. **Status-Polling** und Benachrichtigungen für Request-Status.
+3. **Jellyfin** „Weiter schauen“, zuletzt gesehen und NextUp.
 
 ## 14. Abnahmekriterien
 

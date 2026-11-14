@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { resolveMediaUser } from '../src/lib/media-users.ts';
-import { mediaService, mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
+import { cancelRequest, mediaService, mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
 import type { Session } from '../src/lib/session.ts';
 import {
   closeStore,
@@ -282,6 +282,26 @@ test('requestMedia sends the selected TV seasons', async () => {
       seasons: [1, 2],
       is4k: false,
     });
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});
+
+test('cancelRequest sends a DELETE for the own request id', async () => {
+  process.env.PORTAL_SEERR_API_KEY = 'test-key';
+  const captured = { url: '', method: '' };
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (input, init) => {
+    captured.url = String(input);
+    captured.method = init?.method ?? 'GET';
+    return new Response(null, { status: 204 });
+  }) as typeof fetch;
+
+  try {
+    await cancelRequest(baseSession(), 2, 263);
+    assert.equal(captured.url, 'https://seerr.test/api/v1/request/263');
+    assert.equal(captured.method, 'DELETE');
   } finally {
     globalThis.fetch = original;
     delete process.env.PORTAL_SEERR_API_KEY;

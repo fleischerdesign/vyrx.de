@@ -194,6 +194,7 @@ async function request<T>(
   if (response.status === 409) throw new SeerrError('duplicate', response.status);
   if (response.status === 429) throw new SeerrError('rate', response.status);
   if (!response.ok) throw new SeerrError('unavailable', response.status);
+  if (response.status === 204) return undefined as T;
 
   try {
     return (await response.json()) as T;
@@ -485,6 +486,10 @@ export async function seerrQuota(session: Session, userId: number): Promise<Seer
     restricted: value?.restricted === true,
   });
   return { movie: part(body.movie), tv: part(body.tv) };
+}
+
+export async function cancelRequest(session: Session, userId: number, requestId: number): Promise<void> {
+  await request<void>(session, `request/${requestId}`, { userId, method: 'DELETE' });
 }
 
 export interface OwnMediaRequest {

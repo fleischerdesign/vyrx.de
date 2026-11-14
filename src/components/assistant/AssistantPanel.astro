@@ -854,11 +854,46 @@ const labels = {
           });
           actions.append(request);
         }
+        const cancelRequestButton = block.status === 'requested' ? document.createElement('button') : null;
+        if (cancelRequestButton) {
+          cancelRequestButton.type = 'button';
+          cancelRequestButton.className = 'ui-media-dialog__cancel';
+          cancelRequestButton.textContent = locale === 'de' ? 'Anfrage stornieren' : 'Cancel request';
+          cancelRequestButton.addEventListener('click', async () => {
+            cancelRequestButton.disabled = true;
+            feedback.hidden = false;
+            feedback.dataset.tone = 'neutral';
+            feedback.textContent = locale === 'de' ? 'Wird storniert …' : 'Cancelling …';
+            try {
+              const response = await fetch('/api/media/cancel', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ mediaType: block.mediaType, tmdbId: block.tmdbId, locale }),
+              });
+              const data = (await response.json()) as { outcome?: string; message?: string };
+              if (data.outcome === 'cancelled') {
+                status.dataset.status = 'unknown';
+                status.textContent = locale === 'de' ? 'storniert' : 'cancelled';
+                feedback.dataset.tone = 'ok';
+              } else {
+                feedback.dataset.tone = 'bad';
+              }
+              feedback.textContent = data.message ?? (locale === 'de' ? 'Stornieren fehlgeschlagen.' : 'Cancellation failed.');
+              scroll();
+            } catch {
+              feedback.dataset.tone = 'bad';
+              feedback.textContent = locale === 'de' ? 'Die Verbindung ist fehlgeschlagen.' : 'The connection failed.';
+              scroll();
+            }
+          });
+        }
+
         const dismiss = document.createElement('button');
         dismiss.type = 'button';
         dismiss.className = 'ui-media-dialog__dismiss';
         dismiss.textContent = locale === 'de' ? 'Schließen' : 'Close';
         dismiss.addEventListener('click', () => dialog.close());
+        if (cancelRequestButton) actions.append(cancelRequestButton);
         actions.append(dismiss);
         const feedback = document.createElement('p');
         feedback.className = 'ui-media-dialog__feedback';
@@ -4123,6 +4158,25 @@ const labels = {
     border-color: var(--bad-line);
     background: var(--bad-soft);
     color: var(--bad);
+  }
+
+  .ui-media-dialog__cancel {
+    min-height: 2.375rem;
+    padding: 8px 12px;
+    border: 1px solid var(--bad-line);
+    border-radius: var(--radius-md);
+    background: var(--bad-soft);
+    color: var(--bad);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+  }
+
+  .ui-media-dialog__cancel:hover:not(:disabled) {
+    border-color: var(--bad);
+  }
+
+  .ui-media-dialog__cancel:disabled {
+    opacity: 0.55;
   }
 
   .ui-media-dialog__dismiss {
