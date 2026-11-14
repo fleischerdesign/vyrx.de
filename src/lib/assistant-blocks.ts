@@ -8,6 +8,14 @@
 
 export type AssistantBlock =
   | {
+      readonly type: 'summary';
+      readonly tone: 'ok' | 'warn' | 'unknown';
+      readonly title: string;
+      readonly text: string;
+      readonly asOf: number | null;
+      readonly href: string;
+    }
+  | {
       readonly type: 'status';
       readonly serviceId: string;
       readonly name: string;

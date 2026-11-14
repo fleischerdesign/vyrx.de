@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { activeAnnouncements, announcementText } from './announcements.ts';
 import type { AssistantBlock } from './assistant-blocks.ts';
-import { ASSISTANT_TOOLS, executeTool, navigationFor, type ToolDefinition } from './assistant-tools.ts';
+import { ASSISTANT_TOOLS, executeTool, intentBlocks, navigationFor, type ToolDefinition } from './assistant-tools.ts';
 import {
   buildAssistantContext,
   type AssistantArticle,
@@ -222,9 +222,29 @@ const MAX_TOOL_CALLS = 4;
 
 /** Eine Karte für genau die Seite, die daneben schon steht, ist Lärm. */
 function redundantBlock(block: AssistantBlock, data: AssistantData): boolean {
+  if (block.type === 'summary' && data.page.route === 'status') return true;
+  if (block.type === 'status' && data.page.route === 'status') return true;
   if ((block.type === 'service' || block.type === 'status') && block.serviceId === data.page.serviceId) return true;
   if (block.type === 'article' && block.slug === data.page.articleSlug) return true;
   return false;
+}
+
+function blockIdentity(block: AssistantBlock): string {
+  switch (block.type) {
+    case 'summary':
+      return 'summary';
+    case 'status':
+    case 'service':
+      return 'service:' + block.serviceId;
+    case 'article':
+      return 'article:' + block.slug;
+    case 'maintenance':
+      return 'maintenance:' + block.startsAt + ':' + block.endsAt + ':' + (block.serviceId ?? 'all');
+    case 'step':
+      return 'step:' + block.question;
+    case 'suggestions':
+      return 'suggestions';
+  }
 }
 
 function asProviderMessages(system: string, messages: readonly AssistantMessage[]): ProviderMessage[] {
@@ -391,6 +411,24 @@ export async function* runAssistant(
   const autoNavigation = navigationFor(lastUser, data, session, locale);
   if (autoNavigation) yield { type: 'navigate', href: autoNavigation.href, label: autoNavigation.label };
 
+  const emitted = new Set<string>();
+  let summaryEmitted = false;
+  const takeBlocks = (blocks: readonly AssistantBlock[], fromIntent = false): AssistantBlock[] => {
+    const fresh = blocks.filter((block) => {
+      if (redundantBlock(block, data) || emitted.has(blockIdentity(block))) return false;
+      if (!fromIntent && summaryEmitted && block.type === 'status' && block.state === 'up') return false;
+      return true;
+    });
+    for (const block of fresh) {
+      emitted.add(blockIdentity(block));
+      if (block.type === 'summary') summaryEmitted = true;
+    }
+    return fresh;
+  };
+
+  const intent = takeBlocks(intentBlocks(lastUser, data, locale), true);
+  if (intent.length > 0) yield { type: 'blocks', blocks: intent };
+
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     const allowTools = round < MAX_TOOL_ROUNDS;
     const iterator = streamTurn(config, provider, allowTools ? ASSISTANT_TOOLS : null, signal);
@@ -422,7 +460,7 @@ export async function* runAssistant(
 
     for (const call of calls) {
       const outcome = await executeTool(call.name, call.arguments, data, session, locale);
-      const blocks = (outcome.blocks ?? []).filter((block) => !redundantBlock(block, data));
+      const blocks = takeBlocks(outcome.blocks ?? []);
       if (blocks.length > 0) {
         yield { type: 'blocks', blocks };
       }

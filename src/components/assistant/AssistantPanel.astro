@@ -376,6 +376,8 @@ const labels = {
 
     const blockKey = (block: AssistantBlock): string => {
       switch (block.type) {
+        case 'summary':
+          return 'summary';
         case 'status':
         case 'service':
           return `service:${block.serviceId}`;
@@ -403,6 +405,33 @@ const labels = {
         const key = blockKey(block);
         if (seen.has(key)) continue;
         seen.add(key);
+
+        if (block.type === 'summary') {
+          const href = safeHref(block.href);
+          const card = document.createElement(href ? 'a' : 'div');
+          card.className = 'assistant-card assistant-card--summary';
+          card.dataset.state = block.tone === 'ok' ? 'up' : block.tone === 'warn' ? 'down' : 'unknown';
+          if (href) (card as HTMLAnchorElement).href = href;
+          const dot = document.createElement('span');
+          dot.className = 'assistant-card__dot';
+          dot.setAttribute('aria-hidden', 'true');
+          const body = document.createElement('span');
+          body.className = 'assistant-card__body';
+          const title = document.createElement('strong');
+          title.textContent = block.title;
+          const text = document.createElement('small');
+          text.textContent = [block.text, block.asOf ? formatTime(block.asOf) : ''].filter(Boolean).join(' · ');
+          body.append(title, text);
+          card.append(dot, body);
+          if (href) {
+            const arrow = document.createElement('span');
+            arrow.className = 'assistant-card__arrow';
+            arrow.textContent = '→';
+            card.append(arrow);
+          }
+          wrap.append(card);
+          continue;
+        }
 
         if (block.type === 'status') {
           const href = safeHref(block.href);
@@ -1358,6 +1387,10 @@ const labels = {
   .assistant-card__arrow {
     color: var(--faint);
     flex: none;
+  }
+
+  .assistant-card--summary {
+    background: var(--surface-2);
   }
 
   .assistant-card--step {

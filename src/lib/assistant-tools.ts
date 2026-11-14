@@ -344,6 +344,60 @@ export function navigationFor(
 }
 
 /**
+ * Eine Statusfrage bekommt ihre Karte auch dann, wenn das Modell kein Werkzeug
+ * aufruft. Das ist keine zweite Wahrheit: Dieselben Daten, derselbe Filter.
+ */
+export function intentBlocks(query: string, data: AssistantData, locale: Locale): readonly AssistantBlock[] {
+  const lower = query.toLocaleLowerCase('de');
+  const has = (word: string): boolean =>
+    new RegExp(`(?:^|[\\s.,!?])${word}(?:$|[\\s.,!?])`, 'i').test(lower);
+  const statusIntent =
+    has('status') ||
+    has('störung') ||
+    has('gestört') ||
+    has('ausfall') ||
+    has('erreichbar') ||
+    has('down') ||
+    has('läuft') ||
+    has('zustand') ||
+    has('los');
+  if (!statusIntent) return [];
+
+  const matched = data.services.find((service) => lower.includes(localized(service, locale).toLocaleLowerCase('de')));
+  if (matched) return [statusBlock(matched, locale)];
+  if (data.page.route === 'status') return [];
+
+  const services = data.services;
+  const down = services.filter((service) => service.state === 'down').length;
+  const unmeasured = services.filter((service) => service.state === 'unknown' || service.state === 'unmonitored').length;
+  const asOf = services.reduce<number | null>((latest, service) => {
+    return service.asOf !== null && (latest === null || service.asOf > latest) ? service.asOf : latest;
+  }, null);
+  const tone = down > 0 ? 'warn' : unmeasured > 0 ? 'unknown' : 'ok';
+  const title =
+    down > 0
+      ? `${down} ${down === 1 ? 'Dienst' : 'Dienste'} nicht erreichbar`
+      : unmeasured > 0
+        ? `${unmeasured} ${unmeasured === 1 ? 'Dienst' : 'Dienste'} ohne aktuelle Messung`
+        : 'Alles erreichbar';
+  const text = `${services.length} ${services.length === 1 ? 'Dienst' : 'Dienste'} geprüft`;
+  const all = ['alle', 'aller', 'allen', 'jeder', 'jede', 'sämtliche', 'all'].some(has);
+  const cards = (all ? services : services.filter((service) => service.state !== 'up')).slice(0, 6);
+
+  return [
+    {
+      type: 'summary',
+      tone,
+      title,
+      text,
+      asOf,
+      href: pathFor(locale, 'status'),
+    },
+    ...cards.map((service) => statusBlock(service, locale)),
+  ];
+}
+
+/**
  * Führt einen Tool-Aufruf aus. Fehler werden als Daten an das Modell
  * zurückgegeben, nie als interne Ausnahme an den Browser.
  */

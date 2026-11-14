@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { AssistantData } from '../src/lib/assistant-context.ts';
-import { executeTool, navigationFor } from '../src/lib/assistant-tools.ts';
+import { executeTool, intentBlocks, navigationFor } from '../src/lib/assistant-tools.ts';
 import type { Session } from '../src/lib/session.ts';
 
 const data: AssistantData = {
@@ -162,4 +162,27 @@ test('an explicit open request resolves to a validated page', () => {
   assert.equal(navigationFor('Wie ist der Status?', data, session, 'de'), null);
   assert.equal(navigationFor('Öffne die Verwaltung.', data, session, 'de'), null);
   assert.equal(navigationFor('Öffne die Verwaltung.', data, { ...session, isAdmin: true }, 'de')?.href, '/admin/');
+});
+
+test('a status question yields a summary block even without a tool call', () => {
+  const blocks = intentBlocks('Was ist gerade gestört?', data, 'de');
+  assert.equal(blocks[0]?.type, 'summary');
+  if (blocks[0]?.type === 'summary') {
+    assert.equal(blocks[0].tone, 'unknown');
+    assert.match(blocks[0].title, /ohne aktuelle Messung/);
+  }
+  assert.equal(blocks[1]?.type, 'status');
+});
+
+test('an explicit all-services status question includes cards', () => {
+  const blocks = intentBlocks('Zeig mir den Status aller Dienste.', data, 'de');
+  assert.equal(blocks[0]?.type, 'summary');
+  assert.equal(blocks.filter((block) => block.type === 'status').length, 2);
+});
+
+test('a service status question narrows to that service', () => {
+  const blocks = intentBlocks('Wie ist der Status von Dateien?', data, 'de');
+  assert.equal(blocks.length, 1);
+  assert.equal(blocks[0]?.type, 'status');
+  assert.equal(blocks[0]?.type === 'status' ? blocks[0].serviceId : '', 'files');
 });
