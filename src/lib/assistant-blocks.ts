@@ -94,6 +94,8 @@ export type AssistantBlock =
   | {
       readonly type: 'confirm';
       readonly proposalId: string;
+      readonly tmdbId: number;
+      readonly mediaType: 'movie' | 'tv';
       readonly title: string;
       readonly description: string;
       readonly items: readonly { readonly label: string; readonly value: string }[];

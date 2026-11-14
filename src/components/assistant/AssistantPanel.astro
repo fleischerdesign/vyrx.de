@@ -792,6 +792,8 @@ const labels = {
         card.type = 'button';
         card.className = 'ui-media';
         card.dataset.status = block.status;
+        card.dataset.tmdbId = String(block.tmdbId);
+        card.dataset.mediaType = block.mediaType;
         card.setAttribute('aria-label', locale === 'de' ? `Details zu ${block.title}` : `Details for ${block.title}`);
         card.setAttribute('aria-haspopup', 'dialog');
 
@@ -1248,6 +1250,24 @@ const labels = {
         }
 
         if (block.type === 'confirm') {
+          const selected = turn.querySelector(
+            `.ui-media[data-tmdb-id="${block.tmdbId}"][data-media-type="${block.mediaType}"]`,
+          );
+          if (selected) {
+            const grids = [...turn.querySelectorAll('.ui-media-grid')];
+            for (const media of turn.querySelectorAll('.ui-media')) {
+              if (media !== selected) media.remove();
+            }
+            const grid = selected.closest('.ui-media-grid');
+            for (const other of grids) {
+              if (other !== grid) other.remove();
+            }
+            if (grid) {
+              grid.classList.add('ui-media-grid--selected');
+              if (grid.querySelectorAll('.ui-media').length === 0) grid.remove();
+            }
+            selected.classList.add('ui-media--selected');
+          }
           const card = document.createElement('div');
           card.className = 'ui-confirm';
           card.dataset.tone = block.tone ?? 'accent';
@@ -1289,6 +1309,13 @@ const labels = {
           result.hidden = true;
 
           const finish = (tone: string, message: string): void => {
+            const selectedStatus = document.querySelector(
+              `.ui-media[data-tmdb-id="${block.tmdbId}"][data-media-type="${block.mediaType}"] .ui-media__status`,
+            ) as HTMLElement | null;
+            if (selectedStatus) {
+              selectedStatus.dataset.status = tone === 'ok' ? 'requested' : selectedStatus.dataset.status;
+              selectedStatus.textContent = tone === 'ok' ? (locale === 'de' ? 'angefragt' : 'requested') : selectedStatus.textContent;
+            }
             result.dataset.tone = tone;
             result.textContent = message;
             result.hidden = false;
@@ -3405,6 +3432,16 @@ const labels = {
     .ui-media-dialog__dismiss {
       flex: 1;
     }
+  }
+
+  .ui-media-grid--selected,
+  .ui-media-grid:has(> .ui-media:only-child) {
+    grid-template-columns: minmax(0, 160px);
+  }
+
+  .ui-media--selected {
+    border-color: var(--accent-soft-line);
+    box-shadow: 0 0 0 1px var(--accent-soft-line);
   }
 
   @media (max-width: 340px) {

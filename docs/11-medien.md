@@ -57,6 +57,9 @@ Request/Canary steht noch aus.**
   `/api/media/title` Laufzeit, Tagline, Genres, Regie, Cast,
   Bewertungsanzahl und – wenn vorhanden – den YouTube-Trailer nach. Der
   Trailer liegt als Play-Overlay auf dem Backdrop, nicht als Textlink.
+- Sobald eine Bestätigungskarte vorbereitet ist, reduziert die Oberfläche die
+  Trefferliste auf den ausgewählten Titel; die übrigen Karten verschwinden.
+  Nach erfolgreicher Anfrage wechselt die Karte auf „angefragt“.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
 - **74 Tests** und vollständiger Build grün.

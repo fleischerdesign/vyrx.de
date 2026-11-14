@@ -866,6 +866,8 @@ export async function executeTool(
               {
                 type: 'confirm',
                 proposalId,
+                tmdbId: item.tmdbId,
+                mediaType: 'movie',
                 title: locale === 'de' ? 'Anfrage bestätigen' : 'Confirm request',
                 description:
                   locale === 'de'
