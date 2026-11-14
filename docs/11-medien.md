@@ -41,12 +41,15 @@ Request/Canary steht noch aus.**
 - `media_user` speichert die eindeutige Zuordnung Portal-Person → Seerr-ID.
   `media-users` ist Pflicht; ein reiner `family`-Nutzer erreicht Seerr nicht.
 - Der Seerr-Client setzt bei jedem Aufruf `X-Api-Key` und `X-Api-User`.
+- Der Mediendienst wird über die Fleet-ID gefunden: Produktion heißt er
+  `jellyseerr`, die lokale Fixture `media-requests`; beide werden unterstützt.
+  Das war die Ursache für das frühere `not_visible`.
 - Assistent-Werkzeuge: `media_search`, `media_discover`, `media_title`.
 - Native Medienkarten mit Poster-Proxy, Status, Jahr, Kurztext und
   medienbezogenen Follow-ups.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
-- **72 Tests** und vollständiger Build grün.
+- **73 Tests** und vollständiger Build grün.
 
 Phase 1 ist live. Phase 2 ist implementiert, aber noch nicht scharf; TV-Staffeln,
 Cancel und Jellyfin-Personalisierung folgen danach.
@@ -69,7 +72,7 @@ Die schreibende Strecke ist implementiert und über
 - Audit und Rate Limit (3/Minute, 20/Tag) sind eingebaut.
 - Mit einem Mock-Seerr end-to-end geprüft: Confirm → POST → 201, Header
   `X-Api-User: 2`, Body `mediaId: 438631`; kein echter Schreibzugriff.
-- **72 Tests** und der vollständige Build sind grün.
+- **73 Tests** und der vollständige Build sind grün.
 
 **Der erste echte Request steht noch aus:** Der Flow ist aktiv, aber noch mit
 keinem realen Film/User durchgespielt. Der Mock-End-to-End-Test ist grün.

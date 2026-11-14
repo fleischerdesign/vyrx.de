@@ -87,10 +87,21 @@ const apiKey = (): string => {
   return value;
 };
 
+const mediaServiceIds = (): readonly string[] => {
+  const configured = process.env.PORTAL_MEDIA_SERVICE_ID?.trim();
+  return configured ? [configured] : ['jellyseerr', 'media-requests'];
+};
+
+/** Der vertraglich sichtbare Mediendienst; Produktion heißt `jellyseerr`, die Fixture `media-requests`. */
+export const mediaService = (session: Session): Session['services'][number] | null => {
+  const ids = mediaServiceIds();
+  return session.services.find((entry) => ids.includes(entry.id)) ?? null;
+};
+
 const base = (session: Session): string => {
   const override = process.env.PORTAL_SEERR_URL?.trim();
   if (override) return override.endsWith('/') ? override : `${override}/`;
-  const service = session.services.find((entry) => entry.id === 'media-requests');
+  const service = mediaService(session);
   if (!service) throw new SeerrError('not_configured');
   return service.url.endsWith('/') ? service.url : `${service.url}/`;
 };

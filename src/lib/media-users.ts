@@ -10,7 +10,7 @@
 import type { Identity } from './identity.ts';
 import type { Session } from './session.ts';
 import { mediaUserOf, removeMediaUser, saveMediaUser, type MediaUserMapping } from './store.ts';
-import { seerrUser, seerrUsers, SeerrError, type SeerrUser } from './seerr.ts';
+import { mediaService, seerrUser, seerrUsers, SeerrError, type SeerrUser } from './seerr.ts';
 
 export type MediaUserFailure =
   | 'not_signed_in'
@@ -23,6 +23,7 @@ export type MediaUserFailure =
 export interface MediaUserSuccess {
   readonly user: SeerrUser;
   readonly mapping: MediaUserMapping;
+  readonly serviceId: string;
 }
 
 export type MediaUserResult = MediaUserSuccess | { readonly reason: MediaUserFailure };
@@ -70,13 +71,14 @@ export async function resolveMediaUser(session: Session): Promise<MediaUserResul
   const identity = session.identity;
   if (!identity) return { reason: 'not_signed_in' };
   if (!identity.groups.includes('media-users')) return { reason: 'not_allowed' };
-  if (!session.services.some((service) => service.id === 'media-requests')) return { reason: 'not_visible' };
+  const service = mediaService(session);
+  if (!service) return { reason: 'not_visible' };
 
   const stored = mediaUserOf(identity.username);
   if (stored) {
     try {
       const user = await seerrUser(session, stored.seerrUserId);
-      if (user) return { user, mapping: stored };
+      if (user) return { user, mapping: stored, serviceId: service.id };
       removeMediaUser(identity.username);
     } catch (error) {
       if (error instanceof SeerrError && error.code === 'unavailable') return { reason: 'seerr_unavailable' };
@@ -97,7 +99,7 @@ export async function resolveMediaUser(session: Session): Promise<MediaUserResul
     }
 
     if (!match) return { reason: 'not_linked' };
-    return { user: match, mapping: remember(identity, match) };
+    return { user: match, mapping: remember(identity, match), serviceId: service.id };
   } catch (error) {
     if (error instanceof SeerrError) return { reason: 'seerr_unavailable' };
     return { reason: 'seerr_unavailable' };

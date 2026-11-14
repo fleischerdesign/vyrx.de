@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { resolveMediaUser } from '../src/lib/media-users.ts';
-import { mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
+import { mediaService, mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
 import type { Session } from '../src/lib/session.ts';
 import {
   closeStore,
@@ -231,4 +231,11 @@ test('a proposal is actor-scoped and can be claimed once', () => {
     else process.env.PORTAL_STORE = previous;
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('the media service supports the production jellyseerr id and the fixture id', () => {
+  const production = { services: [{ id: 'jellyseerr', url: 'https://seerr.example' }] } as unknown as Session;
+  const fixture = { services: [{ id: 'media-requests', url: 'https://seerr.example' }] } as unknown as Session;
+  assert.equal(mediaService(production)?.id, 'jellyseerr');
+  assert.equal(mediaService(fixture)?.id, 'media-requests');
 });

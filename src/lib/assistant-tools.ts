@@ -279,8 +279,8 @@ const mediaReasonMessage = (reason: string, locale: Locale): string => {
       en: 'Your account is not in media-users; media requests are not enabled for you.',
     },
     not_visible: {
-      de: 'Der Dienst Medienwünsche ist für dich nicht sichtbar.',
-      en: 'The media requests service is not visible to you.',
+      de: 'Der Dienst für Medienwünsche ist für dich nicht sichtbar.',
+      en: 'The media request service is not visible to you.',
     },
     not_linked: {
       de: 'Dein Seerr-Konto ist noch nicht verknüpft. Prüfe im Konto, ob deine E-Mail mit Seerr übereinstimmt.',
@@ -831,7 +831,7 @@ export async function executeTool(
           const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
           const proposalId = createMediaProposal({
             actor: identity.username,
-            serviceId: 'media-requests',
+            serviceId: mediaUser.serviceId,
             actionId: 'seerr.request',
             payload: {
               mediaType: 'movie',
