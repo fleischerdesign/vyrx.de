@@ -41,6 +41,8 @@ Request/Canary steht noch aus.**
 - `media_user` speichert die eindeutige Zuordnung Portal-Person → Seerr-ID.
   `media-users` ist Pflicht; ein reiner `family`-Nutzer erreicht Seerr nicht.
 - Der Seerr-Client setzt bei jedem Aufruf `X-Api-Key` und `X-Api-User`.
+  Lesende GETs werden bei 5xx/Netzfehlern genau einmal wiederholt; POSTs
+  werden nie blind wiederholt.
 - Der Mediendienst wird über die Fleet-ID gefunden: Produktion heißt er
   `jellyseerr`, die lokale Fixture `media-requests`; beide werden unterstützt.
   Das war die Ursache für das frühere `not_visible`.
@@ -49,8 +51,8 @@ Request/Canary steht noch aus.**
   bleibt bewusst ruhig: Ein Klick öffnet ein Modal (Desktop) bzw. ein
   Bottom-Sheet (Mobil) mit Backdrop, Poster, Beschreibung, Status und
   „Anfragen“; der Request läuft über den bestätigten Flow. Beim Öffnen lädt
-  `/api/media/title` Laufzeit, Tagline, Genres, Regie, Cast und
-  Bewertungsanzahl nach.
+  `/api/media/title` Laufzeit, Tagline, Genres, Regie, Cast,
+  Bewertungsanzahl und – wenn vorhanden – den YouTube-Trailer nach.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
 - **73 Tests** und vollständiger Build grün.

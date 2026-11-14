@@ -71,6 +71,7 @@ export type AssistantBlock =
       readonly voteCount: number | null;
       readonly numberOfSeasons: number | null;
       readonly numberOfEpisodes: number | null;
+      readonly trailerKey: string | null;
       readonly status: 'available' | 'requested' | 'processing' | 'partial' | 'unknown' | 'blocklisted';
       readonly statusText: string;
       readonly requestable: boolean;

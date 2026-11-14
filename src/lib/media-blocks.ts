@@ -21,6 +21,7 @@ export const mediaBlock = (item: MediaItem): AssistantBlock => ({
   voteCount: item.voteCount,
   numberOfSeasons: item.numberOfSeasons,
   numberOfEpisodes: item.numberOfEpisodes,
+  trailerKey: item.trailerKey,
   status: item.status,
   statusText: item.statusText,
   requestable: item.requestable,

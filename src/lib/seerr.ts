@@ -63,6 +63,7 @@ export interface MediaItem {
   readonly voteCount: number | null;
   readonly numberOfSeasons: number | null;
   readonly numberOfEpisodes: number | null;
+  readonly trailerKey: string | null;
   readonly status: MediaStatusKey;
   readonly statusText: string;
   readonly requestable: boolean;
@@ -88,6 +89,7 @@ interface RawMedia {
   createdBy?: unknown;
   numberOfSeasons?: unknown;
   numberOfEpisodes?: unknown;
+  relatedVideos?: unknown;
   mediaInfo?: { status?: unknown; status4k?: unknown; requests?: unknown } | null;
 }
 
@@ -143,16 +145,35 @@ async function request<T>(
   if (options.userId !== undefined) headers.set('X-Api-User', String(options.userId));
   if (options.body !== undefined) headers.set('content-type', 'application/json');
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: options.method ?? 'GET',
+  const method = options.method ?? 'GET';
+  const send = (): Promise<Response> =>
+    fetch(url, {
+      method,
       headers,
       ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
       signal: AbortSignal.timeout(8000),
     });
+
+  const pause = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 150));
+  let response: Response;
+  try {
+    response = await send();
   } catch {
-    throw new SeerrError('unavailable');
+    if (method !== 'GET') throw new SeerrError('unavailable');
+    try {
+      await pause();
+      response = await send();
+    } catch {
+      throw new SeerrError('unavailable');
+    }
+  }
+  if (method === 'GET' && response.status >= 500) {
+    try {
+      await pause();
+      response = await send();
+    } catch {
+      throw new SeerrError('unavailable');
+    }
   }
 
   if (response.status === 401 || response.status === 403) throw new SeerrError('forbidden', response.status);
@@ -283,6 +304,16 @@ const mediaFromRaw = (
       : Array.isArray(row.episodeRunTime)
         ? (row.episodeRunTime.find((value) => typeof value === 'number' && value > 0) as number | undefined) ?? null
         : null;
+  const relatedVideos = Array.isArray(row.relatedVideos)
+    ? row.relatedVideos.flatMap((entry) => {
+        if (entry === null || typeof entry !== 'object') return [];
+        const video = entry as Record<string, unknown>;
+        const key = stringOrNull(video.key);
+        return video.site === 'YouTube' && video.type === 'Trailer' && key && /^[A-Za-z0-9_-]{6,20}$/.test(key)
+          ? [key]
+          : [];
+      })
+    : [];
   return {
     tmdbId: row.id,
     mediaType,
@@ -306,6 +337,7 @@ const mediaFromRaw = (
       typeof row.numberOfSeasons === 'number' && Number.isFinite(row.numberOfSeasons) ? row.numberOfSeasons : null,
     numberOfEpisodes:
       typeof row.numberOfEpisodes === 'number' && Number.isFinite(row.numberOfEpisodes) ? row.numberOfEpisodes : null,
+    trailerKey: relatedVideos[0] ?? null,
     status,
     statusText: mediaStatusText(status, locale),
     requestable: status === 'unknown',
