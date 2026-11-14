@@ -271,6 +271,49 @@ const mediaSuggestions = (title: string | null | undefined, locale: Locale): rea
 
 const mediaRequestsEnabled = (): boolean => process.env.PORTAL_MEDIA_REQUESTS === 'on';
 
+const mediaReasonMessage = (reason: string, locale: Locale): string => {
+  const messages: Record<string, { de: string; en: string }> = {
+    not_signed_in: { de: 'Bitte melde dich erneut an.', en: 'Please sign in again.' },
+    not_allowed: {
+      de: 'Dein Konto ist nicht in der Gruppe media-users; Medienwünsche sind für dich nicht freigeschaltet.',
+      en: 'Your account is not in media-users; media requests are not enabled for you.',
+    },
+    not_visible: {
+      de: 'Der Dienst Medienwünsche ist für dich nicht sichtbar.',
+      en: 'The media requests service is not visible to you.',
+    },
+    not_linked: {
+      de: 'Dein Seerr-Konto ist noch nicht verknüpft. Prüfe im Konto, ob deine E-Mail mit Seerr übereinstimmt.',
+      en: 'Your Seerr account is not linked yet. Check in your account whether your email matches Seerr.',
+    },
+    ambiguous: {
+      de: 'Dein Seerr-Konto ist nicht eindeutig zugeordnet.',
+      en: 'Your Seerr account is ambiguous.',
+    },
+    seerr_unavailable: {
+      de: 'Seerr ist gerade nicht erreichbar.',
+      en: 'Seerr is currently unavailable.',
+    },
+    not_found: { de: 'Der Titel wurde nicht gefunden.', en: 'The title was not found.' },
+    not_configured: { de: 'Die Medienanbindung ist nicht konfiguriert.', en: 'Media access is not configured.' },
+    forbidden: { de: 'Seerr hat den Zugriff verweigert.', en: 'Seerr denied access.' },
+    rate: { de: 'Zu viele Anfragen; bitte kurz warten.', en: 'Too many requests; please wait.' },
+    disabled: { de: 'Anfragen sind noch nicht freigeschaltet.', en: 'Requests are not enabled yet.' },
+    already_available: { de: 'Der Titel ist bereits verfügbar.', en: 'The title is already available.' },
+    already_requested: { de: 'Der Titel ist bereits angefragt oder in Bearbeitung.', en: 'The title is already requested or processing.' },
+    blocklisted: { de: 'Der Titel ist gesperrt.', en: 'The title is blocklisted.' },
+    quota: { de: 'Dein Seerr-Limit ist erreicht.', en: 'Your Seerr quota is exhausted.' },
+    unsupported_media_type: { de: 'In dieser Phase sind nur Filme möglich.', en: 'Only movies are supported in this phase.' },
+    invalid_id: { de: 'Die Titel-ID ist ungültig.', en: 'The title id is invalid.' },
+  };
+  return messages[reason]?.[locale] ?? reason;
+};
+
+const mediaFailure = (code: string, locale: Locale): { error: string; message: string } => ({
+  error: code,
+  message: mediaReasonMessage(code, locale),
+});
+
 const mediaError = (error: unknown): string => {
   if (error instanceof SeerrError) {
     if (error.code === 'not_found') return 'not_found';
@@ -699,7 +742,9 @@ export async function executeTool(
         const query = asString(args.query, 200);
         if (!query) return { content: { error: 'invalid_query' } };
         const mediaUser = await resolveMediaUser(session);
-        if ('reason' in mediaUser) return { content: { error: mediaUser.reason } };
+        if ('reason' in mediaUser) {
+          return { content: mediaFailure(mediaUser.reason, locale) };
+        }
         try {
           const items = await searchMedia(session, mediaUser.user.id, query, locale);
           return {
@@ -707,7 +752,7 @@ export async function executeTool(
             blocks: [...items.slice(0, 6).map(mediaBlock), ...mediaSuggestions(items[0]?.title, locale)],
           };
         } catch (error) {
-          return { content: { error: mediaError(error) } };
+          return { content: mediaFailure(mediaError(error), locale) };
         }
       }
 
@@ -724,7 +769,9 @@ export async function executeTool(
           return { content: { error: 'missing_id' } };
         }
         const mediaUser = await resolveMediaUser(session);
-        if ('reason' in mediaUser) return { content: { error: mediaUser.reason } };
+        if ('reason' in mediaUser) {
+          return { content: mediaFailure(mediaUser.reason, locale) };
+        }
         try {
           const items = await discoverMedia(session, mediaUser.user.id, kind, mediaType, locale, tmdbId ?? undefined);
           return {
@@ -741,10 +788,12 @@ export async function executeTool(
         const tmdbId = asPositiveInt(args.tmdbId);
         if (!mediaType || !tmdbId) return { content: { error: 'invalid_title' } };
         const mediaUser = await resolveMediaUser(session);
-        if ('reason' in mediaUser) return { content: { error: mediaUser.reason } };
+        if ('reason' in mediaUser) {
+          return { content: mediaFailure(mediaUser.reason, locale) };
+        }
         try {
           const item = await mediaTitle(session, mediaUser.user.id, mediaType, tmdbId, locale);
-          if (!item) return { content: { error: 'not_found' } };
+          if (!item) return { content: mediaFailure('not_found', locale) };
           return {
             content: { result: mediaSummary([item])[0] },
             blocks: [mediaBlock(item), ...mediaSuggestions(item.title, locale)],
@@ -755,26 +804,28 @@ export async function executeTool(
       }
 
       case 'media_propose_request': {
-        if (!mediaRequestsEnabled()) return { content: { error: 'disabled' } };
-        if (args.mediaType !== 'movie') return { content: { error: 'unsupported_media_type' } };
+        if (!mediaRequestsEnabled()) return { content: mediaFailure('disabled', locale) };
+        if (args.mediaType !== 'movie') return { content: mediaFailure('unsupported_media_type', locale) };
         const tmdbId = asPositiveInt(args.tmdbId);
-        if (!tmdbId) return { content: { error: 'invalid_id' } };
+        if (!tmdbId) return { content: mediaFailure('invalid_id', locale) };
         const mediaUser = await resolveMediaUser(session);
-        if ('reason' in mediaUser) return { content: { error: mediaUser.reason } };
+        if ('reason' in mediaUser) {
+          return { content: mediaFailure(mediaUser.reason, locale) };
+        }
         const identity = session.identity;
         if (!identity) return { content: { error: 'not_signed_in' } };
         try {
           const item = await mediaTitle(session, mediaUser.user.id, 'movie', tmdbId, locale);
           if (!item) return { content: { error: 'not_found' } };
-          if (item.status === 'available') return { content: { error: 'already_available' } };
+          if (item.status === 'available') return { content: mediaFailure('already_available', locale) };
           if (item.status === 'requested' || item.status === 'processing' || item.status === 'partial') {
-            return { content: { error: 'already_requested' } };
+            return { content: mediaFailure('already_requested', locale) };
           }
-          if (item.status === 'blocklisted') return { content: { error: 'blocklisted' } };
+          if (item.status === 'blocklisted') return { content: mediaFailure('blocklisted', locale) };
 
           const quota = await seerrQuota(session, mediaUser.user.id);
           if (quota.movie.restricted || (quota.movie.limit > 0 && quota.movie.used >= quota.movie.limit)) {
-            return { content: { error: 'quota' } };
+            return { content: mediaFailure('quota', locale) };
           }
 
           const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
