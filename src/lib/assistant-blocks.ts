@@ -53,6 +53,20 @@ export type AssistantBlock =
       readonly href: string;
     }
   | {
+      readonly type: 'media';
+      readonly tmdbId: number;
+      readonly mediaType: 'movie' | 'tv';
+      readonly title: string;
+      readonly year: string | null;
+      readonly overview: string;
+      readonly posterPath: string | null;
+      readonly backdropPath: string | null;
+      readonly rating: number | null;
+      readonly status: 'available' | 'requested' | 'processing' | 'partial' | 'unknown' | 'blocklisted';
+      readonly statusText: string;
+      readonly requestable: boolean;
+    }
+  | {
       readonly type: 'maintenance';
       readonly serviceId: string | null;
       readonly serviceName: string | null;

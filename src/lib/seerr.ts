@@ -1,0 +1,290 @@
+/*
+ * Seerr als Medienquelle.
+ *
+ * Der API-Key ist ein Instanzschlüssel und bleibt serverseitig. Jeder Aufruf
+ * für eine Person trägt zusätzlich `X-Api-User`; damit gelten deren Sprache,
+ * Freigaben, Quota und Requests. Es gibt keinen stillen Fallback auf den
+ * Key-Besitzer.
+ *
+ * Diese Datei liest. Schreibende Aufrufe kommen erst mit der Proposal-Stufe
+ * und niemals direkt aus einem Modell-Tool.
+ */
+
+import { readFileSync } from 'node:fs';
+import type { Locale } from './locale.ts';
+import type { Session } from './session.ts';
+
+export type SeerrErrorCode =
+  | 'not_configured'
+  | 'not_found'
+  | 'forbidden'
+  | 'duplicate'
+  | 'rate'
+  | 'unavailable';
+
+export class SeerrError extends Error {
+  readonly code: SeerrErrorCode;
+  readonly status: number | null;
+
+  constructor(code: SeerrErrorCode, status: number | null = null) {
+    super(code);
+    this.name = 'SeerrError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export interface SeerrUser {
+  readonly id: number;
+  readonly email: string | null;
+  readonly username: string | null;
+  readonly jellyfinUsername: string | null;
+  readonly displayName: string;
+  readonly permissions: number;
+}
+
+export type MediaStatusKey = 'available' | 'requested' | 'processing' | 'partial' | 'unknown' | 'blocklisted';
+
+export interface MediaItem {
+  readonly tmdbId: number;
+  readonly mediaType: 'movie' | 'tv';
+  readonly title: string;
+  readonly year: string | null;
+  readonly overview: string;
+  readonly posterPath: string | null;
+  readonly backdropPath: string | null;
+  readonly rating: number | null;
+  readonly status: MediaStatusKey;
+  readonly statusText: string;
+  readonly requestable: boolean;
+}
+
+interface RawMedia {
+  id?: unknown;
+  mediaType?: unknown;
+  title?: unknown;
+  name?: unknown;
+  releaseDate?: unknown;
+  firstAirDate?: unknown;
+  overview?: unknown;
+  posterPath?: unknown;
+  backdropPath?: unknown;
+  voteAverage?: unknown;
+  mediaInfo?: { status?: unknown; status4k?: unknown; requests?: unknown } | null;
+}
+
+const apiKey = (): string => {
+  const file = process.env.PORTAL_SEERR_API_KEY_FILE?.trim();
+  if (file) {
+    try {
+      return readFileSync(file, 'utf8').trim();
+    } catch {
+      throw new SeerrError('not_configured');
+    }
+  }
+  const value = process.env.PORTAL_SEERR_API_KEY?.trim();
+  if (!value) throw new SeerrError('not_configured');
+  return value;
+};
+
+const base = (session: Session): string => {
+  const override = process.env.PORTAL_SEERR_URL?.trim();
+  if (override) return override.endsWith('/') ? override : `${override}/`;
+  const service = session.services.find((entry) => entry.id === 'media-requests');
+  if (!service) throw new SeerrError('not_configured');
+  return service.url.endsWith('/') ? service.url : `${service.url}/`;
+};
+
+async function request<T>(
+  session: Session,
+  path: string,
+  options: { userId?: number; query?: Record<string, string | number | undefined> } = {},
+): Promise<T> {
+  const url = new URL(`api/v1/${path.replace(/^\//, '')}`, base(session));
+  for (const [key, value] of Object.entries(options.query ?? {})) {
+    if (value !== undefined && value !== '') url.searchParams.set(key, String(value));
+  }
+
+  const headers = new Headers({ 'X-Api-Key': apiKey(), accept: 'application/json' });
+  if (options.userId !== undefined) headers.set('X-Api-User', String(options.userId));
+
+  let response: Response;
+  try {
+    response = await fetch(url, { headers, signal: AbortSignal.timeout(8000) });
+  } catch {
+    throw new SeerrError('unavailable');
+  }
+
+  if (response.status === 401 || response.status === 403) throw new SeerrError('forbidden', response.status);
+  if (response.status === 404) throw new SeerrError('not_found', response.status);
+  if (response.status === 409) throw new SeerrError('duplicate', response.status);
+  if (response.status === 429) throw new SeerrError('rate', response.status);
+  if (!response.ok) throw new SeerrError('unavailable', response.status);
+
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new SeerrError('unavailable', response.status);
+  }
+}
+
+const stringOrNull = (value: unknown): string | null => (typeof value === 'string' && value.trim() ? value.trim() : null);
+
+const userFromRaw = (value: unknown): SeerrUser | null => {
+  if (value === null || typeof value !== 'object') return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== 'number') return null;
+  const username = stringOrNull(row.username);
+  const email = stringOrNull(row.email);
+  const jellyfinUsername = stringOrNull(row.jellyfinUsername);
+  const displayName = stringOrNull(row.displayName) ?? username ?? email ?? `Seerr ${row.id}`;
+  return {
+    id: row.id,
+    email,
+    username,
+    jellyfinUsername,
+    displayName,
+    permissions: typeof row.permissions === 'number' ? row.permissions : 0,
+  };
+};
+
+export async function seerrUsers(session: Session, query?: string): Promise<readonly SeerrUser[]> {
+  const body = await request<{ results?: unknown[] }>(session, 'user', {
+    query: { take: 50, ...(query ? { q: query } : {}) },
+  });
+  return (body.results ?? []).flatMap((entry) => {
+    const user = userFromRaw(entry);
+    return user ? [user] : [];
+  });
+}
+
+export async function seerrUser(session: Session, userId: number): Promise<SeerrUser | null> {
+  try {
+    return userFromRaw(await request<unknown>(session, `user/${userId}`));
+  } catch (error) {
+    if (error instanceof SeerrError && error.code === 'not_found') return null;
+    throw error;
+  }
+}
+
+const mediaStatusText = (status: MediaStatusKey, locale: Locale): string => {
+  const text: Record<MediaStatusKey, { de: string; en: string }> = {
+    available: { de: 'verfügbar', en: 'available' },
+    requested: { de: 'angefragt', en: 'requested' },
+    processing: { de: 'wird bearbeitet', en: 'processing' },
+    partial: { de: 'teilweise verfügbar', en: 'partially available' },
+    unknown: { de: 'nicht angefragt', en: 'not requested' },
+    blocklisted: { de: 'gesperrt', en: 'blocklisted' },
+  };
+  return text[status][locale];
+};
+
+const statusOf = (mediaInfo: RawMedia['mediaInfo']): MediaStatusKey => {
+  const status = mediaInfo?.status;
+  if (status === 5) return 'available';
+  if (status === 2) return 'requested';
+  if (status === 3) return 'processing';
+  if (status === 4) return 'partial';
+  if (status === 6) return 'blocklisted';
+  return 'unknown';
+};
+
+const mediaFromRaw = (
+  value: unknown,
+  locale: Locale,
+  fallbackType?: 'movie' | 'tv',
+): MediaItem | null => {
+  if (value === null || typeof value !== 'object') return null;
+  const row = value as RawMedia;
+  if (typeof row.id !== 'number') return null;
+  const mediaType = row.mediaType === 'movie' || row.mediaType === 'tv' ? row.mediaType : fallbackType;
+  if (!mediaType) return null;
+  const title = stringOrNull(row.title) ?? stringOrNull(row.name);
+  if (!title) return null;
+  const date = stringOrNull(row.releaseDate) ?? stringOrNull(row.firstAirDate);
+  const status = statusOf(row.mediaInfo);
+  return {
+    tmdbId: row.id,
+    mediaType,
+    title,
+    year: date?.slice(0, 4) ?? null,
+    overview: stringOrNull(row.overview) ?? '',
+    posterPath: stringOrNull(row.posterPath),
+    backdropPath: stringOrNull(row.backdropPath),
+    rating:
+      typeof row.voteAverage === 'number' && Number.isFinite(row.voteAverage) && row.voteAverage > 0
+        ? row.voteAverage
+        : null,
+    status,
+    statusText: mediaStatusText(status, locale),
+    requestable: status === 'unknown',
+  };
+};
+
+const mediaList = (value: unknown, locale: Locale): readonly MediaItem[] => {
+  if (value === null || typeof value !== 'object') return [];
+  const results = (value as { results?: unknown[] }).results;
+  if (!Array.isArray(results)) return [];
+  return results.flatMap((entry) => {
+    const media = mediaFromRaw(entry, locale);
+    return media ? [media] : [];
+  });
+};
+
+export async function searchMedia(session: Session, userId: number, query: string, locale: Locale): Promise<readonly MediaItem[]> {
+  const body = await request<unknown>(session, 'search', { userId, query: { query, language: locale } });
+  return mediaList(body, locale);
+}
+
+export type DiscoverKind = 'trending' | 'upcoming' | 'similar' | 'recommendations' | 'popular';
+
+export async function discoverMedia(
+  session: Session,
+  userId: number,
+  kind: DiscoverKind,
+  mediaType: 'movie' | 'tv',
+  locale: Locale,
+  tmdbId?: number,
+): Promise<readonly MediaItem[]> {
+  let path: string;
+  switch (kind) {
+    case 'trending':
+      path = `discover/trending?mediaType=${mediaType}&timeWindow=week&language=${encodeURIComponent(locale)}`;
+      break;
+    case 'upcoming':
+      path = `discover/${mediaType === 'movie' ? 'movies' : 'tv'}/upcoming?language=${encodeURIComponent(locale)}`;
+      break;
+    case 'similar':
+      if (!tmdbId) throw new SeerrError('not_found');
+      path = `${mediaType}/${tmdbId}/similar?language=${encodeURIComponent(locale)}`;
+      break;
+    case 'recommendations':
+      if (!tmdbId) throw new SeerrError('not_found');
+      path = `${mediaType}/${tmdbId}/recommendations?language=${encodeURIComponent(locale)}`;
+      break;
+    case 'popular':
+      path = `discover/${mediaType === 'movie' ? 'movies' : 'tv'}?sortBy=popularity.desc&language=${encodeURIComponent(locale)}`;
+      break;
+  }
+  const body = await request<unknown>(session, path, { userId });
+  return mediaList(body, locale);
+}
+
+export async function mediaTitle(
+  session: Session,
+  userId: number,
+  mediaType: 'movie' | 'tv',
+  tmdbId: number,
+  locale: Locale,
+): Promise<MediaItem | null> {
+  try {
+    return mediaFromRaw(
+      await request<unknown>(session, `${mediaType}/${tmdbId}`, { userId, query: { language: locale } }),
+      locale,
+      mediaType,
+    );
+  } catch (error) {
+    if (error instanceof SeerrError && error.code === 'not_found') return null;
+    throw error;
+  }
+}

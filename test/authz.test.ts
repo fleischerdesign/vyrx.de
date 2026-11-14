@@ -6,7 +6,13 @@ import { fleetFixture } from './fleet.test.ts';
 
 const fleet = fleetFixture();
 
-const who = (groups: readonly string[]): Identity => ({ username: 'person', name: 'Person', groups });
+const who = (groups: readonly string[]): Identity => ({
+  username: 'person',
+  name: 'Person',
+  email: 'person@example.test',
+  uid: 'person-uid',
+  groups,
+});
 
 test('a guest sees nothing', () => {
   assert.deepEqual(visibleServices(fleet, null), []);

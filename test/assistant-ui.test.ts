@@ -40,7 +40,7 @@ const data: AssistantData = {
 };
 
 const session: Session = {
-  identity: { username: 'anna', name: 'Anna', groups: ['family'] },
+  identity: { username: 'anna', name: 'Anna', email: 'anna@example.test', uid: 'anna-uid', groups: ['family'] },
   fleet: null,
   isAdmin: false,
   services: [],

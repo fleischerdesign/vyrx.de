@@ -16,6 +16,8 @@ import { isDevBuild } from './env.ts';
 export interface Identity {
   readonly username: string;
   readonly name: string;
+  readonly email: string | null;
+  readonly uid: string | null;
   readonly groups: readonly string[];
 }
 
@@ -26,7 +28,13 @@ function devIdentity(): Identity | null {
     .split(',')
     .map((group) => group.trim())
     .filter(Boolean);
-  return { username, name: process.env.PORTAL_DEV_NAME?.trim() || username, groups };
+  return {
+    username,
+    name: process.env.PORTAL_DEV_NAME?.trim() || username,
+    email: process.env.PORTAL_DEV_EMAIL?.trim() || null,
+    uid: process.env.PORTAL_DEV_UID?.trim() || null,
+    groups,
+  };
 }
 
 export function readIdentity(request: Request): Identity | null {
@@ -43,6 +51,8 @@ export function readIdentity(request: Request): Identity | null {
   return {
     username,
     name: request.headers.get('x-authentik-name')?.trim() || username,
+    email: request.headers.get('x-authentik-email')?.trim() || null,
+    uid: request.headers.get('x-authentik-uid')?.trim() || null,
     groups,
   };
 }

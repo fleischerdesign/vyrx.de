@@ -2,13 +2,17 @@
  * Die internen Werkzeuge des Assistenten.
  *
  * Sie lesen ausschließlich Daten, die die Sitzung bereits freigegeben hat:
- * sichtbare Dienste, lesbare Artikel, gemessene Zustände. Es gibt kein
- * Dienst-API, kein MCP und keine Aktion. `open_page` gibt nur eine geprüfte
- * Adresse zurück; der Client entscheidet, ob er sie öffnet.
+ * sichtbare Dienste, lesbare Artikel, gemessene Zustände und die für die
+ * Person freigegebene Seerr-Sicht. Es gibt kein MCP und keine Aktion;
+ * `open_page` gibt nur eine geprüfte Adresse zurück, Medienwerkzeuge lesen
+ * nur. Der Client entscheidet, was er öffnet.
  */
 
 import type { AssistantBlock } from './assistant-blocks.ts';
 import { validateUiNodes } from './assistant-ui.ts';
+import { mediaBlock } from './media-blocks.ts';
+import { resolveMediaUser } from './media-users.ts';
+import { discoverMedia, mediaTitle, searchMedia, SeerrError, type DiscoverKind, type MediaItem } from './seerr.ts';
 import type {
   AssistantArticle,
   AssistantData,
@@ -113,6 +117,54 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
   {
     type: 'function',
     function: {
+      name: 'media_search',
+      description:
+        'Search Seerr for movies and series. Returns native media cards with availability; read-only. Use for title lookups and "is X already there?".',
+      parameters: {
+        type: 'object',
+        properties: { query: { type: 'string' } },
+        required: ['query'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'media_discover',
+      description:
+        'Discover movies or series through Seerr: trending, upcoming, similar, recommendations or popular. Returns native media cards; read-only.',
+      parameters: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: ['trending', 'upcoming', 'similar', 'recommendations', 'popular'] },
+          mediaType: { type: 'string', enum: ['movie', 'tv'] },
+          tmdbId: { type: 'number', description: 'Required for similar and recommendations.' },
+        },
+        required: ['kind', 'mediaType'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'media_title',
+      description: 'Read one movie or series detail from Seerr and return a native media card. Read-only.',
+      parameters: {
+        type: 'object',
+        properties: {
+          mediaType: { type: 'string', enum: ['movie', 'tv'] },
+          tmdbId: { type: 'number' },
+        },
+        required: ['mediaType', 'tmdbId'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'render_ui',
       description:
         'Compose a native UI tree. Use only these node types: stack, grid, card, section, text, heading, list, keyValue, badge, callout, divider, stat, progress, chart, timeline, table, details, link, status, service, article, suggestions. No HTML, no styles, no markdown tables, no ::: directives. status, service and article take only serviceId or slug and are filled from the session. summary, maintenance and step are server-only; use get_status, get_maintenance or ask_step for those. Example: {"nodes":[{"type":"card","title":"Vergleich","children":[{"type":"grid","columns":2,"children":[{"type":"stat","label":"Medienwünsche","value":"nicht erreichbar"},{"type":"stat","label":"Mediathek","value":"erreichbar"}]},{"type":"callout","tone":"accent","title":"Empfehlung","text":"Nutze zuerst die Mediathek."}]}]}',
@@ -169,6 +221,45 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
 
 const asString = (value: unknown, max = 200): string | null =>
   typeof value === 'string' && value.trim().length > 0 && value.trim().length <= max ? value.trim() : null;
+
+const asPositiveInt = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+
+const mediaSummary = (items: readonly MediaItem[]): readonly Record<string, unknown>[] =>
+  items.slice(0, 6).map((item) => ({
+    tmdbId: item.tmdbId,
+    mediaType: item.mediaType,
+    title: item.title,
+    year: item.year,
+    status: item.status,
+    statusText: item.statusText,
+  }));
+
+const mediaSuggestions = (title: string | null | undefined, locale: Locale): readonly AssistantBlock[] => {
+  const items =
+    locale === 'de'
+      ? [
+          ...(title ? [`Mehr wie ${title}`] : []),
+          'Was ist gerade im Trend?',
+          'Für heute Abend',
+        ]
+      : [
+          ...(title ? [`More like ${title}`] : []),
+          'What is trending?',
+          'For tonight',
+        ];
+  return [{ type: 'suggestions', items }];
+};
+
+const mediaError = (error: unknown): string => {
+  if (error instanceof SeerrError) {
+    if (error.code === 'not_found') return 'not_found';
+    if (error.code === 'forbidden') return 'not_allowed';
+    if (error.code === 'rate') return 'rate';
+    if (error.code === 'not_configured') return 'seerr_unavailable';
+  }
+  return 'seerr_unavailable';
+};
 
 const asStringList = (value: unknown, max = 50): readonly string[] | null => {
   if (!Array.isArray(value) || value.length > max) return null;
@@ -582,6 +673,65 @@ export async function executeTool(
         const path = asString(args.path, 300);
         if (!path) return { content: { error: 'invalid_path' } };
         return openPage(path, data, session, locale);
+      }
+
+      case 'media_search': {
+        const query = asString(args.query, 200);
+        if (!query) return { content: { error: 'invalid_query' } };
+        const mediaUser = await resolveMediaUser(session);
+        if ('reason' in mediaUser) return { content: { error: mediaUser.reason } };
+        try {
+          const items = await searchMedia(session, mediaUser.user.id, query, locale);
+          return {
+            content: { query, results: mediaSummary(items) },
+            blocks: [...items.slice(0, 6).map(mediaBlock), ...mediaSuggestions(items[0]?.title, locale)],
+          };
+        } catch (error) {
+          return { content: { error: mediaError(error) } };
+        }
+      }
+
+      case 'media_discover': {
+        const kind = asString(args.kind, 40) as DiscoverKind | null;
+        const mediaType = args.mediaType === 'movie' || args.mediaType === 'tv' ? args.mediaType : null;
+        if (!kind || !['trending', 'upcoming', 'similar', 'recommendations', 'popular'].includes(kind)) {
+          return { content: { error: 'invalid_kind' } };
+        }
+        if (!mediaType) return { content: { error: 'invalid_media_type' } };
+        const tmdbId = args.tmdbId === undefined ? undefined : asPositiveInt(args.tmdbId);
+        if (args.tmdbId !== undefined && !tmdbId) return { content: { error: 'invalid_id' } };
+        if ((kind === 'similar' || kind === 'recommendations') && !tmdbId) {
+          return { content: { error: 'missing_id' } };
+        }
+        const mediaUser = await resolveMediaUser(session);
+        if ('reason' in mediaUser) return { content: { error: mediaUser.reason } };
+        try {
+          const items = await discoverMedia(session, mediaUser.user.id, kind, mediaType, locale, tmdbId ?? undefined);
+          return {
+            content: { kind, mediaType, results: mediaSummary(items) },
+            blocks: [...items.slice(0, 6).map(mediaBlock), ...mediaSuggestions(items[0]?.title, locale)],
+          };
+        } catch (error) {
+          return { content: { error: mediaError(error) } };
+        }
+      }
+
+      case 'media_title': {
+        const mediaType = args.mediaType === 'movie' || args.mediaType === 'tv' ? args.mediaType : null;
+        const tmdbId = asPositiveInt(args.tmdbId);
+        if (!mediaType || !tmdbId) return { content: { error: 'invalid_title' } };
+        const mediaUser = await resolveMediaUser(session);
+        if ('reason' in mediaUser) return { content: { error: mediaUser.reason } };
+        try {
+          const item = await mediaTitle(session, mediaUser.user.id, mediaType, tmdbId, locale);
+          if (!item) return { content: { error: 'not_found' } };
+          return {
+            content: { result: mediaSummary([item])[0] },
+            blocks: [mediaBlock(item), ...mediaSuggestions(item.title, locale)],
+          };
+        } catch (error) {
+          return { content: { error: mediaError(error) } };
+        }
       }
 
       case 'render_ui': {

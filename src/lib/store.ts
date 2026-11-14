@@ -22,7 +22,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 export interface Report {
   readonly id: number;
@@ -115,6 +115,21 @@ function migrate(db: DatabaseSync): void {
       );
 
       CREATE INDEX audit_by_time ON audit (created_at DESC);
+    `);
+  }
+
+  if (current < 4) {
+    // Die Seerr-User-ID ist die Brücke zu einem externen System, keine
+    // Personendatenkopie. E-Mail/Benutzername stehen nur als Diagnose daneben;
+    // jede Anfrage läuft über X-Api-User mit dieser ID.
+    db.exec(`
+      CREATE TABLE media_user (
+        owner            TEXT PRIMARY KEY,
+        seerr_user_id    INTEGER NOT NULL,
+        seerr_email      TEXT,
+        seerr_username   TEXT,
+        verified_at      TEXT NOT NULL
+      );
     `);
   }
 
@@ -252,6 +267,56 @@ export function recentActions(limit = 10): readonly AuditEntry[] {
     outcome: row.outcome === 'refused' || row.outcome === 'failed' ? row.outcome : 'accepted',
     at: row.created_at,
   }));
+}
+
+// ------------------------------------------------------------------------------------------------
+// Medien: Portal-Identität -> Seerr-Identität
+// ------------------------------------------------------------------------------------------------
+
+export interface MediaUserMapping {
+  readonly seerrUserId: number;
+  readonly seerrEmail: string | null;
+  readonly seerrUsername: string | null;
+  readonly verifiedAt: string;
+}
+
+export function mediaUserOf(owner: string): MediaUserMapping | null {
+  const row = open()
+    .prepare('SELECT seerr_user_id, seerr_email, seerr_username, verified_at FROM media_user WHERE owner = ?')
+    .get(owner) as
+    | { seerr_user_id: number; seerr_email: string | null; seerr_username: string | null; verified_at: string }
+    | undefined;
+  return row
+    ? {
+        seerrUserId: row.seerr_user_id,
+        seerrEmail: row.seerr_email,
+        seerrUsername: row.seerr_username,
+        verifiedAt: row.verified_at,
+      }
+    : null;
+}
+
+export function saveMediaUser(input: {
+  owner: string;
+  seerrUserId: number;
+  seerrEmail: string | null;
+  seerrUsername: string | null;
+}): void {
+  open()
+    .prepare(
+      `INSERT INTO media_user (owner, seerr_user_id, seerr_email, seerr_username, verified_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(owner) DO UPDATE SET
+         seerr_user_id = excluded.seerr_user_id,
+         seerr_email = excluded.seerr_email,
+         seerr_username = excluded.seerr_username,
+         verified_at = excluded.verified_at`
+    )
+    .run(input.owner, input.seerrUserId, input.seerrEmail, input.seerrUsername, now());
+}
+
+export function removeMediaUser(owner: string): void {
+  open().prepare('DELETE FROM media_user WHERE owner = ?').run(owner);
 }
 
 // ------------------------------------------------------------------------------------------------
