@@ -216,7 +216,7 @@ test('a proposal is actor-scoped and can be claimed once', () => {
       actor: 'philipp',
       serviceId: 'media-requests',
       actionId: 'seerr.request',
-      payload: { mediaType: 'movie', tmdbId: 438631, title: 'Dune', year: '2021', seerrUserId: 2 },
+      payload: { mediaType: 'movie', tmdbId: 438631, title: 'Dune', year: '2021', seerrUserId: 2, seasons: null },
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
     assert.equal(mediaProposalOf(id, 'someone-else'), null);
@@ -256,6 +256,32 @@ test('searchMedia percent-encodes spaces for Seerr', async () => {
     await searchMedia(baseSession(), 2, 'Model Citizen', 'de');
     assert.match(captured.url, /query=Model%20Citizen/);
     assert.doesNotMatch(captured.url, /query=Model\+Citizen/);
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});
+
+test('requestMedia sends the selected TV seasons', async () => {
+  process.env.PORTAL_SEERR_API_KEY = 'test-key';
+  const captured = { body: '' };
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (_input, init) => {
+    captured.body = typeof init?.body === 'string' ? init.body : '';
+    return new Response(JSON.stringify({ id: 264, status: 1 }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+
+  try {
+    await requestMedia(baseSession(), 2, { mediaType: 'tv', tmdbId: 90228, seasons: [1, 2] });
+    assert.deepEqual(JSON.parse(captured.body), {
+      mediaType: 'tv',
+      mediaId: 90228,
+      seasons: [1, 2],
+      is4k: false,
+    });
   } finally {
     globalThis.fetch = original;
     delete process.env.PORTAL_SEERR_API_KEY;

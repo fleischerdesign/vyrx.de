@@ -46,6 +46,13 @@ export interface SeerrUser {
 
 export type MediaStatusKey = 'available' | 'requested' | 'processing' | 'partial' | 'unknown' | 'blocklisted';
 
+export interface MediaSeason {
+  readonly seasonNumber: number;
+  readonly name: string;
+  readonly episodeCount: number | null;
+  readonly airDate: string | null;
+}
+
 export interface MediaItem {
   readonly tmdbId: number;
   readonly mediaType: 'movie' | 'tv';
@@ -64,6 +71,7 @@ export interface MediaItem {
   readonly voteCount: number | null;
   readonly numberOfSeasons: number | null;
   readonly numberOfEpisodes: number | null;
+  readonly seasons: readonly MediaSeason[];
   readonly trailerKey: string | null;
   readonly status: MediaStatusKey;
   readonly statusText: string;
@@ -90,6 +98,7 @@ interface RawMedia {
   createdBy?: unknown;
   numberOfSeasons?: unknown;
   numberOfEpisodes?: unknown;
+  seasons?: unknown;
   relatedVideos?: unknown;
   mediaInfo?: { status?: unknown; status4k?: unknown; requests?: unknown } | null;
 }
@@ -302,6 +311,22 @@ const mediaFromRaw = (
         return name ? [name] : [];
       })
     : [];
+  const seasons = Array.isArray(row.seasons)
+    ? row.seasons.flatMap((entry) => {
+        if (entry === null || typeof entry !== 'object') return [];
+        const season = entry as Record<string, unknown>;
+        if (typeof season.seasonNumber !== 'number') return [];
+        return [
+          {
+            seasonNumber: season.seasonNumber,
+            name: stringOrNull(season.name) ?? `Staffel ${season.seasonNumber}`,
+            episodeCount:
+              typeof season.episodeCount === 'number' && Number.isFinite(season.episodeCount) ? season.episodeCount : null,
+            airDate: stringOrNull(season.airDate),
+          },
+        ];
+      })
+    : [];
   const runtime =
     typeof row.runtime === 'number' && Number.isFinite(row.runtime) && row.runtime > 0
       ? row.runtime
@@ -341,6 +366,7 @@ const mediaFromRaw = (
       typeof row.numberOfSeasons === 'number' && Number.isFinite(row.numberOfSeasons) ? row.numberOfSeasons : null,
     numberOfEpisodes:
       typeof row.numberOfEpisodes === 'number' && Number.isFinite(row.numberOfEpisodes) ? row.numberOfEpisodes : null,
+    seasons,
     trailerKey: relatedVideos[0] ?? null,
     status,
     statusText: mediaStatusText(status, locale),
@@ -427,12 +453,15 @@ export interface SeerrRequestResult {
 export async function requestMedia(
   session: Session,
   userId: number,
-  input: { mediaType: 'movie'; tmdbId: number },
+  input: { mediaType: 'movie' | 'tv'; tmdbId: number; seasons?: readonly number[] | 'all' },
 ): Promise<SeerrRequestResult> {
   const body = await request<{ id?: unknown; status?: unknown }>(session, 'request', {
     userId,
     method: 'POST',
-    body: { mediaType: input.mediaType, mediaId: input.tmdbId, is4k: false },
+    body:
+      input.mediaType === 'movie'
+        ? { mediaType: 'movie', mediaId: input.tmdbId, is4k: false }
+        : { mediaType: 'tv', mediaId: input.tmdbId, seasons: input.seasons ?? 'all', is4k: false },
   });
   return {
     requestId: typeof body.id === 'number' ? body.id : null,

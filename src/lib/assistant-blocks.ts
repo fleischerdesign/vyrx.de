@@ -71,6 +71,7 @@ export type AssistantBlock =
       readonly voteCount: number | null;
       readonly numberOfSeasons: number | null;
       readonly numberOfEpisodes: number | null;
+      readonly seasons: readonly { readonly seasonNumber: number; readonly name: string; readonly episodeCount: number | null; readonly airDate: string | null }[];
       readonly trailerKey: string | null;
       readonly status: 'available' | 'requested' | 'processing' | 'partial' | 'unknown' | 'blocklisted';
       readonly statusText: string;
@@ -96,6 +97,7 @@ export type AssistantBlock =
       readonly proposalId: string;
       readonly tmdbId: number;
       readonly mediaType: 'movie' | 'tv';
+      readonly seasons?: readonly number[];
       readonly title: string;
       readonly mediaTitle: string;
       readonly year: string | null;

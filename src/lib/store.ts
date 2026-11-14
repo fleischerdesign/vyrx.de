@@ -346,11 +346,12 @@ export function removeMediaUser(owner: string): void {
 // ------------------------------------------------------------------------------------------------
 
 export interface MediaProposalPayload {
-  readonly mediaType: 'movie';
+  readonly mediaType: 'movie' | 'tv';
   readonly tmdbId: number;
   readonly title: string;
   readonly year: string | null;
   readonly seerrUserId: number;
+  readonly seasons: readonly number[] | null;
 }
 
 export interface MediaProposal {

@@ -68,12 +68,12 @@ Request/Canary steht noch aus.**
   Nach erfolgreicher Anfrage wechselt die Karte auf „angefragt“.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
-- **74 Tests** und vollständiger Build grün.
+- **75 Tests** und vollständiger Build grün.
 
-Phase 1 ist live. Phase 2 ist implementiert, aber noch nicht scharf; TV-Staffeln,
-Cancel und Jellyfin-Personalisierung folgen danach.
+Phase 1 ist live. Phase 2 ist scharf; Movie- und Serien-Anfragen sind aktiv.
+Cancel, Batch und Jellyfin-Personalisierung folgen danach.
 
-## 1b. Phase 2 scharf (Movie-Anfragen)
+## 1b. Phase 2 scharf (Movie- und Serien-Anfragen)
 
 Die schreibende Strecke ist implementiert und über
 `PORTAL_MEDIA_REQUESTS=on` aktiv:
@@ -82,15 +82,17 @@ Die schreibende Strecke ist implementiert und über
 - `media_propose_request` prüft Mapping, Status, Quota und legt nur einen
   Vorschlag an; es schreibt nicht.
 - Die `confirm`-Karte enthält die kompakte Filmvorschau (Poster, Titel,
-  Jahr, Typ, Bewertung, Status) und ersetzt die Trefferliste; nur das Konto
-  steht als zusätzliche Zeile darunter.
+  Jahr, Typ, Bewertung, Status und bei Serien die Staffelanzahl) und ersetzt
+  die Trefferliste. Keine zusätzliche Konto-Zeile.
 - Das Detail-Modal führt „Anfragen“ direkt über `POST /api/media/request`
   (Direktmodus) aus. Das Modal ist die Bestätigung; es gibt keinen weiteren
-  Chat-Turn, und das Ergebnis erscheint im Modal. Der Direktmodus ist derzeit
-  auf Filme beschränkt; Serien zeigen keinen Anfrage-Button.
+  Chat-Turn, und das Ergebnis erscheint im Modal. Bei Serien zeigt das Modal
+  reguläre Staffeln als Checkboxen (Staffel 0/Specials nicht vorausgewählt);
+  der Direktmodus sendet `{mediaType:tv, seasons:[…]}`.
 - `POST /api/media/request` ist die einzige Schreibstelle. Sie beansprucht das
-  Proposal **vor** dem Seerr-Aufruf, setzt `X-Api-User` und schreibt
-  `{mediaType:'movie', mediaId, is4k:false}`.
+  Proposal **vor** dem Seerr-Aufruf, setzt `X-Api-User` und schreibt bei
+  Filmen `{mediaType:'movie', mediaId, is4k:false}`, bei Serien
+  `{mediaType:'tv', mediaId, seasons:[…], is4k:false}`.
 - 409/403/429/Timeout: kein blinder Retry; nach Timeout werden die eigenen
   Requests geprüft, sonst „unklar“.
 - Audit und Rate Limit (3/Minute, 20/Tag) sind eingebaut.
@@ -477,7 +479,7 @@ fehlende Mappings werden protokolliert.
 | 0 | API-Key + E-Mail-Claim + Mapping-Tabelle | Key in SOPS, `media-users` |
 | 1 | Suche, Discover, Details, Medienkarten | Key, Mapping |
 | 2 | Movie-Request mit Confirm, Audit, Status | Phase 1, Canary |
-| 3 | TV-Staffeln, eigene Requests, Quota, Cancel | Phase 2 |
+| 3 | TV-Staffeln (umgesetzt), eigene Requests, Cancel | Phase 2 |
 | 4 | Jellyfin „Weiter schauen“, Familienliste, Benachrichtigungen | Jellyfin-Key/User-Token |
 
 Feature-Flags: `PORTAL_MEDIA_READ` und `PORTAL_MEDIA_REQUESTS` getrennt.
@@ -485,18 +487,16 @@ Phase 1 darf lesen, Phase 2 schreiben; ohne Flag keine Schreibroute.
 
 ## 13. Was noch fehlt
 
-1. **Erster echter Request/Canary**: ein Testnutzer, ein Film; der Flag ist
-   bereits `on`.
-2. **TV-Staffeln** mit Season-Auswahl und eigener Quota-Prüfung.
-3. **4K** nur mit separatem Recht und sichtbarer Entscheidung.
-4. **Cancel** eigener offener Requests.
+1. **Batch-Anfragen** für mehrere Titel mit gemeinsamer Bestätigung.
+2. **4K** nur mit separatem Recht und sichtbarer Entscheidung.
+3. **Cancel** eigener offener Requests.
+4. **Status-Polling** und Benachrichtigungen für Request-Status.
 5. **Jellyfin** „Weiter schauen“, zuletzt gesehen und NextUp.
-6. **Benachrichtigungen** für Request-Status und neue Titel.
 
 ## 14. Abnahmekriterien
 
 - Ein `media-users`-Nutzer mit Mapping kann suchen, Verfügbarkeit sehen und
-  einen Film nach Bestätigung anfragen.
+  Filme sowie Serien nach Bestätigung anfragen.
 - Die Anfrage erscheint in Seerr unter **diesem** Nutzer, nicht unter dem
   API-Key-Besitzer.
 - Ein Nutzer ohne Mapping bekommt `not_linked`; es wird nichts geschrieben.

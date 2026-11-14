@@ -663,6 +663,87 @@ const labels = {
 
         const details = document.createElement('div');
         details.className = 'ui-media-dialog__details';
+        const seasonSlot = document.createElement('div');
+        seasonSlot.className = 'ui-media-dialog__season-slot';
+        const renderSeasons = (item: AssistantBlock): void => {
+          if (item.type !== 'media') return;
+          if (block.mediaType !== 'tv' || block.status !== 'unknown' || !block.requestable) return;
+          const regular = Array.isArray(item.seasons) ? item.seasons.filter((season) => season.seasonNumber > 0) : [];
+          seasonSlot.replaceChildren();
+          if (regular.length === 0) return;
+          const section = document.createElement('section');
+          section.className = 'ui-media-dialog__seasons';
+          const heading = document.createElement('span');
+          heading.className = 'ui-media-dialog__seasons-title';
+          heading.textContent = locale === 'de' ? 'Staffeln' : 'Seasons';
+          const list = document.createElement('div');
+          list.className = 'ui-media-dialog__season-list';
+          for (const season of regular) {
+            const label = document.createElement('label');
+            label.className = 'ui-media-dialog__season';
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.value = String(season.seasonNumber);
+            input.checked = true;
+            const text = document.createElement('span');
+            text.textContent = season.name;
+            const count = document.createElement('small');
+            count.textContent = season.episodeCount !== null ? (locale === 'de' ? `${season.episodeCount} Folgen` : `${season.episodeCount} episodes`) : '';
+            label.append(input, text, count);
+            list.append(label);
+          }
+          const feedback = document.createElement('p');
+          feedback.className = 'ui-media-dialog__feedback';
+          feedback.setAttribute('role', 'status');
+          feedback.hidden = true;
+          const request = document.createElement('button');
+          request.type = 'button';
+          request.className = 'ui-media-dialog__request';
+          request.textContent = locale === 'de' ? 'Staffeln anfragen' : 'Request seasons';
+          request.addEventListener('click', async () => {
+            const selected = [...list.querySelectorAll('input:checked')]
+              .map((input) => Number((input as HTMLInputElement).value))
+              .filter((value) => Number.isInteger(value) && value > 0);
+            if (selected.length === 0) {
+              feedback.hidden = false;
+              feedback.dataset.tone = 'bad';
+              feedback.textContent = locale === 'de' ? 'Bitte mindestens eine Staffel wählen.' : 'Select at least one season.';
+              return;
+            }
+            request.disabled = true;
+            feedback.hidden = false;
+            feedback.dataset.tone = 'neutral';
+            feedback.textContent = locale === 'de' ? 'Wird angefragt …' : 'Requesting …';
+            try {
+              const response = await fetch('/api/media/request', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ mediaType: 'tv', tmdbId: block.tmdbId, seasons: selected, locale }),
+              });
+              const data = (await response.json()) as { outcome?: string; message?: string };
+              const accepted = data.outcome === 'accepted' || data.outcome === 'already';
+              feedback.dataset.tone = accepted ? (data.outcome === 'accepted' ? 'ok' : 'warn') : 'bad';
+              feedback.textContent =
+                data.message ??
+                (locale === 'de' ? 'Die Anfrage konnte nicht abgeschlossen werden.' : 'The request could not be completed.');
+              if (accepted) {
+                status.dataset.status = 'requested';
+                status.textContent = locale === 'de' ? 'angefragt' : 'requested';
+                request.textContent = locale === 'de' ? 'Angefragt' : 'Requested';
+              } else if (data.outcome === 'rate') {
+                request.disabled = false;
+              }
+              scroll();
+            } catch {
+              feedback.dataset.tone = 'bad';
+              feedback.textContent = locale === 'de' ? 'Die Verbindung ist fehlgeschlagen.' : 'The connection failed.';
+              scroll();
+            }
+          });
+          section.append(heading, list, request, feedback);
+          seasonSlot.append(section);
+        };
+
         const renderDetails = (item: AssistantBlock): void => {
           if (item.type !== 'media') return;
           details.replaceChildren();
@@ -719,6 +800,7 @@ const labels = {
             );
           }
           if (creditBlock.childElementCount > 0) details.append(creditBlock);
+          renderSeasons(item);
         };
         const hasRichDetails =
           (block.runtime ?? null) !== null || (block.genres?.length ?? 0) > 0 || (block.cast?.length ?? 0) > 0;
@@ -730,7 +812,7 @@ const labels = {
           details.append(loading);
         }
 
-        body.append(meta, title, status, overview, details);
+        body.append(meta, title, status, overview, details, seasonSlot);
 
         const actions = document.createElement('div');
         actions.className = 'ui-media-dialog__actions';
@@ -1346,6 +1428,11 @@ const labels = {
                   ? 'Serie'
                   : 'Series'
                 : '',
+            block.mediaType === 'tv' && Array.isArray(block.seasons) && block.seasons.length > 0
+              ? locale === 'de'
+                ? `${block.seasons.length} Staffeln`
+                : `${block.seasons.length} seasons`
+              : '',
             typeof block.rating === 'number' ? `★ ${block.rating.toFixed(1)}` : '',
           ]
             .filter(Boolean)
@@ -3485,6 +3572,57 @@ const labels = {
     font-size: 0.5625rem;
     letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
+  }
+
+  .ui-media-dialog__seasons {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+  }
+
+  .ui-media-dialog__seasons-title {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .ui-media-dialog__season-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 6px;
+  }
+
+  .ui-media-dialog__season {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 2rem;
+    padding: 3px 2px;
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+    cursor: pointer;
+  }
+
+  .ui-media-dialog__season input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+
+  .ui-media-dialog__season small {
+    color: var(--muted);
+    font-size: 0.5625rem;
+    white-space: nowrap;
+  }
+
+  .ui-media-dialog__seasons .ui-media-dialog__request {
+    width: 100%;
+    margin-top: var(--space-2);
   }
 
   .ui-media-dialog__actions {

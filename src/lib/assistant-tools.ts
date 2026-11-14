@@ -172,12 +172,13 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
     function: {
       name: 'media_propose_request',
       description:
-        'Prepare a movie request and show a confirmation card. This does not write; the person must confirm. Movie only in this phase; use after the person picked a title.',
+        'Prepare a movie or series request and show a confirmation card. This does not write; the person must confirm. For TV, omit seasons to request all regular seasons.',
       parameters: {
         type: 'object',
         properties: {
-          mediaType: { type: 'string', enum: ['movie'] },
+          mediaType: { type: 'string', enum: ['movie', 'tv'] },
           tmdbId: { type: 'number' },
+          seasons: { type: 'array', items: { type: 'number' }, description: 'TV only; omit for all regular seasons.' },
         },
         required: ['mediaType', 'tmdbId'],
         additionalProperties: false,
@@ -310,6 +311,8 @@ const mediaReasonMessage = (reason: string, locale: Locale): string => {
     quota: { de: 'Dein Seerr-Limit ist erreicht.', en: 'Your Seerr quota is exhausted.' },
     unsupported_media_type: { de: 'In dieser Phase sind nur Filme möglich.', en: 'Only movies are supported in this phase.' },
     invalid_id: { de: 'Die Titel-ID ist ungültig.', en: 'The title id is invalid.' },
+    no_seasons: { de: 'Für diese Serie sind keine Staffeln verfügbar.', en: 'No seasons are available for this series.' },
+    invalid_seasons: { de: 'Die Staffelauswahl ist ungültig.', en: 'The season selection is invalid.' },
   };
   return messages[reason]?.[locale] ?? reason;
 };
@@ -858,7 +861,8 @@ export async function executeTool(
 
       case 'media_propose_request': {
         if (!mediaRequestsEnabled()) return { content: mediaFailure('disabled', locale) };
-        if (args.mediaType !== 'movie') return { content: mediaFailure('unsupported_media_type', locale) };
+        const mediaType = args.mediaType === 'tv' ? 'tv' : args.mediaType === 'movie' ? 'movie' : null;
+        if (!mediaType) return { content: mediaFailure('unsupported_media_type', locale) };
         const tmdbId = asPositiveInt(args.tmdbId);
         if (!tmdbId) return { content: mediaFailure('invalid_id', locale) };
         const mediaUser = await resolveMediaUser(session);
@@ -868,7 +872,7 @@ export async function executeTool(
         const identity = session.identity;
         if (!identity) return { content: { error: 'not_signed_in' } };
         try {
-          const item = await mediaTitle(session, mediaUser.user.id, 'movie', tmdbId, locale);
+          const item = await mediaTitle(session, mediaUser.user.id, mediaType, tmdbId, locale);
           if (!item) return { content: { error: 'not_found' } };
           if (item.status === 'available') return { content: mediaFailure('already_available', locale) };
           if (item.status === 'requested' || item.status === 'processing' || item.status === 'partial') {
@@ -876,8 +880,30 @@ export async function executeTool(
           }
           if (item.status === 'blocklisted') return { content: mediaFailure('blocklisted', locale) };
 
+          let seasons: number[] | null = null;
+          if (mediaType === 'tv') {
+            const available = item.seasons
+              .filter((season) => season.seasonNumber > 0)
+              .map((season) => season.seasonNumber);
+            if (available.length === 0) return { content: mediaFailure('no_seasons', locale) };
+            const requested = Array.isArray(args.seasons)
+              ? args.seasons.flatMap((value) => {
+                  const number = asPositiveInt(value);
+                  return number ? [number] : [];
+                })
+              : [];
+            if (args.seasons !== undefined && requested.length !== (args.seasons as unknown[]).length) {
+              return { content: mediaFailure('invalid_seasons', locale) };
+            }
+            if (requested.some((season) => !available.includes(season))) {
+              return { content: mediaFailure('invalid_seasons', locale) };
+            }
+            seasons = requested.length > 0 ? [...new Set(requested)].sort((a, b) => a - b) : available;
+          }
+
           const quota = await seerrQuota(session, mediaUser.user.id);
-          if (quota.movie.restricted || (quota.movie.limit > 0 && quota.movie.used >= quota.movie.limit)) {
+          const part = mediaType === 'movie' ? quota.movie : quota.tv;
+          if (part.restricted || (part.limit > 0 && part.used >= part.limit)) {
             return { content: mediaFailure('quota', locale) };
           }
 
@@ -887,23 +913,31 @@ export async function executeTool(
             serviceId: mediaUser.serviceId,
             actionId: 'seerr.request',
             payload: {
-              mediaType: 'movie',
+              mediaType,
               tmdbId: item.tmdbId,
               title: item.title,
               year: item.year,
               seerrUserId: mediaUser.user.id,
+              seasons,
             },
             expiresAt,
           });
 
+          const seasonText =
+            mediaType === 'tv' && seasons
+              ? locale === 'de'
+                ? ` mit ${seasons.length} ${seasons.length === 1 ? 'Staffel' : 'Staffeln'}`
+                : ` with ${seasons.length} ${seasons.length === 1 ? 'season' : 'seasons'}`
+              : '';
           return {
-            content: { prepared: true, proposalId, title: item.title, year: item.year },
+            content: { prepared: true, proposalId, title: item.title, year: item.year, mediaType, seasons },
             blocks: [
               {
                 type: 'confirm',
                 proposalId,
                 tmdbId: item.tmdbId,
-                mediaType: 'movie',
+                mediaType,
+                seasons: seasons ?? undefined,
                 mediaTitle: item.title,
                 year: item.year,
                 statusText: item.statusText,
@@ -913,8 +947,8 @@ export async function executeTool(
                 title: locale === 'de' ? 'Anfrage bestätigen' : 'Confirm request',
                 description:
                   locale === 'de'
-                    ? `Soll ${item.title}${item.year ? ` (${item.year})` : ''} angefragt werden?`
-                    : `Request ${item.title}${item.year ? ` (${item.year})` : ''}?`,
+                    ? `Soll ${item.title}${item.year ? ` (${item.year})` : ''}${seasonText} angefragt werden?`
+                    : `Request ${item.title}${item.year ? ` (${item.year})` : ''}${seasonText}?`,
                 items: [],
                 confirmLabel: locale === 'de' ? 'Anfragen' : 'Request',
                 cancelLabel: locale === 'de' ? 'Abbrechen' : 'Cancel',
@@ -923,7 +957,7 @@ export async function executeTool(
             ],
           };
         } catch (error) {
-          return { content: { error: mediaError(error) } };
+          return { content: mediaFailure(mediaError(error), locale) };
         }
       }
 

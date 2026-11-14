@@ -130,8 +130,9 @@ const execute = async (
   let requestId: number | null = null;
   try {
     const result = await requestMedia(session, mediaUser.user.id, {
-      mediaType: 'movie',
+      mediaType: proposal.payload.mediaType,
       tmdbId: proposal.payload.tmdbId,
+      seasons: proposal.payload.seasons ?? undefined,
     });
     outcome = 'accepted';
     requestId = result.requestId;
@@ -189,7 +190,7 @@ export const POST: APIRoute = async ({ request }) => {
   const session = readSession(request);
   if (!session.identity) return reply(401, { outcome: 'refused', message: 'Unauthorized' });
 
-  let body: { proposalId?: unknown; mediaType?: unknown; tmdbId?: unknown; locale?: unknown };
+  let body: { proposalId?: unknown; mediaType?: unknown; tmdbId?: unknown; seasons?: unknown; locale?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -229,9 +230,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Direct mode: the detail modal is the confirmation surface.
-  const mediaType = body.mediaType;
+  const mediaType = body.mediaType === 'movie' || body.mediaType === 'tv' ? body.mediaType : null;
   const tmdbId = typeof body.tmdbId === 'number' && Number.isInteger(body.tmdbId) && body.tmdbId > 0 ? body.tmdbId : null;
-  if (mediaType !== 'movie' || !tmdbId) {
+  if (!mediaType || !tmdbId) {
     return reply(400, { outcome: 'failed', message: 'Invalid title' });
   }
   if (tooMany(session.identity.username)) return reply(429, { outcome: 'rate', message: text(locale, 'rate') });
@@ -242,7 +243,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
-    const item = await mediaTitle(session, mediaUser.user.id, 'movie', tmdbId, locale);
+    const item = await mediaTitle(session, mediaUser.user.id, mediaType, tmdbId, locale);
     if (!item) return reply(404, { outcome: 'failed', message: 'Title not found' });
     if (item.status === 'available') {
       return reply(200, {
@@ -260,8 +261,32 @@ export const POST: APIRoute = async ({ request }) => {
     if (item.status === 'blocklisted') {
       return reply(200, { outcome: 'refused', message: locale === 'de' ? 'Der Titel ist gesperrt.' : 'The title is blocklisted.' });
     }
+    let seasons: number[] | null = null;
+    if (mediaType === 'tv') {
+      const available = item.seasons
+        .filter((season) => season.seasonNumber > 0)
+        .map((season) => season.seasonNumber);
+      if (available.length === 0) {
+        return reply(400, { outcome: 'failed', message: locale === 'de' ? 'Keine Staffeln verfügbar.' : 'No seasons available.' });
+      }
+      const rawSeasons = body.seasons;
+      const requested = Array.isArray(rawSeasons)
+        ? rawSeasons.flatMap((value) =>
+            typeof value === 'number' && Number.isInteger(value) && value > 0 ? [value] : [],
+          )
+        : [];
+      if (rawSeasons !== undefined && (!Array.isArray(rawSeasons) || requested.length !== rawSeasons.length)) {
+        return reply(400, { outcome: 'failed', message: locale === 'de' ? 'Ungültige Staffelauswahl.' : 'Invalid season selection.' });
+      }
+      if (requested.some((season) => !available.includes(season))) {
+        return reply(400, { outcome: 'failed', message: locale === 'de' ? 'Ungültige Staffelauswahl.' : 'Invalid season selection.' });
+      }
+      seasons = requested.length > 0 ? [...new Set(requested)].sort((a, b) => a - b) : available;
+    }
+
     const quota = await seerrQuota(session, mediaUser.user.id);
-    if (quota.movie.restricted || (quota.movie.limit > 0 && quota.movie.used >= quota.movie.limit)) {
+    const quotaPart = mediaType === 'movie' ? quota.movie : quota.tv;
+    if (quotaPart.restricted || (quotaPart.limit > 0 && quotaPart.used >= quotaPart.limit)) {
       return reply(200, { outcome: 'quota', message: text(locale, 'quota') });
     }
 
@@ -270,11 +295,12 @@ export const POST: APIRoute = async ({ request }) => {
       serviceId: mediaUser.serviceId,
       actionId: 'seerr.request',
       payload: {
-        mediaType: 'movie',
+        mediaType,
         tmdbId: item.tmdbId,
         title: item.title,
         year: item.year,
         seerrUserId: mediaUser.user.id,
+        seasons,
       },
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     });
