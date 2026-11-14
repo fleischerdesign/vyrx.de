@@ -57,11 +57,11 @@ export type AssistantBlock =
       readonly tmdbId: number;
       readonly mediaType: 'movie' | 'tv';
       readonly title: string;
-      readonly year: string | null;
-      readonly overview: string;
       readonly posterPath: string | null;
       readonly backdropPath: string | null;
       readonly rating: number | null;
+      readonly year: string | null;
+      readonly overview: string;
       readonly releaseDate: string | null;
       readonly runtime: number | null;
       readonly tagline: string | null;
@@ -97,6 +97,12 @@ export type AssistantBlock =
       readonly tmdbId: number;
       readonly mediaType: 'movie' | 'tv';
       readonly title: string;
+      readonly mediaTitle: string;
+      readonly year: string | null;
+      readonly statusText: string;
+      readonly posterPath: string | null;
+      readonly backdropPath: string | null;
+      readonly rating: number | null;
       readonly description: string;
       readonly items: readonly { readonly label: string; readonly value: string }[];
       readonly confirmLabel: string;

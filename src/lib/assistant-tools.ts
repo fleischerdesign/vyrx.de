@@ -868,17 +868,18 @@ export async function executeTool(
                 proposalId,
                 tmdbId: item.tmdbId,
                 mediaType: 'movie',
+                mediaTitle: item.title,
+                year: item.year,
+                statusText: item.statusText,
+                posterPath: item.posterPath,
+                backdropPath: item.backdropPath,
+                rating: item.rating,
                 title: locale === 'de' ? 'Anfrage bestätigen' : 'Confirm request',
                 description:
                   locale === 'de'
                     ? `Soll ${item.title}${item.year ? ` (${item.year})` : ''} angefragt werden?`
                     : `Request ${item.title}${item.year ? ` (${item.year})` : ''}?`,
-                items: [
-                  { label: locale === 'de' ? 'Typ' : 'Type', value: locale === 'de' ? 'Film' : 'Movie' },
-                  { label: locale === 'de' ? 'Jahr' : 'Year', value: item.year ?? '—' },
-                  { label: locale === 'de' ? 'Status' : 'Status', value: item.statusText },
-                  { label: locale === 'de' ? 'Konto' : 'Account', value: mediaUser.user.displayName },
-                ],
+                items: [{ label: locale === 'de' ? 'Konto' : 'Account', value: mediaUser.user.displayName }],
                 confirmLabel: locale === 'de' ? 'Anfragen' : 'Request',
                 cancelLabel: locale === 'de' ? 'Abbrechen' : 'Cancel',
                 tone: 'accent',

@@ -191,11 +191,12 @@ Flotten-Rebuild.
 ## G. Plattform
 
 - **G1 Installierbar (PWA)** — `umgesetzt` · `M` · Manifest, Symbole, Startbild.
-  AC: Kein Symbol fehlt, der Start vom Startbildschirm führt in die Anmeldung.
+  AC: Kein Symbol fehlt, der Start vom Startbildschirm führt nach der
+  Anmeldung direkt ins Dashboard (`/overview/`), nicht auf die Landingpage.
   *Beleg:* `public/` trägt `favicon.ico` (16/32/48), `favicon.svg`,
   `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png`,
   `icon-maskable-512.png` und `site.webmanifest` (`start_url` ist der
-  Anmeldeweg, `scope` die Seite); der Kopf verweist auf alle, dazu
+  Anmeldeweg mit `rd=/overview/`, `scope` die Seite); der Kopf verweist auf alle, dazu
   `theme-color` je Systemvorgabe. Vier Anordnungen aus **einem** Werk
   (`scripts/build-brand.py`, keine Buchstabe nachgezeichnet): Wortmarke einzeilig
   für breite Plätze, VY/RX zweizeilig ab ~48 px, ein Buchstabe bei 16 px, die

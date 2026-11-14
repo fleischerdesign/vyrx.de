@@ -75,8 +75,12 @@ Die schreibende Strecke ist implementiert und über
 - `media_proposal` speichert Actor, Payload, Ablauf und Einmaligkeit.
 - `media_propose_request` prüft Mapping, Status, Quota und legt nur einen
   Vorschlag an; es schreibt nicht.
-- Die `confirm`-Karte zeigt Titel, Jahr, Status und Konto mit
-  „Anfragen“/„Abbrechen“.
+- Die `confirm`-Karte enthält die kompakte Filmvorschau (Poster, Titel,
+  Jahr, Typ, Bewertung, Status) und ersetzt die Trefferliste; nur das Konto
+  steht als zusätzliche Zeile darunter.
+- Das Detail-Modal führt „Anfragen“ direkt über `POST /api/media/request`
+  (Direktmodus) aus. Das Modal ist die Bestätigung; es gibt keinen weiteren
+  Chat-Turn, und das Ergebnis erscheint im Modal.
 - `POST /api/media/request` ist die einzige Schreibstelle. Sie beansprucht das
   Proposal **vor** dem Seerr-Aufruf, setzt `X-Api-User` und schreibt
   `{mediaType:'movie', mediaId, is4k:false}`.
@@ -364,7 +368,9 @@ typografische Karte mit Initial und Farbfläche, keinen kaputten Bildrahmen.
 5. Modell ruft `media_propose_request({ mediaType:'movie', tmdbId })` auf.
 6. Server prüft Mapping, `media-users`, `REQUEST`-Recht, Quota, Status,
    Duplikate undlegt eine Proposal-Zeile an.
-7. Der Client zeigt die `confirm`-Karte. **Noch kein Seerr-Schreibzugriff.**
+7. Der Client zeigt die `confirm`-Karte mit eingebetteter Filmvorschau.
+   **Noch kein Seerr-Schreibzugriff.** Alternativ ist das Detail-Modal bereits
+   die Bestätigung und ruft den Direktmodus ohne weiteren Turn auf.
 8. Klick auf „Anfragen“ → `POST /api/media/request` mit Proposal-ID.
 9. Server prüft Same-Origin, Sitzung, Actor, Ablauf, Einmaligkeit; ruft
    `POST /api/v1/request` mit `X-Api-User`; schreibt Audit.

@@ -1,11 +1,12 @@
 import type { APIRoute } from 'astro';
 import { isSameOrigin } from '../../../lib/http.ts';
-import { resolveMediaUser, type MediaUserFailure } from '../../../lib/media-users.ts';
-import { ownRequests, requestMedia, SeerrError } from '../../../lib/seerr.ts';
-import { readSession } from '../../../lib/session.ts';
+import { resolveMediaUser, type MediaUserFailure, type MediaUserSuccess } from '../../../lib/media-users.ts';
+import { mediaTitle, ownRequests, requestMedia, seerrQuota, SeerrError } from '../../../lib/seerr.ts';
+import { readSession, type Session } from '../../../lib/session.ts';
 import {
   consumeMediaProposal,
   countRecentMediaProposals,
+  createMediaProposal,
   finishMediaProposal,
   mediaProposalOf,
   recordAction,
@@ -14,10 +15,16 @@ import {
 /*
  * Die eine schreibende Medienroute.
  *
- * Der Client schickt nur eine Proposal-ID. Der Server liest den Payload aus
- * SQLite, prüft Actor, Ablauf und Einmaligkeit und setzt X-Api-User aus dem
- * gespeicherten Mapping. Ein zweiter Klick kann nicht doppelt schreiben; nach
- * einem unklaren Timeout wird geprüft, nicht blind wiederholt.
+ * Zwei Wege, eine Ausführung:
+ *  - proposalId: der Chat hat den Titel bereits vorbereitet und die Person
+ *    bestätigt die Karte.
+ *  - mediaType/tmdbId: die Person hat den Titel im Detail-Modal geöffnet und
+ *    dort „Anfragen“ geklickt. Das Modal ist die Bestätigung; es gibt keinen
+ *    zusätzlichen Chat-Turn.
+ *
+ * In beiden Fällen wird vor dem Seerr-Aufruf ein Proposal beansprucht. Ein
+ * zweiter Klick kann nicht doppelt schreiben; nach einem unklaren Timeout wird
+ * geprüft, nicht blind wiederholt.
  */
 
 export const prerender = false;
@@ -25,7 +32,10 @@ export const prerender = false;
 type Locale = 'de' | 'en';
 type Outcome = 'accepted' | 'already' | 'refused' | 'quota' | 'rate' | 'unknown' | 'failed';
 
-const text = (locale: Locale, outcome: Outcome | 'disabled' | 'used' | 'expired' | 'mapping_changed' | 'not_linked'): string => {
+const text = (
+  locale: Locale,
+  outcome: Outcome | 'disabled' | 'used' | 'expired' | 'mapping_changed' | 'not_linked',
+): string => {
   const messages: Record<string, { de: string; en: string }> = {
     accepted: {
       de: 'Die Anfrage wurde an Seerr übergeben.',
@@ -102,56 +112,16 @@ const failureText = (reason: MediaUserFailure, locale: Locale): string => {
   }
 };
 
-export const POST: APIRoute = async ({ request }) => {
-  if (!isSameOrigin(request)) return reply(403, { outcome: 'refused', message: 'Forbidden' });
+const tooMany = (actor: string): boolean =>
+  countRecentMediaProposals(actor, new Date(Date.now() - 60_000).toISOString()) >= 3 ||
+  countRecentMediaProposals(actor, new Date(Date.now() - 86_400_000).toISOString()) >= 20;
 
-  const session = readSession(request);
-  if (!session.identity) return reply(401, { outcome: 'refused', message: 'Unauthorized' });
-
-  let body: { proposalId?: unknown; locale?: unknown };
-  try {
-    body = (await request.json()) as { proposalId?: unknown; locale?: unknown };
-  } catch {
-    return reply(400, { outcome: 'failed', message: 'Invalid body' });
-  }
-  const locale: Locale = body.locale === 'en' ? 'en' : 'de';
-  const proposalId = typeof body.proposalId === 'string' ? body.proposalId.trim() : '';
-
-  if (!session.identity.groups.includes('media-users')) {
-    return reply(403, { outcome: 'refused', message: failureText('not_allowed', locale) });
-  }
-  if (process.env.PORTAL_MEDIA_REQUESTS !== 'on') {
-    return reply(503, { outcome: 'disabled', message: text(locale, 'disabled') });
-  }
-  if (!/^[A-Za-z0-9_-]{20,100}$/.test(proposalId)) {
-    return reply(400, { outcome: 'failed', message: 'Invalid proposal' });
-  }
-
-  const proposal = mediaProposalOf(proposalId, session.identity.username);
-  if (!proposal) return reply(404, { outcome: 'used', message: text(locale, 'used') });
-  if (proposal.consumedAt) return reply(409, { outcome: 'used', message: text(locale, 'used') });
-  if (Date.parse(proposal.expiresAt) <= Date.now()) {
-    consumeMediaProposal(proposal.id, proposal.actor, 'expired', null);
-    return reply(410, { outcome: 'expired', message: text(locale, 'expired') });
-  }
-
-  const mediaUser = await resolveMediaUser(session);
-  if ('reason' in mediaUser) {
-    return reply(409, { outcome: 'refused', message: failureText(mediaUser.reason, locale) });
-  }
-  if (mediaUser.user.id !== proposal.payload.seerrUserId) {
-    return reply(409, { outcome: 'mapping_changed', message: text(locale, 'mapping_changed') });
-  }
-
-  if (countRecentMediaProposals(session.identity.username, new Date(Date.now() - 60_000).toISOString()) >= 3) {
-    return reply(429, { outcome: 'rate', message: text(locale, 'rate') });
-  }
-  if (countRecentMediaProposals(session.identity.username, new Date(Date.now() - 86_400_000).toISOString()) >= 20) {
-    return reply(429, { outcome: 'rate', message: text(locale, 'rate') });
-  }
-
-  // Claim before the external write: a second click or a retry can never
-  // produce a second request.
+const execute = async (
+  session: Session,
+  proposal: NonNullable<ReturnType<typeof mediaProposalOf>>,
+  mediaUser: MediaUserSuccess,
+  locale: Locale,
+): Promise<Response> => {
   if (!consumeMediaProposal(proposal.id, proposal.actor, 'pending', null)) {
     return reply(409, { outcome: 'used', message: text(locale, 'used') });
   }
@@ -178,7 +148,6 @@ export const POST: APIRoute = async ({ request }) => {
           outcome = 'rate';
           break;
         case 'unavailable': {
-          // The write may have happened. Check the user's requests; never retry.
           try {
             const requests = await ownRequests(session, mediaUser.user.id, 20);
             const existing = requests.find(
@@ -205,15 +174,117 @@ export const POST: APIRoute = async ({ request }) => {
 
   finishMediaProposal(proposal.id, outcome, { requestId });
   recordAction({
-    actor: session.identity.username,
+    actor: proposal.actor,
     serviceId: proposal.serviceId,
     actionId: proposal.actionId,
     outcome: outcome === 'accepted' ? 'accepted' : outcome === 'failed' || outcome === 'unknown' ? 'failed' : 'refused',
   });
 
-  return reply(200, {
-    outcome,
-    requestId,
-    message: text(locale, outcome),
-  });
+  return reply(200, { outcome, requestId, message: text(locale, outcome) });
+};
+
+export const POST: APIRoute = async ({ request }) => {
+  if (!isSameOrigin(request)) return reply(403, { outcome: 'refused', message: 'Forbidden' });
+
+  const session = readSession(request);
+  if (!session.identity) return reply(401, { outcome: 'refused', message: 'Unauthorized' });
+
+  let body: { proposalId?: unknown; mediaType?: unknown; tmdbId?: unknown; locale?: unknown };
+  try {
+    body = (await request.json()) as typeof body;
+  } catch {
+    return reply(400, { outcome: 'failed', message: 'Invalid body' });
+  }
+  const locale: Locale = body.locale === 'en' ? 'en' : 'de';
+
+  if (!session.identity.groups.includes('media-users')) {
+    return reply(403, { outcome: 'refused', message: failureText('not_allowed', locale) });
+  }
+  if (process.env.PORTAL_MEDIA_REQUESTS !== 'on') {
+    return reply(503, { outcome: 'disabled', message: text(locale, 'disabled') });
+  }
+
+  const proposalId = typeof body.proposalId === 'string' ? body.proposalId.trim() : '';
+  if (proposalId) {
+    if (!/^[A-Za-z0-9_-]{20,100}$/.test(proposalId)) {
+      return reply(400, { outcome: 'failed', message: 'Invalid proposal' });
+    }
+    const proposal = mediaProposalOf(proposalId, session.identity.username);
+    if (!proposal) return reply(404, { outcome: 'used', message: text(locale, 'used') });
+    if (proposal.consumedAt) return reply(409, { outcome: 'used', message: text(locale, 'used') });
+    if (Date.parse(proposal.expiresAt) <= Date.now()) {
+      consumeMediaProposal(proposal.id, proposal.actor, 'expired', null);
+      return reply(410, { outcome: 'expired', message: text(locale, 'expired') });
+    }
+    if (tooMany(proposal.actor)) return reply(429, { outcome: 'rate', message: text(locale, 'rate') });
+
+    const mediaUser = await resolveMediaUser(session);
+    if ('reason' in mediaUser) {
+      return reply(409, { outcome: 'refused', message: failureText(mediaUser.reason, locale) });
+    }
+    if (mediaUser.user.id !== proposal.payload.seerrUserId) {
+      return reply(409, { outcome: 'mapping_changed', message: text(locale, 'mapping_changed') });
+    }
+    return execute(session, proposal, mediaUser, locale);
+  }
+
+  // Direct mode: the detail modal is the confirmation surface.
+  const mediaType = body.mediaType;
+  const tmdbId = typeof body.tmdbId === 'number' && Number.isInteger(body.tmdbId) && body.tmdbId > 0 ? body.tmdbId : null;
+  if (mediaType !== 'movie' || !tmdbId) {
+    return reply(400, { outcome: 'failed', message: 'Invalid title' });
+  }
+  if (tooMany(session.identity.username)) return reply(429, { outcome: 'rate', message: text(locale, 'rate') });
+
+  const mediaUser = await resolveMediaUser(session);
+  if ('reason' in mediaUser) {
+    return reply(409, { outcome: 'refused', message: failureText(mediaUser.reason, locale) });
+  }
+
+  try {
+    const item = await mediaTitle(session, mediaUser.user.id, 'movie', tmdbId, locale);
+    if (!item) return reply(404, { outcome: 'failed', message: 'Title not found' });
+    if (item.status === 'available') {
+      return reply(200, {
+        outcome: 'already',
+        message: locale === 'de' ? 'Der Titel ist bereits verfügbar.' : 'The title is already available.',
+      });
+    }
+    if (item.status === 'requested' || item.status === 'processing' || item.status === 'partial') {
+      return reply(200, {
+        outcome: 'already',
+        message:
+          locale === 'de' ? 'Der Titel ist bereits angefragt oder in Bearbeitung.' : 'The title is already requested or processing.',
+      });
+    }
+    if (item.status === 'blocklisted') {
+      return reply(200, { outcome: 'refused', message: locale === 'de' ? 'Der Titel ist gesperrt.' : 'The title is blocklisted.' });
+    }
+    const quota = await seerrQuota(session, mediaUser.user.id);
+    if (quota.movie.restricted || (quota.movie.limit > 0 && quota.movie.used >= quota.movie.limit)) {
+      return reply(200, { outcome: 'quota', message: text(locale, 'quota') });
+    }
+
+    const id = createMediaProposal({
+      actor: session.identity.username,
+      serviceId: mediaUser.serviceId,
+      actionId: 'seerr.request',
+      payload: {
+        mediaType: 'movie',
+        tmdbId: item.tmdbId,
+        title: item.title,
+        year: item.year,
+        seerrUserId: mediaUser.user.id,
+      },
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    });
+    const proposal = mediaProposalOf(id, session.identity.username);
+    if (!proposal) return reply(500, { outcome: 'failed', message: text(locale, 'failed') });
+    return execute(session, proposal, mediaUser, locale);
+  } catch (error) {
+    if (error instanceof SeerrError) {
+      return reply(502, { outcome: 'failed', message: failureText('seerr_unavailable', locale) });
+    }
+    return reply(500, { outcome: 'failed', message: text(locale, 'failed') });
+  }
 };
