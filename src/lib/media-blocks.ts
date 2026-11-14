@@ -2,7 +2,7 @@ import type { AssistantBlock } from './assistant-blocks.ts';
 import type { MediaItem } from './seerr.ts';
 
 /** Ein Seerr-Treffer wird zu einem nativen Medienblock, nie zu freiem HTML. */
-export const mediaBlock = (item: MediaItem): AssistantBlock => ({
+export const mediaBlock = (item: MediaItem, can4k = false): AssistantBlock => ({
   type: 'media',
   tmdbId: item.tmdbId,
   mediaType: item.mediaType,
@@ -23,6 +23,7 @@ export const mediaBlock = (item: MediaItem): AssistantBlock => ({
   numberOfEpisodes: item.numberOfEpisodes,
   seasons: item.seasons,
   trailerKey: item.trailerKey,
+  can4k,
   status: item.status,
   statusText: item.statusText,
   requestable: item.requestable,

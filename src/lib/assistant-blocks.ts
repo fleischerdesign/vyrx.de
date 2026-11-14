@@ -73,6 +73,7 @@ export type AssistantBlock =
       readonly numberOfEpisodes: number | null;
       readonly seasons: readonly { readonly seasonNumber: number; readonly name: string; readonly episodeCount: number | null; readonly airDate: string | null }[];
       readonly trailerKey: string | null;
+      readonly can4k: boolean;
       readonly status: 'available' | 'requested' | 'processing' | 'partial' | 'unknown' | 'blocklisted';
       readonly statusText: string;
       readonly requestable: boolean;
@@ -98,6 +99,7 @@ export type AssistantBlock =
       readonly tmdbId: number;
       readonly mediaType: 'movie' | 'tv';
       readonly seasons?: readonly number[];
+      readonly is4k?: boolean;
       readonly title: string;
       readonly mediaTitle: string;
       readonly year: string | null;

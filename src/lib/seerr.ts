@@ -454,15 +454,15 @@ export interface SeerrRequestResult {
 export async function requestMedia(
   session: Session,
   userId: number,
-  input: { mediaType: 'movie' | 'tv'; tmdbId: number; seasons?: readonly number[] | 'all' },
+  input: { mediaType: 'movie' | 'tv'; tmdbId: number; seasons?: readonly number[] | 'all'; is4k?: boolean },
 ): Promise<SeerrRequestResult> {
   const body = await request<{ id?: unknown; status?: unknown }>(session, 'request', {
     userId,
     method: 'POST',
     body:
       input.mediaType === 'movie'
-        ? { mediaType: 'movie', mediaId: input.tmdbId, is4k: false }
-        : { mediaType: 'tv', mediaId: input.tmdbId, seasons: input.seasons ?? 'all', is4k: false },
+        ? { mediaType: 'movie', mediaId: input.tmdbId, is4k: input.is4k === true }
+        : { mediaType: 'tv', mediaId: input.tmdbId, seasons: input.seasons ?? 'all', is4k: input.is4k === true },
   });
   return {
     requestId: typeof body.id === 'number' ? body.id : null,

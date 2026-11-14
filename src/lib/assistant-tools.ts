@@ -12,6 +12,7 @@ import type { AssistantBlock } from './assistant-blocks.ts';
 import { validateUiNodes } from './assistant-ui.ts';
 import { mediaBlock } from './media-blocks.ts';
 import { genreIdFor, genresFor } from './media-genres.ts';
+import { canRequest4k } from './media-permissions.ts';
 import { resolveMediaUser } from './media-users.ts';
 import { discoverMedia, mediaTitle, searchMedia, seerrQuota, SeerrError, type DiscoverKind, type MediaItem } from './seerr.ts';
 import { createMediaProposal } from './store.ts';
@@ -179,6 +180,7 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
           mediaType: { type: 'string', enum: ['movie', 'tv'] },
           tmdbId: { type: 'number' },
           seasons: { type: 'array', items: { type: 'number' }, description: 'TV only; omit for all regular seasons.' },
+          is4k: { type: 'boolean', description: 'Request the 4K version when the user has permission.' },
         },
         required: ['mediaType', 'tmdbId'],
         additionalProperties: false,
@@ -313,6 +315,7 @@ const mediaReasonMessage = (reason: string, locale: Locale): string => {
     invalid_id: { de: 'Die Titel-ID ist ungültig.', en: 'The title id is invalid.' },
     no_seasons: { de: 'Für diese Serie sind keine Staffeln verfügbar.', en: 'No seasons are available for this series.' },
     invalid_seasons: { de: 'Die Staffelauswahl ist ungültig.', en: 'The season selection is invalid.' },
+    no_4k: { de: 'Für 4K fehlt die Berechtigung.', en: 'You do not have 4K permission.' },
   };
   return messages[reason]?.[locale] ?? reason;
 };
@@ -773,7 +776,10 @@ export async function executeTool(
           }
           return {
             content: { query, results: mediaSummary(items) },
-            blocks: [...items.slice(0, 6).map(mediaBlock), ...mediaSuggestions(items[0]?.title, locale)],
+            blocks: [
+              ...items.slice(0, 6).map((item) => mediaBlock(item, canRequest4k(mediaUser.user.permissions, item.mediaType))),
+              ...mediaSuggestions(items[0]?.title, locale),
+            ],
           };
         } catch (error) {
           return { content: mediaFailure(mediaError(error), locale) };
@@ -832,7 +838,10 @@ export async function executeTool(
               ...(kind === 'genre' ? { genre: asString(args.genre, 80), sortBy, recent, fallback } : {}),
               results: mediaSummary(items),
             },
-            blocks: [...items.slice(0, 6).map(mediaBlock), ...mediaSuggestions(items[0]?.title, locale)],
+            blocks: [
+              ...items.slice(0, 6).map((item) => mediaBlock(item, canRequest4k(mediaUser.user.permissions, item.mediaType))),
+              ...mediaSuggestions(items[0]?.title, locale),
+            ],
           };
         } catch (error) {
           return { content: { error: mediaError(error) } };
@@ -852,7 +861,7 @@ export async function executeTool(
           if (!item) return { content: mediaFailure('not_found', locale) };
           return {
             content: { result: mediaSummary([item])[0] },
-            blocks: [mediaBlock(item), ...mediaSuggestions(item.title, locale)],
+            blocks: [mediaBlock(item, canRequest4k(mediaUser.user.permissions, item.mediaType)), ...mediaSuggestions(item.title, locale)],
           };
         } catch (error) {
           return { content: { error: mediaError(error) } };
@@ -863,6 +872,7 @@ export async function executeTool(
         if (!mediaRequestsEnabled()) return { content: mediaFailure('disabled', locale) };
         const mediaType = args.mediaType === 'tv' ? 'tv' : args.mediaType === 'movie' ? 'movie' : null;
         if (!mediaType) return { content: mediaFailure('unsupported_media_type', locale) };
+        const is4k = args.is4k === true;
         const tmdbId = asPositiveInt(args.tmdbId);
         if (!tmdbId) return { content: mediaFailure('invalid_id', locale) };
         const mediaUser = await resolveMediaUser(session);
@@ -871,6 +881,9 @@ export async function executeTool(
         }
         const identity = session.identity;
         if (!identity) return { content: { error: 'not_signed_in' } };
+        if (is4k && !canRequest4k(mediaUser.user.permissions, mediaType)) {
+          return { content: mediaFailure('no_4k', locale) };
+        }
         try {
           const item = await mediaTitle(session, mediaUser.user.id, mediaType, tmdbId, locale);
           if (!item) return { content: { error: 'not_found' } };
@@ -919,6 +932,7 @@ export async function executeTool(
               year: item.year,
               seerrUserId: mediaUser.user.id,
               seasons,
+              is4k,
             },
             expiresAt,
           });
@@ -938,6 +952,7 @@ export async function executeTool(
                 tmdbId: item.tmdbId,
                 mediaType,
                 seasons: seasons ?? undefined,
+                is4k,
                 mediaTitle: item.title,
                 year: item.year,
                 statusText: item.statusText,

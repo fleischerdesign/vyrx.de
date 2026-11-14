@@ -352,6 +352,7 @@ export interface MediaProposalPayload {
   readonly year: string | null;
   readonly seerrUserId: number;
   readonly seasons: readonly number[] | null;
+  readonly is4k: boolean;
 }
 
 export interface MediaProposal {

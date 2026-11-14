@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { isSameOrigin } from '../../../lib/http.ts';
+import { canRequest4k } from '../../../lib/media-permissions.ts';
 import { resolveMediaUser, type MediaUserFailure, type MediaUserSuccess } from '../../../lib/media-users.ts';
 import { mediaTitle, ownRequests, requestMedia, seerrQuota, SeerrError } from '../../../lib/seerr.ts';
 import { readSession, type Session } from '../../../lib/session.ts';
@@ -133,6 +134,7 @@ const execute = async (
       mediaType: proposal.payload.mediaType,
       tmdbId: proposal.payload.tmdbId,
       seasons: proposal.payload.seasons ?? undefined,
+      is4k: proposal.payload.is4k === true,
     });
     outcome = 'accepted';
     requestId = result.requestId;
@@ -190,7 +192,7 @@ export const POST: APIRoute = async ({ request }) => {
   const session = readSession(request);
   if (!session.identity) return reply(401, { outcome: 'refused', message: 'Unauthorized' });
 
-  let body: { proposalId?: unknown; mediaType?: unknown; tmdbId?: unknown; seasons?: unknown; locale?: unknown };
+  let body: { proposalId?: unknown; mediaType?: unknown; tmdbId?: unknown; seasons?: unknown; is4k?: unknown; locale?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -231,6 +233,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Direct mode: the detail modal is the confirmation surface.
   const mediaType = body.mediaType === 'movie' || body.mediaType === 'tv' ? body.mediaType : null;
+  const is4k = body.is4k === true;
   const tmdbId = typeof body.tmdbId === 'number' && Number.isInteger(body.tmdbId) && body.tmdbId > 0 ? body.tmdbId : null;
   if (!mediaType || !tmdbId) {
     return reply(400, { outcome: 'failed', message: 'Invalid title' });
@@ -240,6 +243,9 @@ export const POST: APIRoute = async ({ request }) => {
   const mediaUser = await resolveMediaUser(session);
   if ('reason' in mediaUser) {
     return reply(409, { outcome: 'refused', message: failureText(mediaUser.reason, locale) });
+  }
+  if (is4k && !canRequest4k(mediaUser.user.permissions, mediaType)) {
+    return reply(403, { outcome: 'refused', message: locale === 'de' ? 'Keine 4K-Berechtigung.' : 'No 4K permission.' });
   }
 
   try {
@@ -301,6 +307,7 @@ export const POST: APIRoute = async ({ request }) => {
         year: item.year,
         seerrUserId: mediaUser.user.id,
         seasons,
+        is4k,
       },
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
     });

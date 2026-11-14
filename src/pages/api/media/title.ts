@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { isSameOrigin } from '../../../lib/http.ts';
 import { mediaBlock } from '../../../lib/media-blocks.ts';
+import { canRequest4k } from '../../../lib/media-permissions.ts';
 import { resolveMediaUser, type MediaUserFailure } from '../../../lib/media-users.ts';
 import { mediaTitle, SeerrError } from '../../../lib/seerr.ts';
 import { readSession } from '../../../lib/session.ts';
@@ -62,7 +63,7 @@ export const GET: APIRoute = async ({ request, url }) => {
   try {
     const item = await mediaTitle(session, mediaUser.user.id, mediaType, tmdbId, locale);
     if (!item) return reply(404, { error: 'not_found', message: 'Title not found' });
-    return reply(200, { item: mediaBlock(item) });
+    return reply(200, { item: mediaBlock(item, canRequest4k(mediaUser.user.permissions, item.mediaType)) });
   } catch (error) {
     if (error instanceof SeerrError) {
       const status = error.code === 'not_found' ? 404 : error.code === 'forbidden' ? 403 : error.code === 'rate' ? 429 : 502;

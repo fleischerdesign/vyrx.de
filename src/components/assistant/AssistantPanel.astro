@@ -628,6 +628,7 @@ const labels = {
 
         const body = document.createElement('div');
         body.className = 'ui-media-dialog__body';
+        let is4k = false;
         const runtimeText = (minutes: number | null | undefined): string => {
           if (!minutes || minutes <= 0) return '';
           const hours = Math.floor(minutes / 60);
@@ -657,6 +658,17 @@ const labels = {
         status.className = 'ui-media__status';
         status.dataset.status = block.status;
         status.textContent = block.statusText;
+        const quality = document.createElement('button');
+        quality.type = 'button';
+        quality.className = 'ui-media-dialog__quality';
+        quality.textContent = '4K';
+        quality.setAttribute('aria-pressed', 'false');
+        quality.hidden = block.can4k !== true;
+        quality.addEventListener('click', () => {
+          is4k = !is4k;
+          quality.setAttribute('aria-pressed', String(is4k));
+          quality.classList.toggle('is-active', is4k);
+        });
         const overview = document.createElement('p');
         overview.className = 'ui-media-dialog__overview';
         overview.textContent = block.overview || (locale === 'de' ? 'Keine Beschreibung verfügbar.' : 'No description available.');
@@ -718,7 +730,7 @@ const labels = {
               const response = await fetch('/api/media/request', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ mediaType: 'tv', tmdbId: block.tmdbId, seasons: selected, locale }),
+                body: JSON.stringify({ mediaType: 'tv', tmdbId: block.tmdbId, seasons: selected, is4k, locale }),
               });
               const data = (await response.json()) as { outcome?: string; message?: string };
               const accepted = data.outcome === 'accepted' || data.outcome === 'already';
@@ -812,7 +824,7 @@ const labels = {
           details.append(loading);
         }
 
-        body.append(meta, title, status, overview, details, seasonSlot);
+        body.append(meta, title, status, quality, overview, details, seasonSlot);
 
         const actions = document.createElement('div');
         actions.className = 'ui-media-dialog__actions';
@@ -830,7 +842,7 @@ const labels = {
               const response = await fetch('/api/media/request', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ mediaType: block.mediaType, tmdbId: block.tmdbId, locale }),
+                body: JSON.stringify({ mediaType: block.mediaType, tmdbId: block.tmdbId, is4k, locale }),
               });
               const data = (await response.json()) as { outcome?: string; message?: string };
               const accepted = data.outcome === 'accepted' || data.outcome === 'already';
@@ -3955,6 +3967,30 @@ const labels = {
     font-weight: var(--weight-semibold);
     letter-spacing: var(--tracking-tight);
     line-height: 1.2;
+  }
+
+  .ui-media-dialog__quality {
+    align-self: flex-start;
+    margin-top: 2px;
+    padding: 2px 7px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0.04em;
+  }
+
+  .ui-media-dialog__quality:hover {
+    border-color: var(--accent-soft-line);
+    color: var(--accent-strong);
+  }
+
+  .ui-media-dialog__quality.is-active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
   }
 
   .ui-media-dialog__overview {

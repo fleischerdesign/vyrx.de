@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { resolveMediaUser } from '../src/lib/media-users.ts';
 import { cancelRequest, mediaService, mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
+import { canRequest4k } from '../src/lib/media-permissions.ts';
 import type { Session } from '../src/lib/session.ts';
 import {
   closeStore,
@@ -216,7 +217,7 @@ test('a proposal is actor-scoped and can be claimed once', () => {
       actor: 'philipp',
       serviceId: 'media-requests',
       actionId: 'seerr.request',
-      payload: { mediaType: 'movie', tmdbId: 438631, title: 'Dune', year: '2021', seerrUserId: 2, seasons: null },
+      payload: { mediaType: 'movie', tmdbId: 438631, title: 'Dune', year: '2021', seerrUserId: 2, seasons: null, is4k: false },
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
     assert.equal(mediaProposalOf(id, 'someone-else'), null);
@@ -302,6 +303,33 @@ test('cancelRequest sends a DELETE for the own request id', async () => {
     await cancelRequest(baseSession(), 2, 263);
     assert.equal(captured.url, 'https://seerr.test/api/v1/request/263');
     assert.equal(captured.method, 'DELETE');
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});
+
+test('4K permission bits and request body', async () => {
+  assert.equal(canRequest4k(2, 'movie'), true);
+  assert.equal(canRequest4k(1024, 'tv'), true);
+  assert.equal(canRequest4k(2048, 'movie'), true);
+  assert.equal(canRequest4k(2048, 'tv'), false);
+  assert.equal(canRequest4k(32, 'movie'), false);
+
+  process.env.PORTAL_SEERR_API_KEY = 'test-key';
+  const captured = { body: '' };
+  const original = globalThis.fetch;
+  globalThis.fetch = (async (_input, init) => {
+    captured.body = typeof init?.body === 'string' ? init.body : '';
+    return new Response(JSON.stringify({ id: 265, status: 1 }), {
+      status: 201,
+      headers: { 'content-type': 'application/json' },
+    });
+  }) as typeof fetch;
+
+  try {
+    await requestMedia(baseSession(), 2, { mediaType: 'movie', tmdbId: 438631, is4k: true });
+    assert.deepEqual(JSON.parse(captured.body), { mediaType: 'movie', mediaId: 438631, is4k: true });
   } finally {
     globalThis.fetch = original;
     delete process.env.PORTAL_SEERR_API_KEY;
