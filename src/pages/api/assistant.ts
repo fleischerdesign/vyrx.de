@@ -3,7 +3,7 @@ import {
   AssistantProviderError,
   assistantConfig,
   contextFor,
-  streamAnswer,
+  runAssistant,
   type AssistantMessage,
 } from '../../lib/assistant.ts';
 import { isSameOrigin, localPath } from '../../lib/http.ts';
@@ -144,8 +144,18 @@ export const POST: APIRoute = async ({ request }) => {
 
       try {
         send('sources', { sources: context.sources });
-        for await (const delta of streamAnswer(config, messages, context.system, abort.signal)) {
-          send('delta', { text: delta });
+        for await (const event of runAssistant(
+          config,
+          messages,
+          context,
+          context.data,
+          session,
+          locale,
+          abort.signal,
+        )) {
+          if (event.type === 'text') send('delta', { text: event.text });
+          else if (event.type === 'blocks') send('blocks', { blocks: event.blocks });
+          else if (event.type === 'navigate') send('navigate', { href: event.href, label: event.label });
         }
         send('done', {});
       } catch (error) {

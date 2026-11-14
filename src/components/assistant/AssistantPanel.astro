@@ -42,6 +42,7 @@ const labels = {
   stateDown: t('stateDown'),
   stateUnknown: t('stateUnknown'),
   stateUnmonitored: t('stateUnmonitored'),
+  open: t('assistantOpenLink'),
 };
 ---
 
@@ -117,9 +118,10 @@ const labels = {
   </div>
 </dialog>
 
-<script type="application/json" data-assistant-config set:html={JSON.stringify({ locale, page: Astro.url.pathname, user, service: pageService, labels })}></script>
+<script type="application/json" data-assistant-config set:html={JSON.stringify({ locale, page: Astro.url.pathname, user, service: pageService, labels, suggestions })}></script>
 
 <script>
+  import type { AssistantBlock } from '@/lib/assistant-blocks.ts';
   import { SseParser } from '@/lib/sse.ts';
 
   interface Config {
@@ -128,6 +130,7 @@ const labels = {
     readonly user: string;
     readonly service?: { readonly id: string; readonly name: string } | null;
     readonly labels: Record<string, string>;
+    readonly suggestions?: readonly string[];
   }
 
   interface Source {
@@ -137,7 +140,18 @@ const labels = {
     readonly href: string;
   }
 
-  type Message = { role: 'user' | 'assistant'; content: string; sources?: readonly Source[] };
+  interface Navigation {
+    readonly href: string;
+    readonly label: string;
+  }
+
+  type Message = {
+    role: 'user' | 'assistant';
+    content: string;
+    sources?: readonly Source[];
+    blocks?: readonly AssistantBlock[];
+    navigations?: readonly Navigation[];
+  };
 
   const dialog = document.getElementById('assistant') as HTMLDialogElement | null;
   const fab = document.querySelector<HTMLButtonElement>('.assistant-fab');
@@ -170,6 +184,7 @@ const labels = {
     let busy = false;
     let controller: AbortController | null = null;
     let run = 0;
+    let streamFrame = 0;
 
     const scroll = (): void => {
       log.scrollTop = log.scrollHeight;
@@ -259,17 +274,36 @@ const labels = {
       if (last < value.length) parent.append(document.createTextNode(value.slice(last)));
     };
 
-    const renderAnswer = (answer: HTMLElement, value: string): void => {
+    const trimIncomplete = (value: string): string => {
+      let out = value;
+      const bold = (out.match(/\*\*/g) ?? []).length;
+      if (bold % 2 === 1) out = out.replace(/\*\*(?=[^*]*$)/, '');
+      const ticks = (out.match(/`/g) ?? []).length;
+      if (ticks % 2 === 1) out = out.replace(/`(?=[^`]*$)/, '');
+      if (/(^|[^*])\*$/.test(out) && !/\*\*$/.test(out)) out = out.slice(0, -1);
+      return out;
+    };
+
+    const appendCursor = (answer: HTMLElement): void => {
+      const cursor = document.createElement('span');
+      cursor.className = 'assistant__cursor';
+      cursor.setAttribute('aria-hidden', 'true');
+      const last = answer.lastElementChild;
+      const target = last?.tagName === 'UL' ? last.lastElementChild : last;
+      (target ?? answer).append(cursor);
+    };
+
+    const renderMarkdown = (answer: HTMLElement, value: string, streaming: boolean): void => {
+      const source = streaming ? trimIncomplete(value) : value;
       answer.replaceChildren();
-      answer.classList.remove('is-streaming');
-      answer.classList.add('is-ready');
-      const textValue = value.trim() || (labels.empty ?? '');
-      const blocks = textValue.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
-      if (blocks.length === 0) {
+      answer.classList.toggle('is-ready', !streaming);
+      answer.classList.toggle('is-streaming', streaming);
+
+      const blocks = source.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+      if (blocks.length === 0 && !streaming && !value.trim()) {
         const paragraph = document.createElement('p');
         paragraph.textContent = labels.empty ?? '';
         answer.append(paragraph);
-        return;
       }
 
       for (const block of blocks) {
@@ -292,6 +326,18 @@ const labels = {
           answer.append(paragraph);
         }
       }
+
+      if (streaming) appendCursor(answer);
+    };
+
+    const scheduleStreamRender = (answer: HTMLElement, value: string): void => {
+      if (streamFrame) return;
+      streamFrame = requestAnimationFrame(() => {
+        streamFrame = 0;
+        if (!answer.isConnected) return;
+        renderMarkdown(answer, value, true);
+        scroll();
+      });
     };
 
     const renderSources = (turn: HTMLElement, text: string, sources: readonly Source[]): void => {
@@ -323,6 +369,227 @@ const labels = {
       }
 
       if (wrap.childElementCount > 1) turn.append(wrap);
+    };
+
+    const safeHref = (href: unknown): string | null =>
+      typeof href === 'string' && href.startsWith('/') && !href.startsWith('//') && !href.includes('\\') ? href : null;
+
+    const blockKey = (block: AssistantBlock): string => {
+      switch (block.type) {
+        case 'status':
+        case 'service':
+          return `service:${block.serviceId}`;
+        case 'article':
+          return `article:${block.slug}`;
+        case 'maintenance':
+          return `maintenance:${block.startsAt}:${block.endsAt}:${block.serviceId ?? 'all'}`;
+        case 'step':
+          return `step:${block.question}`;
+        case 'suggestions':
+          return 'suggestions';
+        default:
+          return 'unknown';
+      }
+    };
+
+    const renderBlocks = (turn: HTMLElement, blocks: readonly AssistantBlock[]): void => {
+      if (!Array.isArray(blocks) || blocks.length === 0) return;
+      const seen = new Set<string>();
+      const wrap = document.createElement('div');
+      wrap.className = 'assistant__blocks';
+
+      for (const block of blocks) {
+        if (!block || typeof block !== 'object') continue;
+        const key = blockKey(block);
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        if (block.type === 'status') {
+          const href = safeHref(block.href);
+          if (!href) continue;
+          const card = document.createElement('a');
+          card.className = 'assistant-card assistant-card--status';
+          card.href = href;
+          card.dataset.state = block.state;
+          const dot = document.createElement('span');
+          dot.className = 'assistant-card__dot';
+          dot.setAttribute('aria-hidden', 'true');
+          const body = document.createElement('span');
+          body.className = 'assistant-card__body';
+          const name = document.createElement('strong');
+          name.textContent = block.name;
+          const meta = document.createElement('small');
+          meta.textContent = [block.stateText, block.asOf ? formatTime(block.asOf) : ''].filter(Boolean).join(' · ');
+          body.append(name, meta);
+          const arrow = document.createElement('span');
+          arrow.className = 'assistant-card__arrow';
+          arrow.textContent = '→';
+          card.append(dot, body, arrow);
+          wrap.append(card);
+          continue;
+        }
+
+        if (block.type === 'service') {
+          const href = safeHref(block.href);
+          if (!href) continue;
+          const card = document.createElement('a');
+          card.className = 'assistant-card assistant-card--service';
+          card.href = href;
+          const body = document.createElement('span');
+          body.className = 'assistant-card__body';
+          const name = document.createElement('strong');
+          name.textContent = block.name;
+          const summary = document.createElement('small');
+          summary.textContent = block.summary;
+          const meta = document.createElement('small');
+          meta.className = 'assistant-card__meta';
+          meta.textContent = [block.stateText, block.asOf ? formatTime(block.asOf) : ''].filter(Boolean).join(' · ');
+          body.append(name, summary, meta);
+          const arrow = document.createElement('span');
+          arrow.className = 'assistant-card__arrow';
+          arrow.textContent = '→';
+          card.append(body, arrow);
+          wrap.append(card);
+          continue;
+        }
+
+        if (block.type === 'article') {
+          const href = safeHref(block.href);
+          if (!href) continue;
+          const card = document.createElement('a');
+          card.className = 'assistant-card assistant-card--article';
+          card.href = href;
+          const body = document.createElement('span');
+          body.className = 'assistant-card__body';
+          const kind = document.createElement('span');
+          kind.className = 'assistant-card__kind';
+          kind.textContent = block.kindText || block.kind || '';
+          const title = document.createElement('strong');
+          title.textContent = block.title;
+          const summary = document.createElement('small');
+          summary.textContent = block.summary;
+          body.append(kind, title, summary);
+          const arrow = document.createElement('span');
+          arrow.className = 'assistant-card__arrow';
+          arrow.textContent = '→';
+          card.append(body, arrow);
+          wrap.append(card);
+          continue;
+        }
+
+        if (block.type === 'maintenance') {
+          const card = document.createElement('div');
+          card.className = 'assistant-card assistant-card--maintenance';
+          const body = document.createElement('span');
+          body.className = 'assistant-card__body';
+          const name = document.createElement('strong');
+          name.textContent = block.serviceName ?? (locale === 'de' ? 'Alle Angebote' : 'All applications');
+          const time = document.createElement('small');
+          time.textContent = `${formatTime(Date.parse(block.startsAt))} – ${formatTime(Date.parse(block.endsAt))}`;
+          body.append(name, time);
+          if (block.note) {
+            const note = document.createElement('small');
+            note.textContent = block.note;
+            body.append(note);
+          }
+          card.append(body);
+          wrap.append(card);
+          continue;
+        }
+
+        if (block.type === 'step') {
+          if (!Array.isArray(block.options) || block.options.length === 0) continue;
+          const card = document.createElement('div');
+          card.className = 'assistant-card assistant-card--step';
+          const question = document.createElement('p');
+          question.className = 'assistant-card__question';
+          question.textContent = block.question;
+          const options = document.createElement('div');
+          options.className = 'assistant-card__options';
+          for (const option of block.options) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = option.label;
+            button.addEventListener('click', () => {
+              if (button.disabled) return;
+              for (const sibling of options.querySelectorAll('button')) sibling.disabled = true;
+              button.dataset.selected = 'true';
+              void send(option.label);
+            });
+            options.append(button);
+          }
+          card.append(question, options);
+          if (block.step || block.total) {
+            const counter = document.createElement('small');
+            counter.className = 'assistant-card__counter';
+            counter.textContent = `${block.step ?? 1}${block.total ? ` / ${block.total}` : ''}`;
+            card.append(counter);
+          }
+          wrap.append(card);
+          continue;
+        }
+
+        if (block.type === 'suggestions') {
+          if (!Array.isArray(block.items) || block.items.length === 0) continue;
+          const options = document.createElement('div');
+          options.className = 'assistant-card__options';
+          for (const item of block.items) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = item;
+            button.addEventListener('click', () => {
+              button.disabled = true;
+              void send(item);
+            });
+            options.append(button);
+          }
+          wrap.append(options);
+        }
+      }
+
+      if (wrap.childElementCount > 0) turn.append(wrap);
+    };
+
+    const renderFollowUps = (turn: HTMLElement, asked: string): void => {
+      // Ein Schritt oder ein Öffnen-Link ist bereits der nächste Weg.
+      if (turn.querySelector('.assistant-card--step, .assistant__navigate')) return;
+      const items = (config.suggestions ?? [])
+        .filter((item): item is string => typeof item === 'string' && item.trim().length > 0 && item.trim() !== asked.trim())
+        .slice(0, 2);
+      if (items.length === 0) return;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'assistant__followups';
+      for (const item of items) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = item;
+        button.addEventListener('click', () => {
+          for (const sibling of wrap.querySelectorAll('button')) sibling.disabled = true;
+          void send(item);
+        });
+        wrap.append(button);
+      }
+      turn.append(wrap);
+    };
+
+    const renderNavigations = (turn: HTMLElement, navigations: readonly Navigation[]): void => {
+      if (!Array.isArray(navigations) || navigations.length === 0) return;
+      const seen = new Set<string>();
+      const wrap = document.createElement('div');
+      wrap.className = 'assistant__navigate-row';
+      for (const navigation of navigations) {
+        if (!navigation || typeof navigation.label !== 'string') continue;
+        const href = safeHref(navigation.href);
+        if (!href || seen.has(href)) continue;
+        seen.add(href);
+        const link = document.createElement('a');
+        link.className = 'assistant__navigate';
+        link.href = href;
+        link.textContent = `${labels.open ?? ''}: ${navigation.label} →`;
+        wrap.append(link);
+      }
+      if (wrap.childElementCount > 0) turn.append(wrap);
     };
 
     const addUser = (value: string): void => {
@@ -387,12 +654,15 @@ const labels = {
 
     const isStoredMessage = (value: unknown): value is Message => {
       if (value === null || typeof value !== 'object') return false;
-      const entry = value as { role?: unknown; content?: unknown; sources?: unknown };
+      const entry = value as { role?: unknown; content?: unknown; sources?: unknown; blocks?: unknown; navigations?: unknown };
+      if (entry.role !== 'user' && entry.role !== 'assistant') return false;
+      if (typeof entry.content !== 'string') return false;
+      if (entry.sources !== undefined && !Array.isArray(entry.sources)) return false;
+      if (entry.blocks !== undefined && !Array.isArray(entry.blocks)) return false;
+      if (entry.navigations !== undefined && !Array.isArray(entry.navigations)) return false;
       return (
-        (entry.role === 'user' || entry.role === 'assistant') &&
-        typeof entry.content === 'string' &&
-        entry.content.length > 0 &&
-        (entry.sources === undefined || Array.isArray(entry.sources))
+        entry.content.length > 0 ||
+        (entry.role === 'assistant' && ((Array.isArray(entry.blocks) && entry.blocks.length > 0) || (Array.isArray(entry.navigations) && entry.navigations.length > 0)))
       );
     };
 
@@ -416,8 +686,14 @@ const labels = {
           addUser(message.content);
         } else {
           const { turn, answer } = addAnswer();
-          renderAnswer(answer, message.content);
-          renderSources(turn, message.content, message.sources ?? []);
+          if (message.content) {
+            renderMarkdown(answer, message.content, false);
+            renderSources(turn, message.content, message.sources ?? []);
+          } else {
+            answer.remove();
+          }
+          renderBlocks(turn, message.blocks ?? []);
+          renderNavigations(turn, message.navigations ?? []);
         }
       }
       scroll();
@@ -432,7 +708,10 @@ const labels = {
       controller = new AbortController();
       let streamed = '';
       let sources: readonly Source[] = [];
+      let blocks: AssistantBlock[] = [];
+      let navigations: Navigation[] = [];
       let streamError = '';
+      const asked = last.content;
       const { turn, answer } = addAnswer();
 
       try {
@@ -466,8 +745,15 @@ const labels = {
               const data = JSON.parse(event.data) as { text?: string };
               if (typeof data.text === 'string') {
                 streamed += data.text;
-                answer.textContent = streamed;
-                scroll();
+                scheduleStreamRender(answer, streamed);
+              }
+            } else if (event.event === 'blocks') {
+              const data = JSON.parse(event.data) as { blocks?: AssistantBlock[] };
+              if (Array.isArray(data.blocks)) blocks.push(...data.blocks);
+            } else if (event.event === 'navigate') {
+              const data = JSON.parse(event.data) as { href?: string; label?: string };
+              if (typeof data.href === 'string' && typeof data.label === 'string') {
+                navigations.push({ href: data.href, label: data.label });
               }
             } else if (event.event === 'error') {
               const data = JSON.parse(event.data) as { message?: string };
@@ -487,12 +773,28 @@ const labels = {
 
         if (streamError) throw new Error(streamError);
         if (id !== run) return;
+        if (streamFrame) {
+          cancelAnimationFrame(streamFrame);
+          streamFrame = 0;
+        }
 
-        renderAnswer(answer, streamed);
-        renderSources(turn, streamed, sources);
         if (streamed.trim()) {
-          messages.push({ role: 'assistant', content: streamed.trim(), sources });
+          renderMarkdown(answer, streamed, false);
+          renderBlocks(turn, blocks);
+          renderNavigations(turn, navigations);
+          renderSources(turn, streamed, sources);
+          renderFollowUps(turn, asked);
+          messages.push({ role: 'assistant', content: streamed.trim(), sources, blocks, navigations });
           save();
+        } else if (blocks.length > 0 || navigations.length > 0) {
+          answer.remove();
+          renderBlocks(turn, blocks);
+          renderNavigations(turn, navigations);
+          renderFollowUps(turn, asked);
+          messages.push({ role: 'assistant', content: '', sources, blocks, navigations });
+          save();
+        } else {
+          renderMarkdown(answer, labels.empty ?? '', false);
         }
         scroll();
       } catch (error) {
@@ -968,8 +1270,169 @@ const labels = {
     margin-top: var(--space-3);
   }
 
-  .assistant__answer.is-streaming {
-    white-space: pre-wrap;
+  .assistant__cursor {
+    display: inline-block;
+    width: 1px;
+    height: 1em;
+    margin-left: 2px;
+    background: currentColor;
+    vertical-align: -2px;
+    animation: assistant-caret 1s steps(2, start) infinite;
+  }
+
+  .assistant__blocks {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+  }
+
+  .assistant__turn .assistant-card,
+  .assistant__turn .assistant__navigate {
+    text-decoration: none;
+  }
+
+  .assistant-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--ink);
+  }
+
+  .assistant-card:hover {
+    border-color: var(--accent-soft-line);
+  }
+
+  .assistant-card__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--unknown);
+    flex: none;
+  }
+
+  .assistant-card[data-state='up'] .assistant-card__dot {
+    background: var(--ok);
+  }
+
+  .assistant-card[data-state='down'] .assistant-card__dot {
+    background: var(--bad);
+  }
+
+  .assistant-card[data-state='unmonitored'] .assistant-card__dot {
+    background: var(--line-strong);
+  }
+
+  .assistant-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .assistant-card__body strong {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .assistant-card__body small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    text-overflow: ellipsis;
+  }
+
+  .assistant-card__kind {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .assistant-card__arrow {
+    color: var(--faint);
+    flex: none;
+  }
+
+  .assistant-card--step {
+    display: block;
+    background: var(--surface-2);
+  }
+
+  .assistant-card__question {
+    color: var(--ink);
+    font-weight: var(--weight-semibold);
+  }
+
+  .assistant-card__options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+
+  .assistant-card__options button {
+    min-height: 2.25rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+  }
+
+  .assistant-card__options button:hover {
+    border-color: var(--accent-soft-line);
+    background: var(--accent-weaker);
+    color: var(--accent-strong);
+  }
+
+  .assistant-card__options button:disabled {
+    opacity: 0.55;
+  }
+
+  .assistant-card__options button[data-selected='true'] {
+    border-color: var(--accent-soft-line);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .assistant-card__counter {
+    display: block;
+    margin-top: var(--space-2);
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+  }
+
+  .assistant__navigate-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+  }
+
+  .assistant__navigate {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--accent-soft-line);
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .assistant__navigate:hover {
+    background: var(--accent-weaker);
   }
 
   .assistant__typing {
@@ -993,6 +1456,31 @@ const labels = {
 
   .assistant__typing i:nth-child(3) {
     animation-delay: 0.3s;
+  }
+
+  .assistant__followups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-4);
+  }
+
+  .assistant__followups button {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .assistant__followups button:hover {
+    border-color: var(--accent-soft-line);
+    color: var(--accent-strong);
+  }
+
+  .assistant__followups button:disabled {
+    opacity: 0.55;
   }
 
   .assistant__sources {
@@ -1141,6 +1629,17 @@ const labels = {
     font-size: 0.625rem;
   }
 
+  @keyframes assistant-caret {
+    0%,
+    45% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
   @keyframes assistant-blink {
     0%,
     80%,
@@ -1157,6 +1656,11 @@ const labels = {
       animation: none;
       opacity: 1;
     }
+
+    .assistant__cursor {
+      animation: none;
+      opacity: 1;
+    }
   }
 
   @media (pointer: coarse) {
@@ -1168,6 +1672,11 @@ const labels = {
 
     .assistant__field textarea {
       font-size: 1rem;
+    }
+
+    .assistant-card__options button,
+    .assistant__followups button {
+      min-height: 2.75rem;
     }
   }
 

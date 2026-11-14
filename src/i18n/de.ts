@@ -156,6 +156,7 @@ export const de = {
   assistantAskStatusQuery: 'Was ist gerade gestört?',
   assistantMeasured: 'Messung {time}',
   assistantStatusLink: 'Status ansehen',
+  assistantOpenLink: 'Öffnen',
   paletteAssistant: 'Assistent',
   paletteAssistantLabel: 'Assistent fragen',
   paletteAssistantHint: 'Aus deinen freigegebenen Diensten und Artikeln.',

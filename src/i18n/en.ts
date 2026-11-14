@@ -131,6 +131,7 @@ export const en: Record<keyof typeof de, string> = {
   assistantAskStatusQuery: 'What is broken right now?',
   assistantMeasured: 'Measured {time}',
   assistantStatusLink: 'View status',
+  assistantOpenLink: 'Open',
   paletteAssistant: 'Assistant',
   paletteAssistantLabel: 'Ask the assistant',
   paletteAssistantHint: 'From the services and articles released for you.',

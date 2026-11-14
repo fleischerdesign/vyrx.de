@@ -89,6 +89,7 @@ type ContextShape = {
     readonly ref: string;
     readonly id: string;
     readonly accessGroups: readonly string[];
+    readonly accessText: string;
     readonly favorite: boolean;
     readonly dependsOn: readonly string[];
     readonly dependsOnHidden: boolean;
@@ -151,6 +152,7 @@ test('groups, access, favorites and dependencies are in the context', () => {
 
   const media = context.services.find((service) => service.id === 'media-requests');
   assert.deepEqual(media?.accessGroups, ['family', 'media-users']);
+  assert.equal(media?.accessText, 'sichtbar über family, media-users');
   assert.equal(media?.favorite, true);
   assert.deepEqual(media?.dependsOn, ['S2']);
   assert.equal(media?.dependsOnHidden, false);

@@ -11,7 +11,14 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { activeAnnouncements, announcementText } from './announcements.ts';
-import { buildAssistantContext, type AssistantArticle, type AssistantService } from './assistant-context.ts';
+import type { AssistantBlock } from './assistant-blocks.ts';
+import { ASSISTANT_TOOLS, executeTool, navigationFor, type ToolDefinition } from './assistant-tools.ts';
+import {
+  buildAssistantContext,
+  type AssistantArticle,
+  type AssistantData,
+  type AssistantService,
+} from './assistant-context.ts';
 import { articleSlug, articlesFor, canReadArticle } from './knowledge.ts';
 import { routeFrom, type Locale } from './locale.ts';
 import { loadHistory, loadStatus, stateOf, type StateChange } from './status.ts';
@@ -86,7 +93,7 @@ export async function contextFor(
   locale: Locale,
   pathname: string,
   query: string,
-): Promise<ReturnType<typeof buildAssistantContext>> {
+): Promise<ReturnType<typeof buildAssistantContext> & { data: AssistantData }> {
   const route = routeFrom(pathname);
   const visible = session.services;
   const status = visible.length > 0 ? await loadStatus(visible.map((service) => service.id)) : null;
@@ -165,31 +172,75 @@ export async function contextFor(
     maintenance = [];
   }
 
-  return buildAssistantContext({
+  const page = { route: route.name, serviceId: pageServiceId, articleSlug: pageArticleSlug };
+  const groups = session.identity?.groups ?? [];
+  const data: AssistantData = { page, services, articles, announcements, maintenance, history: historyChanges, groups };
+  const built = buildAssistantContext({
     locale,
-    page: { route: route.name, serviceId: pageServiceId, articleSlug: pageArticleSlug },
+    page,
     personName: session.identity?.name || session.identity?.username || '',
     services,
     articles,
     announcements,
     maintenance,
     history: historyChanges,
-    groups: session.identity?.groups ?? [],
+    groups,
     now: new Date().toISOString(),
     query,
   });
+
+  return { ...built, data };
+}
+
+type ProviderRole = 'system' | 'user' | 'assistant' | 'tool';
+
+interface ProviderToolCall {
+  readonly id: string;
+  readonly type: 'function';
+  readonly function: { readonly name: string; readonly arguments: string };
+}
+
+interface ProviderMessage {
+  readonly role: ProviderRole;
+  readonly content: string;
+  readonly tool_calls?: readonly ProviderToolCall[];
+  readonly tool_call_id?: string;
+}
+
+interface StreamedTurn {
+  readonly text: string;
+  readonly toolCalls: readonly { id: string; name: string; arguments: string }[];
+}
+
+export type AssistantEvent =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'blocks'; readonly blocks: readonly AssistantBlock[] }
+  | { readonly type: 'navigate'; readonly href: string; readonly label: string };
+
+const MAX_TOOL_ROUNDS = 3;
+const MAX_TOOL_CALLS = 4;
+
+/** Eine Karte für genau die Seite, die daneben schon steht, ist Lärm. */
+function redundantBlock(block: AssistantBlock, data: AssistantData): boolean {
+  if ((block.type === 'service' || block.type === 'status') && block.serviceId === data.page.serviceId) return true;
+  if (block.type === 'article' && block.slug === data.page.articleSlug) return true;
+  return false;
+}
+
+function asProviderMessages(system: string, messages: readonly AssistantMessage[]): ProviderMessage[] {
+  return [{ role: 'system', content: system }, ...messages.map((message) => ({ role: message.role, content: message.content }))];
 }
 
 /**
- * Liest den OpenAI-kompatiblen Stream des Anbieters und gibt nur Textstücke
- * weiter. Denkanstöße, Rollen und `finish_reason` bleiben beim Anbieter.
+ * Ein einzelner Anbieter-Turn. Textstücke werden sofort weitergegeben;
+ * Werkzeugaufrufe werden gesammelt und erst am Ende des Turns zurückgegeben.
  */
-export async function* streamAnswer(
+async function* streamTurn(
   config: AssistantConfig,
-  messages: readonly AssistantMessage[],
-  system: string,
+  messages: readonly ProviderMessage[],
+  tools: readonly ToolDefinition[] | null,
   signal: AbortSignal,
-): AsyncGenerator<string> {
+): AsyncGenerator<string, StreamedTurn, void> {
   const timeout = AbortSignal.timeout(config.timeoutMs);
   const combined = AbortSignal.any([signal, timeout]);
   const openrouter = config.baseUrl.includes('openrouter.ai');
@@ -205,9 +256,10 @@ export async function* streamAnswer(
     },
     body: JSON.stringify({
       model: config.model,
-      messages: [{ role: 'system', content: system }, ...messages],
+      messages,
       max_tokens: config.maxTokens,
       temperature: 0.2,
+      ...(tools && tools.length > 0 ? { tools, tool_choice: 'auto' } : {}),
       // Der Assistent soll antworten, nicht intern nachdenken: Denk-Tokens
       // kosten Latenz und können das Antwortbudget vorzeitig aufbrauchen.
       // Nur OpenRouter kennt diesen Schalter; andere Anbieter bleiben unberührt.
@@ -230,6 +282,8 @@ export async function* streamAnswer(
   const queue: string[] = [];
   let failure: Error | null = null;
   let finished = false;
+  let text = '';
+  const calls = new Map<number, { id: string; name: string; arguments: string }>();
 
   const parser = new SseParser((event) => {
     if (event.data === '[DONE]') {
@@ -238,7 +292,17 @@ export async function* streamAnswer(
     }
     try {
       const payload = JSON.parse(event.data) as {
-        choices?: readonly { delta?: { content?: unknown }; finish_reason?: unknown }[];
+        choices?: readonly {
+          delta?: {
+            content?: unknown;
+            tool_calls?: readonly {
+              index?: number;
+              id?: string;
+              function?: { name?: string; arguments?: string };
+            }[];
+          };
+          finish_reason?: unknown;
+        }[];
         error?: { message?: string };
       };
       if (payload.error?.message) {
@@ -248,12 +312,26 @@ export async function* streamAnswer(
       const choice = payload.choices?.[0];
       if (typeof choice?.finish_reason === 'string') {
         finished = true;
-        if (choice.finish_reason !== 'stop') {
+        if (choice.finish_reason !== 'stop' && choice.finish_reason !== 'tool_calls') {
           failure = new AssistantProviderError(502, `provider stopped with ${choice.finish_reason}`);
         }
       }
       const content = choice?.delta?.content;
-      if (typeof content === 'string' && content.length > 0) queue.push(content);
+      if (typeof content === 'string' && content.length > 0) {
+        text += content;
+        queue.push(content);
+      }
+      const toolCalls = choice?.delta?.tool_calls;
+      if (Array.isArray(toolCalls)) {
+        for (const call of toolCalls) {
+          const index = typeof call.index === 'number' ? call.index : 0;
+          const current = calls.get(index) ?? { id: '', name: '', arguments: '' };
+          if (typeof call.id === 'string' && call.id) current.id = call.id;
+          if (typeof call.function?.name === 'string' && call.function.name) current.name = call.function.name;
+          if (typeof call.function?.arguments === 'string') current.arguments += call.function.arguments;
+          calls.set(index, current);
+        }
+      }
     } catch {
       // Ein unbekannter Rahmen ist kein Grund, den ganzen Stream abzubrechen.
     }
@@ -279,5 +357,83 @@ export async function* streamAnswer(
     if (failure) throw failure;
   } finally {
     reader.releaseLock();
+  }
+
+  return {
+    text,
+    toolCalls: [...calls.entries()]
+      .sort(([left], [right]) => left - right)
+      .map(([index, call]) => ({
+        id: call.id || `call_${index}`,
+        name: call.name,
+        arguments: call.arguments || '{}',
+      }))
+      .filter((call) => call.name.length > 0),
+  };
+}
+
+/**
+ * Der ganze Assistenten-Turn: Text streamen, interne Werkzeuge ausführen,
+ * mit den Ergebnissen erneut fragen. Der Browser sieht nur Text, fertige
+ * Blöcke und geprüfte Navigationsziele.
+ */
+export async function* runAssistant(
+  config: AssistantConfig,
+  messages: readonly AssistantMessage[],
+  context: { readonly system: string },
+  data: AssistantData,
+  session: Session,
+  locale: Locale,
+  signal: AbortSignal,
+): AsyncGenerator<AssistantEvent, void, void> {
+  const provider = asProviderMessages(context.system, messages);
+  const lastUser = [...messages].reverse().find((message) => message.role === 'user')?.content ?? '';
+  const autoNavigation = navigationFor(lastUser, data, session, locale);
+  if (autoNavigation) yield { type: 'navigate', href: autoNavigation.href, label: autoNavigation.label };
+
+  for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
+    const allowTools = round < MAX_TOOL_ROUNDS;
+    const iterator = streamTurn(config, provider, allowTools ? ASSISTANT_TOOLS : null, signal);
+    let step = await iterator.next();
+    while (!step.done) {
+      yield { type: 'text', text: step.value };
+      step = await iterator.next();
+    }
+
+    const turn = step.value;
+    if (turn.toolCalls.length === 0 || !allowTools) return;
+
+    // Zwei Runden sind zwei Textstücke. Ohne Trenner klebt der letzte Satz
+    // der Vorbemerkung am ersten Satz der Antwort.
+    if (turn.text && !/\s$/.test(turn.text)) {
+      yield { type: 'text', text: ' ' };
+    }
+
+    const calls = turn.toolCalls.slice(0, MAX_TOOL_CALLS);
+    provider.push({
+      role: 'assistant',
+      content: turn.text,
+      tool_calls: calls.map((call) => ({
+        id: call.id,
+        type: 'function',
+        function: { name: call.name, arguments: call.arguments },
+      })),
+    });
+
+    for (const call of calls) {
+      const outcome = await executeTool(call.name, call.arguments, data, session, locale);
+      const blocks = (outcome.blocks ?? []).filter((block) => !redundantBlock(block, data));
+      if (blocks.length > 0) {
+        yield { type: 'blocks', blocks };
+      }
+      if (outcome.navigate) {
+        yield { type: 'navigate', href: outcome.navigate.href, label: outcome.navigate.label };
+      }
+      provider.push({
+        role: 'tool',
+        tool_call_id: call.id,
+        content: JSON.stringify(outcome.content),
+      });
+    }
   }
 }
