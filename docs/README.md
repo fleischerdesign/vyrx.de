@@ -19,7 +19,7 @@ Er ist **kein** Endnutzer-Handbuch — das wird die Wissensbasis (Wiki, siehe
 | `07-produkt-und-seitenkonzept.md` | Gestaltungsgrundlage für öffentliche Seiten, Workspace und Szenarien (E-0015 bis E-0018) | vor UI-Umsetzung |
 | `08-ziel-rewrite.md` | Ziel, Schnittstelle zu `nixfiles` und Abnahmekriterien des Neubaus | beim Bau der App |
 | `10-assistent.md` | Arbeitsplan für den Workspace-Assistenten: Auffindbarkeit, Kontext, Funktionen, AG-UI, Responsive | laufend |
-| `11-medien.md` | Medien-Suche, Vorschläge, Seerr-Anfragen, Nutzer-Mapping und Sicherheitsgrenzen (Phase 1 live, Phase 2 hinter Flag, Canary offen) | bei Medienarbeit |
+| `11-medien.md` | Medien-Suche, Vorschläge, Seerr-Anfragen, Nutzer-Mapping und Sicherheitsgrenzen (Phase 1 live, Phase 2 scharf, erster echter Request offen) | bei Medienarbeit |
 | `design-concept.html` | Eigenständige, klickbare Designstudie mit Beispieldaten (kein Produkt) | zum gemeinsamen Beurteilen |
 
 ## Die Anwendung

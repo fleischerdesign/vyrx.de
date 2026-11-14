@@ -1,7 +1,7 @@
 # 11 — Medien: Suche, Vorschläge und Anfragen
 
-**Status: Phase 1 live. Phase 2 (Movie-Anfragen) ist implementiert, aber
-standardmäßig über `PORTAL_MEDIA_REQUESTS` aus; Live-Canary steht aus.**
+**Status: Phase 1 live. Phase 2 (Movie-Anfragen) ist scharf; der erste echte
+Request/Canary steht noch aus.**
 
 ## 1. Kurzbefund
 
@@ -51,10 +51,10 @@ standardmäßig über `PORTAL_MEDIA_REQUESTS` aus; Live-Canary steht aus.**
 Phase 1 ist live. Phase 2 ist implementiert, aber noch nicht scharf; TV-Staffeln,
 Cancel und Jellyfin-Personalisierung folgen danach.
 
-## 1b. Phase 2 vorbereitet (noch nicht scharf)
+## 1b. Phase 2 scharf (Movie-Anfragen)
 
-Die schreibende Strecke ist implementiert, aber über
-`PORTAL_MEDIA_REQUESTS=on` geschützt und standardmäßig **aus**:
+Die schreibende Strecke ist implementiert und über
+`PORTAL_MEDIA_REQUESTS=on` aktiv:
 
 - `media_proposal` speichert Actor, Payload, Ablauf und Einmaligkeit.
 - `media_propose_request` prüft Mapping, Status, Quota und legt nur einen
@@ -71,8 +71,8 @@ Die schreibende Strecke ist implementiert, aber über
   `X-Api-User: 2`, Body `mediaId: 438631`; kein echter Schreibzugriff.
 - **72 Tests** und der vollständige Build sind grün.
 
-**Es fehlt nur der Live-Canary:** ein Testnutzer, ein Film, explizite Freigabe,
-danach `PORTAL_MEDIA_REQUESTS=on` und Deployment.
+**Der erste echte Request steht noch aus:** Der Flow ist aktiv, aber noch mit
+keinem realen Film/User durchgespielt. Der Mock-End-to-End-Test ist grün.
 
 ## 2. Ziel
 
@@ -456,8 +456,8 @@ Phase 1 darf lesen, Phase 2 schreiben; ohne Flag keine Schreibroute.
 
 ## 13. Was noch fehlt
 
-1. **Live-Canary**: ein Testnutzer, ein Film, explizite Freigabe; danach
-   `PORTAL_MEDIA_REQUESTS=on` setzen und deployen.
+1. **Erster echter Request/Canary**: ein Testnutzer, ein Film; der Flag ist
+   bereits `on`.
 2. **TV-Staffeln** mit Season-Auswahl und eigener Quota-Prüfung.
 3. **4K** nur mit separatem Recht und sichtbarer Entscheidung.
 4. **Cancel** eigener offener Requests.
