@@ -8,6 +8,7 @@
  */
 
 import type { AssistantBlock } from './assistant-blocks.ts';
+import { validateUiNodes } from './assistant-ui.ts';
 import type {
   AssistantArticle,
   AssistantData,
@@ -105,6 +106,30 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
         type: 'object',
         properties: { path: { type: 'string', description: 'A local portal path, for example /status/.' } },
         required: ['path'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'render_ui',
+      description:
+        'Compose a native UI tree. Use only these node types: stack, grid, card, section, text, heading, list, keyValue, badge, callout, divider, stat, timeline, table, details, link, status, service, article, suggestions. No HTML, no styles, no markdown tables, no ::: directives. status, service and article take only serviceId or slug and are filled from the session. summary, maintenance and step are server-only; use get_status, get_maintenance or ask_step for those. Example: {"nodes":[{"type":"card","title":"Vergleich","children":[{"type":"grid","columns":2,"children":[{"type":"stat","label":"Medienwünsche","value":"nicht erreichbar"},{"type":"stat","label":"Mediathek","value":"erreichbar"}]},{"type":"callout","tone":"accent","title":"Empfehlung","text":"Nutze zuerst die Mediathek."}]}]}',
+      parameters: {
+        type: 'object',
+        properties: {
+          nodes: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: { type: { type: 'string' } },
+              required: ['type'],
+              additionalProperties: true,
+            },
+          },
+        },
+        required: ['nodes'],
         additionalProperties: false,
       },
     },
@@ -557,6 +582,12 @@ export async function executeTool(
         const path = asString(args.path, 300);
         if (!path) return { content: { error: 'invalid_path' } };
         return openPage(path, data, session, locale);
+      }
+
+      case 'render_ui': {
+        const result = validateUiNodes(args.nodes, data, session, locale);
+        if (result.error) return { content: { error: 'invalid_ui', details: result.error } };
+        return { content: { ok: true, count: result.nodes.length }, blocks: result.nodes };
       }
 
       case 'ask_step': {

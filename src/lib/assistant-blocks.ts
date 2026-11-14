@@ -1,10 +1,20 @@
 /*
- * Die Blockformen, die der Assistent in die Oberfläche legen darf.
+ * Der UI-Baum, den der Assistent rendern darf.
  *
- * Kein freies HTML und kein Modell-Markup: Der Server wählt aus diesem
- * Katalog, prüft jede Adresse gegen die sichtbaren Daten und schickt nur
- * strukturierte Werte. Der Client baut daraus die vorhandenen Karten.
+ * Kein freies HTML und kein Modell-Markup: Der Server prüft jeden Knoten gegen
+ * diesen Katalog, ergänzt Domain-Daten aus der Sitzung und schickt nur
+ * strukturierte Werte. Der Client baut daraus native Elemente mit den
+ * vorhandenen Tokens.
+ *
+ * Die generischen Knoten sind bewusst klein und agnostisch: Layout, Text,
+ * Listen, Tabellen, Kennzahlen, Zeitachse, Details und Links. Die Domain-Knoten
+ * (Status, Dienst, Artikel, Wartung, Schritt) sind die Brücke zum Workspace.
  */
+
+export type UiTone = 'neutral' | 'accent' | 'ok' | 'warn' | 'bad' | 'unknown';
+export type UiGap = 'none' | 'xs' | 'sm' | 'md' | 'lg';
+export type UiTextVariant = 'body' | 'small' | 'muted' | 'lead';
+export type UiCardTone = 'default' | 'subtle' | 'accent';
 
 export type AssistantBlock =
   | {
@@ -60,7 +70,98 @@ export type AssistantBlock =
   | {
       readonly type: 'suggestions';
       readonly items: readonly string[];
+    }
+  | {
+      readonly type: 'stack';
+      readonly gap?: UiGap;
+      readonly children: readonly AssistantBlock[];
+    }
+  | {
+      readonly type: 'grid';
+      readonly columns?: 1 | 2 | 3;
+      readonly gap?: UiGap;
+      readonly children: readonly AssistantBlock[];
+    }
+  | {
+      readonly type: 'card';
+      readonly title?: string;
+      readonly description?: string;
+      readonly tone?: UiCardTone;
+      readonly children: readonly AssistantBlock[];
+    }
+  | {
+      readonly type: 'section';
+      readonly title?: string;
+      readonly description?: string;
+      readonly children: readonly AssistantBlock[];
+    }
+  | {
+      readonly type: 'text';
+      readonly value: string;
+      readonly variant?: UiTextVariant;
+    }
+  | {
+      readonly type: 'heading';
+      readonly value: string;
+      readonly level?: 2 | 3 | 4;
+    }
+  | {
+      readonly type: 'list';
+      readonly items: readonly string[];
+      readonly ordered?: boolean;
+    }
+  | {
+      readonly type: 'keyValue';
+      readonly items: readonly { readonly label: string; readonly value: string }[];
+    }
+  | {
+      readonly type: 'badge';
+      readonly label: string;
+      readonly tone?: UiTone;
+    }
+  | {
+      readonly type: 'callout';
+      readonly tone?: UiTone;
+      readonly title?: string;
+      readonly text: string;
+    }
+  | {
+      readonly type: 'divider';
+    }
+  | {
+      readonly type: 'stat';
+      readonly label: string;
+      readonly value: string;
+      readonly hint?: string;
+      readonly tone?: UiTone;
+    }
+  | {
+      readonly type: 'timeline';
+      readonly items: readonly {
+        readonly time: string;
+        readonly title: string;
+        readonly text?: string;
+        readonly tone?: UiTone;
+      }[];
+    }
+  | {
+      readonly type: 'table';
+      readonly columns: readonly { readonly key: string; readonly label: string }[];
+      readonly rows: readonly Readonly<Record<string, string>>[];
+    }
+  | {
+      readonly type: 'details';
+      readonly summary: string;
+      readonly children: readonly AssistantBlock[];
+    }
+  | {
+      readonly type: 'link';
+      readonly label: string;
+      readonly href: string;
     };
+
+/** Ein UI-Baum ist dieselbe Form wie ein Block; der Name macht die Absicht klar. */
+export type UiNode = AssistantBlock;
 
 /** Eine Adresse, die diese App öffnen darf - nie ein fremdes Ziel. */
 export function localBlockHref(value: unknown): value is string {

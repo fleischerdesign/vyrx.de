@@ -149,6 +149,7 @@ const labels = {
     role: 'user' | 'assistant';
     content: string;
     sources?: readonly Source[];
+    ui?: readonly AssistantBlock[];
     blocks?: readonly AssistantBlock[];
     navigations?: readonly Navigation[];
   };
@@ -294,7 +295,9 @@ const labels = {
     };
 
     const renderMarkdown = (answer: HTMLElement, value: string, streaming: boolean): void => {
-      const source = streaming ? trimIncomplete(value) : value;
+      const source = (streaming ? trimIncomplete(value) : value)
+        .replace(/^:::+s*w*s*$/gm, '')
+        .replace(/\n{3,}/g, '\n\n');
       answer.replaceChildren();
       answer.classList.toggle('is-ready', !streaming);
       answer.classList.toggle('is-streaming', streaming);
@@ -374,7 +377,7 @@ const labels = {
     const safeHref = (href: unknown): string | null =>
       typeof href === 'string' && href.startsWith('/') && !href.startsWith('//') && !href.includes('\\') ? href : null;
 
-    const blockKey = (block: AssistantBlock): string => {
+    const blockKey = (block: AssistantBlock): string | null => {
       switch (block.type) {
         case 'summary':
           return 'summary';
@@ -390,21 +393,279 @@ const labels = {
         case 'suggestions':
           return 'suggestions';
         default:
-          return 'unknown';
+          // Generische Layout- und Inhalt-Knoten werden nicht dedupliziert.
+          return null;
       }
     };
 
-    const renderBlocks = (turn: HTMLElement, blocks: readonly AssistantBlock[]): void => {
-      if (!Array.isArray(blocks) || blocks.length === 0) return;
-      const seen = new Set<string>();
+    const renderUi = (turn: HTMLElement, nodes: readonly AssistantBlock[]): void => {
+      if (!Array.isArray(nodes) || nodes.length === 0) return;
       const wrap = document.createElement('div');
-      wrap.className = 'assistant__blocks';
+      wrap.className = 'assistant__ui';
+      const seen = new Set<string>();
 
-      for (const block of blocks) {
-        if (!block || typeof block !== 'object') continue;
-        const key = blockKey(block);
-        if (seen.has(key)) continue;
-        seen.add(key);
+      const renderInlineWithBreaks = (parent: HTMLElement, value: string): void => {
+        value.split('\n').forEach((line, index) => {
+          if (index > 0) parent.append(document.createElement('br'));
+          renderInline(parent, line);
+        });
+      };
+
+      const renderChildren = (parent: HTMLElement, children: readonly AssistantBlock[] | undefined): void => {
+        if (!Array.isArray(children)) return;
+        for (const child of children) renderNode(parent, child);
+      };
+
+      const renderNode = (parent: HTMLElement, block: AssistantBlock): void => {
+        if (!block || typeof block !== 'object') return;
+
+        if (block.type === 'stack') {
+          const stack = document.createElement('div');
+          stack.className = 'ui-stack';
+          stack.dataset.gap = block.gap ?? 'md';
+          renderChildren(stack, block.children);
+          parent.append(stack);
+          return;
+        }
+
+        if (block.type === 'grid') {
+          const grid = document.createElement('div');
+          grid.className = 'ui-grid';
+          grid.dataset.columns = String(block.columns ?? 2);
+          grid.dataset.gap = block.gap ?? 'md';
+          renderChildren(grid, block.children);
+          parent.append(grid);
+          return;
+        }
+
+        if (block.type === 'card') {
+          const card = document.createElement('div');
+          card.className = 'ui-card';
+          card.dataset.tone = block.tone ?? 'default';
+          if (block.title || block.description) {
+            const head = document.createElement('div');
+            head.className = 'ui-card__head';
+            if (block.title) {
+              const title = document.createElement('h3');
+              title.className = 'ui-card__title';
+              title.textContent = block.title;
+              head.append(title);
+            }
+            if (block.description) {
+              const description = document.createElement('p');
+              description.className = 'ui-card__description';
+              description.textContent = block.description;
+              head.append(description);
+            }
+            card.append(head);
+          }
+          renderChildren(card, block.children);
+          parent.append(card);
+          return;
+        }
+
+        if (block.type === 'section') {
+          const section = document.createElement('section');
+          section.className = 'ui-section';
+          if (block.title) {
+            const title = document.createElement('h3');
+            title.className = 'ui-section__title';
+            title.textContent = block.title;
+            section.append(title);
+          }
+          if (block.description) {
+            const description = document.createElement('p');
+            description.className = 'ui-section__description';
+            description.textContent = block.description;
+            section.append(description);
+          }
+          renderChildren(section, block.children);
+          parent.append(section);
+          return;
+        }
+
+        if (block.type === 'details') {
+          const details = document.createElement('details');
+          details.className = 'ui-details';
+          const summary = document.createElement('summary');
+          summary.textContent = block.summary;
+          details.append(summary);
+          renderChildren(details, block.children);
+          parent.append(details);
+          return;
+        }
+
+        if (block.type === 'text') {
+          const paragraph = document.createElement('p');
+          paragraph.className = 'ui-text';
+          paragraph.dataset.variant = block.variant ?? 'body';
+          renderInlineWithBreaks(paragraph, block.value);
+          parent.append(paragraph);
+          return;
+        }
+
+        if (block.type === 'heading') {
+          const heading = document.createElement(block.level === 2 ? 'h2' : block.level === 4 ? 'h4' : 'h3');
+          heading.className = 'ui-heading';
+          renderInline(heading, block.value);
+          parent.append(heading);
+          return;
+        }
+
+        if (block.type === 'list') {
+          const list = document.createElement(block.ordered ? 'ol' : 'ul');
+          list.className = 'ui-list';
+          for (const item of block.items) {
+            const entry = document.createElement('li');
+            renderInline(entry, item);
+            list.append(entry);
+          }
+          parent.append(list);
+          return;
+        }
+
+        if (block.type === 'keyValue') {
+          const list = document.createElement('dl');
+          list.className = 'ui-kv';
+          for (const item of block.items) {
+            const term = document.createElement('dt');
+            term.textContent = item.label;
+            const value = document.createElement('dd');
+            value.textContent = item.value;
+            list.append(term, value);
+          }
+          parent.append(list);
+          return;
+        }
+
+        if (block.type === 'badge') {
+          const badge = document.createElement('span');
+          badge.className = 'ui-badge';
+          badge.dataset.tone = block.tone ?? 'neutral';
+          badge.textContent = block.label;
+          parent.append(badge);
+          return;
+        }
+
+        if (block.type === 'callout') {
+          const callout = document.createElement('div');
+          callout.className = 'ui-callout';
+          callout.dataset.tone = block.tone ?? 'neutral';
+          if (block.title) {
+            const title = document.createElement('strong');
+            title.className = 'ui-callout__title';
+            title.textContent = block.title;
+            callout.append(title);
+          }
+          const text = document.createElement('p');
+          renderInlineWithBreaks(text, block.text);
+          callout.append(text);
+          parent.append(callout);
+          return;
+        }
+
+        if (block.type === 'divider') {
+          const divider = document.createElement('hr');
+          divider.className = 'ui-divider';
+          parent.append(divider);
+          return;
+        }
+
+        if (block.type === 'stat') {
+          const stat = document.createElement('div');
+          stat.className = 'ui-stat';
+          stat.dataset.tone = block.tone ?? 'neutral';
+          const label = document.createElement('span');
+          label.className = 'ui-stat__label';
+          label.textContent = block.label;
+          const value = document.createElement('strong');
+          value.className = 'ui-stat__value';
+          value.textContent = block.value;
+          stat.append(label, value);
+          if (block.hint) {
+            const hint = document.createElement('span');
+            hint.className = 'ui-stat__hint';
+            hint.textContent = block.hint;
+            stat.append(hint);
+          }
+          parent.append(stat);
+          return;
+        }
+
+        if (block.type === 'timeline') {
+          const timeline = document.createElement('ol');
+          timeline.className = 'ui-timeline';
+          for (const item of block.items) {
+            const entry = document.createElement('li');
+            entry.dataset.tone = item.tone ?? 'neutral';
+            const mark = document.createElement('span');
+            mark.className = 'ui-timeline__mark';
+            mark.setAttribute('aria-hidden', 'true');
+            const body = document.createElement('div');
+            body.className = 'ui-timeline__body';
+            const time = document.createElement('span');
+            time.className = 'ui-timeline__time';
+            time.textContent = item.time;
+            const title = document.createElement('strong');
+            title.className = 'ui-timeline__title';
+            title.textContent = item.title;
+            body.append(time, title);
+            if (item.text) {
+              const text = document.createElement('p');
+              text.textContent = item.text;
+              body.append(text);
+            }
+            entry.append(mark, body);
+            timeline.append(entry);
+          }
+          parent.append(timeline);
+          return;
+        }
+
+        if (block.type === 'table') {
+          const scroll = document.createElement('div');
+          scroll.className = 'ui-table-wrap';
+          const table = document.createElement('table');
+          table.className = 'ui-table';
+          const head = document.createElement('thead');
+          const headRow = document.createElement('tr');
+          for (const column of block.columns) {
+            const cell = document.createElement('th');
+            cell.scope = 'col';
+            cell.textContent = column.label;
+            headRow.append(cell);
+          }
+          head.append(headRow);
+          const body = document.createElement('tbody');
+          for (const row of block.rows) {
+            const tr = document.createElement('tr');
+            for (const column of block.columns) {
+              const cell = document.createElement('td');
+              cell.textContent = row[column.key] ?? '';
+              tr.append(cell);
+            }
+            body.append(tr);
+          }
+          table.append(head, body);
+          scroll.append(table);
+          parent.append(scroll);
+          return;
+        }
+
+        if (block.type === 'link') {
+          const href = safeHref(block.href);
+          if (!href) return;
+          const link = document.createElement('a');
+          link.className = 'ui-link';
+          link.href = href;
+          link.textContent = block.label;
+          const arrow = document.createElement('span');
+          arrow.textContent = '→';
+          arrow.setAttribute('aria-hidden', 'true');
+          link.append(arrow);
+          parent.append(link);
+          return;
+        }
 
         if (block.type === 'summary') {
           const href = safeHref(block.href);
@@ -429,13 +690,13 @@ const labels = {
             arrow.textContent = '→';
             card.append(arrow);
           }
-          wrap.append(card);
-          continue;
+          parent.append(card);
+          return;
         }
 
         if (block.type === 'status') {
           const href = safeHref(block.href);
-          if (!href) continue;
+          if (!href) return;
           const card = document.createElement('a');
           card.className = 'assistant-card assistant-card--status';
           card.href = href;
@@ -454,13 +715,13 @@ const labels = {
           arrow.className = 'assistant-card__arrow';
           arrow.textContent = '→';
           card.append(dot, body, arrow);
-          wrap.append(card);
-          continue;
+          parent.append(card);
+          return;
         }
 
         if (block.type === 'service') {
           const href = safeHref(block.href);
-          if (!href) continue;
+          if (!href) return;
           const card = document.createElement('a');
           card.className = 'assistant-card assistant-card--service';
           card.href = href;
@@ -478,13 +739,13 @@ const labels = {
           arrow.className = 'assistant-card__arrow';
           arrow.textContent = '→';
           card.append(body, arrow);
-          wrap.append(card);
-          continue;
+          parent.append(card);
+          return;
         }
 
         if (block.type === 'article') {
           const href = safeHref(block.href);
-          if (!href) continue;
+          if (!href) return;
           const card = document.createElement('a');
           card.className = 'assistant-card assistant-card--article';
           card.href = href;
@@ -502,8 +763,8 @@ const labels = {
           arrow.className = 'assistant-card__arrow';
           arrow.textContent = '→';
           card.append(body, arrow);
-          wrap.append(card);
-          continue;
+          parent.append(card);
+          return;
         }
 
         if (block.type === 'maintenance') {
@@ -522,12 +783,12 @@ const labels = {
             body.append(note);
           }
           card.append(body);
-          wrap.append(card);
-          continue;
+          parent.append(card);
+          return;
         }
 
         if (block.type === 'step') {
-          if (!Array.isArray(block.options) || block.options.length === 0) continue;
+          if (!Array.isArray(block.options) || block.options.length === 0) return;
           const card = document.createElement('div');
           card.className = 'assistant-card assistant-card--step';
           const question = document.createElement('p');
@@ -554,14 +815,14 @@ const labels = {
             counter.textContent = `${block.step ?? 1}${block.total ? ` / ${block.total}` : ''}`;
             card.append(counter);
           }
-          wrap.append(card);
-          continue;
+          parent.append(card);
+          return;
         }
 
         if (block.type === 'suggestions') {
-          if (!Array.isArray(block.items) || block.items.length === 0) continue;
+          if (!Array.isArray(block.items) || block.items.length === 0) return;
           const options = document.createElement('div');
-          options.className = 'assistant-card__options';
+          options.className = 'ui-chips';
           for (const item of block.items) {
             const button = document.createElement('button');
             button.type = 'button';
@@ -572,10 +833,18 @@ const labels = {
             });
             options.append(button);
           }
-          wrap.append(options);
+          parent.append(options);
         }
-      }
+      };
 
+      for (const node of nodes) {
+        const key = blockKey(node);
+        if (key) {
+          if (seen.has(key)) continue;
+          seen.add(key);
+        }
+        renderNode(wrap, node);
+      }
       if (wrap.childElementCount > 0) turn.append(wrap);
     };
 
@@ -683,15 +952,16 @@ const labels = {
 
     const isStoredMessage = (value: unknown): value is Message => {
       if (value === null || typeof value !== 'object') return false;
-      const entry = value as { role?: unknown; content?: unknown; sources?: unknown; blocks?: unknown; navigations?: unknown };
+      const entry = value as { role?: unknown; content?: unknown; sources?: unknown; ui?: unknown; blocks?: unknown; navigations?: unknown };
       if (entry.role !== 'user' && entry.role !== 'assistant') return false;
       if (typeof entry.content !== 'string') return false;
       if (entry.sources !== undefined && !Array.isArray(entry.sources)) return false;
+      if (entry.ui !== undefined && !Array.isArray(entry.ui)) return false;
       if (entry.blocks !== undefined && !Array.isArray(entry.blocks)) return false;
       if (entry.navigations !== undefined && !Array.isArray(entry.navigations)) return false;
       return (
         entry.content.length > 0 ||
-        (entry.role === 'assistant' && ((Array.isArray(entry.blocks) && entry.blocks.length > 0) || (Array.isArray(entry.navigations) && entry.navigations.length > 0)))
+        (entry.role === 'assistant' && ((Array.isArray(entry.ui) && entry.ui.length > 0) || (Array.isArray(entry.blocks) && entry.blocks.length > 0) || (Array.isArray(entry.navigations) && entry.navigations.length > 0)))
       );
     };
 
@@ -721,7 +991,7 @@ const labels = {
           } else {
             answer.remove();
           }
-          renderBlocks(turn, message.blocks ?? []);
+          renderUi(turn, message.ui ?? message.blocks ?? []);
           renderNavigations(turn, message.navigations ?? []);
         }
       }
@@ -737,7 +1007,7 @@ const labels = {
       controller = new AbortController();
       let streamed = '';
       let sources: readonly Source[] = [];
-      let blocks: AssistantBlock[] = [];
+      let uiNodes: AssistantBlock[] = [];
       let navigations: Navigation[] = [];
       let streamError = '';
       const asked = last.content;
@@ -776,9 +1046,13 @@ const labels = {
                 streamed += data.text;
                 scheduleStreamRender(answer, streamed);
               }
+            } else if (event.event === 'ui') {
+              const data = JSON.parse(event.data) as { nodes?: AssistantBlock[] };
+              if (Array.isArray(data.nodes)) uiNodes.push(...data.nodes);
             } else if (event.event === 'blocks') {
+              // Ältere Server-Session: derselbe Baum unter dem alten Namen.
               const data = JSON.parse(event.data) as { blocks?: AssistantBlock[] };
-              if (Array.isArray(data.blocks)) blocks.push(...data.blocks);
+              if (Array.isArray(data.blocks)) uiNodes.push(...data.blocks);
             } else if (event.event === 'navigate') {
               const data = JSON.parse(event.data) as { href?: string; label?: string };
               if (typeof data.href === 'string' && typeof data.label === 'string') {
@@ -809,18 +1083,18 @@ const labels = {
 
         if (streamed.trim()) {
           renderMarkdown(answer, streamed, false);
-          renderBlocks(turn, blocks);
+          renderUi(turn, uiNodes);
           renderNavigations(turn, navigations);
           renderSources(turn, streamed, sources);
           renderFollowUps(turn, asked);
-          messages.push({ role: 'assistant', content: streamed.trim(), sources, blocks, navigations });
+          messages.push({ role: 'assistant', content: streamed.trim(), sources, ui: uiNodes, navigations });
           save();
-        } else if (blocks.length > 0 || navigations.length > 0) {
+        } else if (uiNodes.length > 0 || navigations.length > 0) {
           answer.remove();
-          renderBlocks(turn, blocks);
+          renderUi(turn, uiNodes);
           renderNavigations(turn, navigations);
           renderFollowUps(turn, asked);
-          messages.push({ role: 'assistant', content: '', sources, blocks, navigations });
+          messages.push({ role: 'assistant', content: '', sources, ui: uiNodes, navigations });
           save();
         } else {
           renderMarkdown(answer, labels.empty ?? '', false);
@@ -1309,11 +1583,447 @@ const labels = {
     animation: assistant-caret 1s steps(2, start) infinite;
   }
 
-  .assistant__blocks {
+  .assistant__ui {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+  }
+
+  .ui-stack {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .ui-stack[data-gap='none'] {
+    gap: 0;
+  }
+
+  .ui-stack[data-gap='xs'],
+  .ui-grid[data-gap='xs'] {
+    gap: var(--space-1);
+  }
+
+  .ui-stack[data-gap='sm'],
+  .ui-grid[data-gap='sm'] {
+    gap: var(--space-2);
+  }
+
+  .ui-stack[data-gap='md'],
+  .ui-grid[data-gap='md'] {
+    gap: var(--space-3);
+  }
+
+  .ui-stack[data-gap='lg'],
+  .ui-grid[data-gap='lg'] {
+    gap: var(--space-5);
+  }
+
+  .ui-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ui-grid[data-columns='1'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ui-grid[data-columns='3'] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ui-card {
+    min-width: 0;
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .ui-card[data-tone='subtle'] {
+    background: var(--surface-2);
+  }
+
+  .ui-card[data-tone='accent'] {
+    border-color: var(--accent-soft-line);
+    background: var(--accent-weaker);
+  }
+
+  .ui-card__head {
+    margin-bottom: var(--space-3);
+  }
+
+  .ui-card__title,
+  .ui-section__title {
+    color: var(--ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .ui-card__description,
+  .ui-section__description {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  .ui-section {
     display: flex;
     flex-direction: column;
     gap: var(--space-2);
-    margin-top: var(--space-4);
+    min-width: 0;
+  }
+
+  .ui-text {
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+  }
+
+  .ui-text[data-variant='small'] {
+    font-size: var(--text-xs);
+  }
+
+  .ui-text[data-variant='muted'] {
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .ui-text[data-variant='lead'] {
+    color: var(--ink);
+    font-size: var(--text-md);
+    line-height: var(--leading-normal);
+  }
+
+  .ui-heading {
+    color: var(--ink);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .ui-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding-left: 1.15rem;
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+  }
+
+  .ui-list:not(ol) {
+    list-style: disc;
+  }
+
+  ol.ui-list {
+    list-style: decimal;
+  }
+
+  .ui-kv {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: var(--space-2) var(--space-4);
+    margin: 0;
+    font-size: var(--text-sm);
+  }
+
+  .ui-kv dt {
+    color: var(--muted);
+  }
+
+  .ui-kv dd {
+    margin: 0;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+  }
+
+  .ui-badge {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    padding: 0.18rem 0.55rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .ui-badge[data-tone='accent'] {
+    border-color: var(--accent-soft-line);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .ui-badge[data-tone='ok'] {
+    border-color: var(--ok-line);
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+
+  .ui-badge[data-tone='warn'] {
+    border-color: var(--warn-line);
+    background: var(--warn-soft);
+    color: var(--warn);
+  }
+
+  .ui-badge[data-tone='bad'] {
+    border-color: var(--bad-line);
+    background: var(--bad-soft);
+    color: var(--bad);
+  }
+
+  .ui-callout {
+    padding: var(--space-3) var(--space-4);
+    border-left: 3px solid var(--line-strong);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    background: var(--surface-2);
+  }
+
+  .ui-callout[data-tone='accent'] {
+    border-left-color: var(--accent);
+    background: var(--accent-weaker);
+  }
+
+  .ui-callout[data-tone='ok'] {
+    border-left-color: var(--ok);
+    background: var(--ok-soft);
+  }
+
+  .ui-callout[data-tone='warn'] {
+    border-left-color: var(--warn);
+    background: var(--warn-soft);
+  }
+
+  .ui-callout[data-tone='bad'] {
+    border-left-color: var(--bad);
+    background: var(--bad-soft);
+  }
+
+  .ui-callout__title {
+    display: block;
+    color: var(--ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .ui-callout p {
+    margin-top: var(--space-1);
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+  }
+
+  .ui-divider {
+    width: 100%;
+    margin: var(--space-2) 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .ui-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .ui-stat__label {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .ui-stat__value {
+    color: var(--ink);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .ui-stat__hint {
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .ui-timeline {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .ui-timeline li {
+    position: relative;
+    display: flex;
+    gap: var(--space-3);
+    padding-bottom: var(--space-4);
+  }
+
+  .ui-timeline li:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 3px;
+    top: 10px;
+    bottom: 0;
+    width: 1px;
+    background: var(--line);
+  }
+
+  .ui-timeline__mark {
+    width: 7px;
+    height: 7px;
+    margin-top: 5px;
+    border-radius: 50%;
+    background: var(--unknown);
+    flex: none;
+    z-index: 1;
+  }
+
+  .ui-timeline li[data-tone='ok'] .ui-timeline__mark {
+    background: var(--ok);
+  }
+
+  .ui-timeline li[data-tone='warn'] .ui-timeline__mark {
+    background: var(--warn);
+  }
+
+  .ui-timeline li[data-tone='bad'] .ui-timeline__mark {
+    background: var(--bad);
+  }
+
+  .ui-timeline__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .ui-timeline__time {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+  }
+
+  .ui-timeline__title {
+    color: var(--ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .ui-timeline__body p {
+    color: var(--muted);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  .ui-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+  }
+
+  .ui-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-xs);
+  }
+
+  .ui-table th,
+  .ui-table td {
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--line);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  .ui-table th {
+    background: var(--surface-2);
+    color: var(--muted);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
+  .ui-table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .ui-details {
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .ui-details summary {
+    color: var(--ink);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .ui-details[open] summary {
+    margin-bottom: var(--space-3);
+  }
+
+  .ui-link {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: var(--space-2);
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--accent-soft-line);
+    border-radius: var(--radius-md);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    text-decoration: none;
+  }
+
+  .ui-link:hover {
+    background: var(--accent-weaker);
+  }
+
+  .ui-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .ui-chips button {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .ui-chips button:hover {
+    border-color: var(--accent-soft-line);
+    color: var(--accent-strong);
+  }
+
+  .ui-chips button:disabled {
+    opacity: 0.55;
+  }
+
+  @media (max-width: 560px) {
+    .ui-grid,
+    .ui-grid[data-columns='2'],
+    .ui-grid[data-columns='3'] {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 
   .assistant__turn .assistant-card,

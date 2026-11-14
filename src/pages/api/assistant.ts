@@ -154,7 +154,7 @@ export const POST: APIRoute = async ({ request }) => {
           abort.signal,
         )) {
           if (event.type === 'text') send('delta', { text: event.text });
-          else if (event.type === 'blocks') send('blocks', { blocks: event.blocks });
+          else if (event.type === 'ui') send('ui', { nodes: event.nodes });
           else if (event.type === 'navigate') send('navigate', { href: event.href, label: event.label });
         }
         send('done', {});

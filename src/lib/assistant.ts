@@ -214,7 +214,7 @@ interface StreamedTurn {
 
 export type AssistantEvent =
   | { readonly type: 'text'; readonly text: string }
-  | { readonly type: 'blocks'; readonly blocks: readonly AssistantBlock[] }
+  | { readonly type: 'ui'; readonly nodes: readonly AssistantBlock[] }
   | { readonly type: 'navigate'; readonly href: string; readonly label: string };
 
 const MAX_TOOL_ROUNDS = 3;
@@ -229,7 +229,7 @@ function redundantBlock(block: AssistantBlock, data: AssistantData): boolean {
   return false;
 }
 
-function blockIdentity(block: AssistantBlock): string {
+function blockIdentity(block: AssistantBlock): string | null {
   switch (block.type) {
     case 'summary':
       return 'summary';
@@ -244,6 +244,10 @@ function blockIdentity(block: AssistantBlock): string {
       return 'step:' + block.question;
     case 'suggestions':
       return 'suggestions';
+    default:
+      // Generische Layout- und Inhalt-Knoten sind keine Fakten und werden
+      // nicht über ihren Typ dedupliziert.
+      return null;
   }
 }
 
@@ -415,19 +419,21 @@ export async function* runAssistant(
   let summaryEmitted = false;
   const takeBlocks = (blocks: readonly AssistantBlock[], fromIntent = false): AssistantBlock[] => {
     const fresh = blocks.filter((block) => {
-      if (redundantBlock(block, data) || emitted.has(blockIdentity(block))) return false;
+      const identity = blockIdentity(block);
+      if (redundantBlock(block, data) || (identity !== null && emitted.has(identity))) return false;
       if (!fromIntent && summaryEmitted && block.type === 'status' && block.state === 'up') return false;
       return true;
     });
     for (const block of fresh) {
-      emitted.add(blockIdentity(block));
+      const identity = blockIdentity(block);
+      if (identity !== null) emitted.add(identity);
       if (block.type === 'summary') summaryEmitted = true;
     }
     return fresh;
   };
 
   const intent = takeBlocks(intentBlocks(lastUser, data, locale), true);
-  if (intent.length > 0) yield { type: 'blocks', blocks: intent };
+  if (intent.length > 0) yield { type: 'ui', nodes: intent };
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
     const allowTools = round < MAX_TOOL_ROUNDS;
@@ -462,7 +468,7 @@ export async function* runAssistant(
       const outcome = await executeTool(call.name, call.arguments, data, session, locale);
       const blocks = takeBlocks(outcome.blocks ?? []);
       if (blocks.length > 0) {
-        yield { type: 'blocks', blocks };
+        yield { type: 'ui', nodes: blocks };
       }
       if (outcome.navigate) {
         yield { type: 'navigate', href: outcome.navigate.href, label: outcome.navigate.label };
