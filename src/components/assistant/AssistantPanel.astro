@@ -8,15 +8,19 @@
  */
 import Icon from '@/components/ui/Icon.astro';
 import { useTranslations } from '@/i18n';
-import type { Locale } from '@/lib/locale';
+import { pathFor, type Locale } from '@/lib/locale';
 
 interface Props {
   readonly locale: Locale;
   readonly name: string;
+  /** Für den getrennten Verlauf je Person im selben Browser-Tab. */
+  readonly user: string;
+  /** Der Dienst der aktuellen Seite, falls es eine Dienstseite ist. */
+  readonly pageService?: { readonly id: string; readonly name: string } | null;
   readonly suggestions: readonly string[];
 }
 
-const { locale, name, suggestions } = Astro.props;
+const { locale, name, user, pageService = null, suggestions } = Astro.props;
 const t = useTranslations(locale);
 const greeting = name ? t('assistantGreeting', { name }) : t('assistantHello');
 
@@ -32,22 +36,29 @@ const labels = {
   tooMany: t('assistantTooMany'),
   unavailable: t('assistantUnavailable'),
   signIn: t('assistantSignIn'),
+  measured: t('assistantMeasured'),
+  never: t('statusNever'),
+  stateUp: t('stateUp'),
+  stateDown: t('stateDown'),
+  stateUnknown: t('stateUnknown'),
+  stateUnmonitored: t('stateUnmonitored'),
 };
 ---
 
 <button
   type="button"
-  class="assistant-trigger"
+  class="assistant-fab"
   data-assistant-open
+  data-assistant-surface
+  hidden
   aria-haspopup="dialog"
   aria-expanded="false"
   aria-controls="assistant"
   aria-label={t('assistantOpen')}
-  title={t('assistantOpen')}
+  title={`${t('assistantOpen')} (⌘J)`}
 >
-  <Icon name="sparkles" size="1rem" />
-  <span>{t('assistantOpen')}</span>
-  <kbd aria-hidden="true">⌘J</kbd>
+  <Icon name="sparkles" size="1.25rem" />
+  <span class="assistant-fab__label" aria-hidden="true">{t('assistantOpen')}</span>
 </button>
 
 <dialog class="assistant" id="assistant" aria-labelledby="assistant-title">
@@ -65,6 +76,13 @@ const labels = {
         <Icon name="close" size="1rem" />
       </button>
     </header>
+
+    <div class="assistant__context" data-assistant-context hidden>
+      <span class="assistant__context-dot" aria-hidden="true"></span>
+      <strong data-assistant-context-name></strong>
+      <span data-assistant-context-state></span>
+      <a class="assistant__context-link" href={pathFor(locale, 'status')}>{t('assistantStatusLink')}</a>
+    </div>
 
     <div class="assistant__log" data-assistant-log role="log" aria-live="polite" aria-relevant="additions text">
       <div class="assistant__intro" data-assistant-intro>
@@ -99,7 +117,7 @@ const labels = {
   </div>
 </dialog>
 
-<script type="application/json" data-assistant-config set:html={JSON.stringify({ locale, page: Astro.url.pathname, labels })}></script>
+<script type="application/json" data-assistant-config set:html={JSON.stringify({ locale, page: Astro.url.pathname, user, service: pageService, labels })}></script>
 
 <script>
   import { SseParser } from '@/lib/sse.ts';
@@ -107,6 +125,8 @@ const labels = {
   interface Config {
     readonly locale: 'de' | 'en';
     readonly page: string;
+    readonly user: string;
+    readonly service?: { readonly id: string; readonly name: string } | null;
     readonly labels: Record<string, string>;
   }
 
@@ -117,28 +137,34 @@ const labels = {
     readonly href: string;
   }
 
-  type Message = { role: 'user' | 'assistant'; content: string };
+  type Message = { role: 'user' | 'assistant'; content: string; sources?: readonly Source[] };
 
   const dialog = document.getElementById('assistant') as HTMLDialogElement | null;
-  const trigger = document.querySelector<HTMLButtonElement>('[data-assistant-open]');
+  const fab = document.querySelector<HTMLButtonElement>('.assistant-fab');
   const form = document.querySelector<HTMLFormElement>('[data-assistant-form]');
   const input = document.querySelector<HTMLTextAreaElement>('[data-assistant-input]');
   const sendButton = document.querySelector<HTMLButtonElement>('[data-assistant-send]');
   const log = document.querySelector<HTMLElement>('[data-assistant-log]');
   const intro = document.querySelector<HTMLElement>('[data-assistant-intro]');
+  const contextStrip = document.querySelector<HTMLElement>('[data-assistant-context]');
+  const contextName = document.querySelector<HTMLElement>('[data-assistant-context-name]');
+  const contextState = document.querySelector<HTMLElement>('[data-assistant-context-state]');
   const configNode = document.querySelector<HTMLScriptElement>('[data-assistant-config]');
 
-  if (dialog && trigger && form && input && sendButton && log && intro && configNode) {
+  if (dialog && fab && form && input && sendButton && log && intro && configNode) {
     let config: Config;
     try {
       config = JSON.parse(configNode.textContent ?? '{}') as Config;
     } catch {
-      config = { locale: 'de', page: location.pathname, labels: {} };
+      config = { locale: 'de', page: location.pathname, user: '', labels: {} };
     }
 
     const labels = config.labels ?? {};
     const page = typeof config.page === 'string' ? config.page : location.pathname;
     const locale = config.locale === 'en' ? 'en' : 'de';
+    const storageKey = `vyrx.assistant.history.${config.user || 'guest'}`;
+    const pageService = config.service ?? null;
+    let statusLoaded = false;
 
     let messages: Message[] = [];
     let busy = false;
@@ -147,6 +173,47 @@ const labels = {
 
     const scroll = (): void => {
       log.scrollTop = log.scrollHeight;
+    };
+
+    const formatTime = (at: number): string =>
+      new Date(at).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+
+    const stateText = (state: string): string =>
+      state === 'up'
+        ? (labels.stateUp ?? '')
+        : state === 'down'
+          ? (labels.stateDown ?? '')
+          : state === 'unmonitored'
+            ? (labels.stateUnmonitored ?? '')
+            : (labels.stateUnknown ?? '');
+
+    const loadPageStatus = async (): Promise<void> => {
+      if (!pageService || !contextStrip || !contextName || !contextState) return;
+      contextName.textContent = pageService.name;
+      contextStrip.hidden = false;
+
+      try {
+        const response = await fetch('/api/status', { headers: { accept: 'application/json' } });
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          services?: Record<string, { state?: string; asOf?: number | null }>;
+        };
+        const live = data.services?.[pageService.id];
+        if (!live) return;
+
+        const state =
+          live.state === 'up' || live.state === 'down' || live.state === 'unmonitored'
+            ? live.state
+            : 'unknown';
+        const measured = live.asOf
+          ? (labels.measured ?? '').replace('{time}', formatTime(live.asOf))
+          : (labels.never ?? '');
+        contextStrip.dataset.state = state;
+        contextState.textContent =
+          state === 'unmonitored' ? stateText(state) : measured ? `${stateText(state)} · ${measured}` : stateText(state);
+      } catch {
+        // Der Name bleibt sichtbar; der Zustand fehlt dann eben.
+      }
     };
 
     const setBusy = (value: boolean): void => {
@@ -228,10 +295,14 @@ const labels = {
     };
 
     const renderSources = (turn: HTMLElement, text: string, sources: readonly Source[]): void => {
-      if (sources.length === 0) return;
+      if (!Array.isArray(sources) || sources.length === 0) return;
       const cited = new Set((text.match(/\[(S\d+|A\d+|W\d+|N\d+)\]/g) ?? []).map((token) => token.slice(1, -1)));
       const mentioned = sources.filter((source) => text.includes(source.label));
-      const chosen = (cited.size > 0 ? sources.filter((source) => cited.has(source.ref)) : mentioned.length > 0 ? mentioned : sources).slice(0, 5);
+      const priority: Record<string, number> = { status: 0, service: 1, article: 2, announcement: 3 };
+      const chosen = (cited.size > 0 ? sources.filter((source) => cited.has(source.ref)) : mentioned.length > 0 ? mentioned : sources)
+        .slice()
+        .sort((a, b) => (priority[a.kind] ?? 9) - (priority[b.kind] ?? 9))
+        .slice(0, 5);
       if (chosen.length === 0) return;
 
       const wrap = document.createElement('div');
@@ -242,6 +313,7 @@ const labels = {
       wrap.append(label);
 
       for (const source of chosen) {
+        if (!source || typeof source.label !== 'string' || typeof source.href !== 'string') continue;
         if (!source.href.startsWith('/') || source.href.startsWith('//')) continue;
         const anchor = document.createElement('a');
         anchor.className = 'assistant__source';
@@ -302,6 +374,52 @@ const labels = {
 
       turn.append(box);
       log.append(turn);
+      scroll();
+    };
+
+    const save = (): void => {
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify(messages.slice(-12)));
+      } catch {
+        // Kein Speicher: der Verlauf bleibt in dieser Ansicht.
+      }
+    };
+
+    const isStoredMessage = (value: unknown): value is Message => {
+      if (value === null || typeof value !== 'object') return false;
+      const entry = value as { role?: unknown; content?: unknown; sources?: unknown };
+      return (
+        (entry.role === 'user' || entry.role === 'assistant') &&
+        typeof entry.content === 'string' &&
+        entry.content.length > 0 &&
+        (entry.sources === undefined || Array.isArray(entry.sources))
+      );
+    };
+
+    const restore = (): void => {
+      let stored: Message[] = [];
+      try {
+        const raw = sessionStorage.getItem(storageKey);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as unknown;
+        if (!Array.isArray(parsed)) return;
+        stored = parsed.filter(isStoredMessage).slice(-12);
+      } catch {
+        return;
+      }
+      if (stored.length === 0) return;
+
+      messages = stored;
+      intro.hidden = true;
+      for (const message of messages) {
+        if (message.role === 'user') {
+          addUser(message.content);
+        } else {
+          const { turn, answer } = addAnswer();
+          renderAnswer(answer, message.content);
+          renderSources(turn, message.content, message.sources ?? []);
+        }
+      }
       scroll();
     };
 
@@ -372,7 +490,10 @@ const labels = {
 
         renderAnswer(answer, streamed);
         renderSources(turn, streamed, sources);
-        if (streamed.trim()) messages.push({ role: 'assistant', content: streamed.trim() });
+        if (streamed.trim()) {
+          messages.push({ role: 'assistant', content: streamed.trim(), sources });
+          save();
+        }
         scroll();
       } catch (error) {
         if (id !== run) return;
@@ -402,6 +523,7 @@ const labels = {
       const trimmed = value.trim();
       if (!trimmed) return;
       messages.push({ role: 'user', content: trimmed });
+      save();
       intro.hidden = true;
       addUser(trimmed);
       input.value = '';
@@ -417,6 +539,11 @@ const labels = {
       run += 1;
       stop();
       messages = [];
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {
+        // Kein Speicher: nichts zu löschen.
+      }
       log.replaceChildren(intro);
       intro.hidden = false;
       input.value = '';
@@ -425,23 +552,59 @@ const labels = {
       input.focus();
     };
 
-    trigger.addEventListener('click', () => {
+    const fitViewport = (): void => {
+      if (!dialog.open) return;
+      const viewport = window.visualViewport;
+      if (!viewport) return;
+      dialog.style.height = `${viewport.height}px`;
+      dialog.style.top = `${viewport.offsetTop}px`;
+    };
+
+    const open = (query = ''): void => {
       if (!dialog.open) dialog.showModal();
-      trigger.setAttribute('aria-expanded', 'true');
-      input.focus();
-      scroll();
+      fab.setAttribute('aria-expanded', 'true');
+      fab.hidden = true;
+      fitViewport();
+      if (!statusLoaded) {
+        statusLoaded = true;
+        void loadPageStatus();
+      }
+      if (query) {
+        newConversation();
+        void send(query);
+      } else {
+        input.focus();
+        scroll();
+      }
+    };
+
+    const close = (): void => dialog.close();
+
+    document.addEventListener('click', (event) => {
+      const target = (event.target as Element | null)?.closest<HTMLElement>('[data-assistant-open]');
+      if (!target) return;
+      event.preventDefault();
+      open(target.dataset.assistantQuery?.trim() ?? '');
+    });
+
+    document.addEventListener('vyrx:assistant-open', (event) => {
+      const detail = (event as CustomEvent<{ query?: string }>).detail;
+      open(detail?.query?.trim() ?? '');
     });
 
     dialog.addEventListener('click', (event) => {
-      if (event.target === dialog) dialog.close();
+      if (event.target === dialog) close();
     });
 
     dialog.addEventListener('close', () => {
-      trigger.setAttribute('aria-expanded', 'false');
-      trigger.focus();
+      fab.hidden = false;
+      fab.setAttribute('aria-expanded', 'false');
+      dialog.style.height = '';
+      dialog.style.top = '';
+      fab.focus();
     });
 
-    document.querySelector('[data-assistant-close]')?.addEventListener('click', () => dialog.close());
+    document.querySelector('[data-assistant-close]')?.addEventListener('click', close);
     document.querySelector('[data-assistant-new]')?.addEventListener('click', newConversation);
 
     document.querySelectorAll<HTMLElement>('[data-assistant-suggestion]').forEach((button) => {
@@ -472,49 +635,99 @@ const labels = {
       }
     });
 
+    window.visualViewport?.addEventListener('resize', fitViewport);
+    window.visualViewport?.addEventListener('scroll', fitViewport);
+    window.addEventListener('orientationchange', fitViewport);
+
     document.addEventListener('keydown', (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase('de') === 'j') {
         event.preventDefault();
-        if (dialog.open) dialog.close();
-        else {
-          dialog.showModal();
-          trigger.setAttribute('aria-expanded', 'true');
-          input.focus();
-        }
+        if (dialog.open) close();
+        else open();
       }
     });
+
+    // Ohne JavaScript bleiben alle Einstiege verborgen. Erst wenn dieses
+    // Skript läuft, gibt es einen Assistenten zu öffnen.
+    document
+      .querySelectorAll<HTMLElement>('[data-assistant-surface], [data-assistant-open]')
+      .forEach((element) => {
+        element.hidden = false;
+      });
+
+    restore();
   }
 </script>
 
 <style is:global>
-  .assistant-trigger {
+  .assistant-fab {
+    position: fixed;
+    right: var(--space-6);
+    bottom: var(--space-6);
+    z-index: 45;
     display: none;
-    align-items: center;
-    gap: var(--space-3);
-    padding: 0.5rem 0.7rem 0.5rem 0.9rem;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-md);
-    background: var(--surface);
-    color: var(--muted);
-    font-size: var(--text-sm);
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow:
+      0 16px 36px -18px rgb(23 27 38 / 0.55),
+      0 2px 8px rgb(23 27 38 / 0.12);
+    transition:
+      transform var(--fast) var(--ease),
+      background var(--fast) var(--ease);
   }
 
-  html.js .assistant-trigger {
-    display: inline-flex;
+  .assistant-fab:hover {
+    background: var(--accent-strong);
+    transform: translateY(-1px);
   }
 
-  .assistant-trigger:hover {
-    border-color: var(--line-strong);
-    color: var(--ink);
+  .assistant-fab:active {
+    transform: none;
   }
 
-  .assistant-trigger kbd {
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    border: 1px solid var(--line);
-    border-radius: var(--radius-xs);
-    padding: 2px 5px;
-    color: var(--faint);
+  html.js .assistant-fab:not([hidden]) {
+    display: grid;
+  }
+
+  .assistant-fab__label {
+    position: absolute;
+    right: calc(100% + var(--space-3));
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    background: var(--ink);
+    color: var(--surface);
+    font-size: var(--text-xs);
+    white-space: nowrap;
+    opacity: 0;
+    transform: translateX(4px);
+    pointer-events: none;
+    transition:
+      opacity var(--fast) var(--ease),
+      transform var(--fast) var(--ease);
+  }
+
+  .assistant-fab:hover .assistant-fab__label,
+  .assistant-fab:focus-visible .assistant-fab__label {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (max-width: 900px) {
+    .assistant-fab {
+      right: var(--space-4);
+      bottom: calc(5.25rem + env(safe-area-inset-bottom));
+      width: 3.25rem;
+      height: 3.25rem;
+    }
+
+    .assistant-fab__label {
+      display: none;
+    }
   }
 
   .assistant {
@@ -563,6 +776,54 @@ const labels = {
     flex: none;
   }
 
+  .assistant__context {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-5);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .assistant__context strong {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-weight: var(--weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .assistant__context-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--unknown);
+    flex: none;
+  }
+
+  .assistant__context[data-state='up'] .assistant__context-dot {
+    background: var(--ok);
+  }
+
+  .assistant__context[data-state='down'] .assistant__context-dot {
+    background: var(--bad);
+  }
+
+  .assistant__context[data-state='unmonitored'] .assistant__context-dot {
+    background: var(--line-strong);
+  }
+
+  .assistant__context-link {
+    margin-left: auto;
+    color: var(--accent);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
   .assistant__title {
     display: flex;
     flex-direction: column;
@@ -586,6 +847,7 @@ const labels = {
     place-items: center;
     width: 2rem;
     height: 2rem;
+    flex: none;
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: none;
@@ -602,6 +864,7 @@ const labels = {
     flex: 1;
     min-height: 0;
     overflow: auto;
+    overscroll-behavior: contain;
     padding: var(--space-5);
     display: flex;
     flex-direction: column;
@@ -896,18 +1159,59 @@ const labels = {
     }
   }
 
-  @media (max-width: 760px) {
-    .assistant-trigger span,
-    .assistant-trigger kbd {
+  @media (pointer: coarse) {
+    .assistant__icon,
+    .assistant__send {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+
+    .assistant__field textarea {
+      font-size: 1rem;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .assistant__title small {
       display: none;
     }
 
+    .assistant__context-link {
+      display: none;
+    }
+  }
+
+  @media (max-width: 760px) {
     .assistant {
       width: 100vw;
     }
 
     .assistant__panel {
       border-left: 0;
+    }
+
+    .assistant__head {
+      min-height: 64px;
+      padding: 0 var(--space-4);
+    }
+
+    .assistant__context {
+      padding: var(--space-2) var(--space-4);
+    }
+
+    .assistant__icon,
+    .assistant__send {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+
+    .assistant__field textarea {
+      /* 16px verhindert den automatischen Zoom in iOS-Safari. */
+      font-size: 1rem;
+    }
+
+    .assistant__composer {
+      padding-bottom: max(var(--space-4), env(safe-area-inset-bottom));
     }
 
     .assistant__foot span:first-child {

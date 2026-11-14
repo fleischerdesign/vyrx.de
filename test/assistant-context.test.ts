@@ -16,6 +16,9 @@ const services: readonly AssistantService[] = [
     state: 'up',
     asOf: 1_790_000_000_000,
     monitored: true,
+    accessGroups: ['family', 'media-users'],
+    favorite: true,
+    dependsOn: ['files'],
   },
   {
     id: 'files',
@@ -25,6 +28,9 @@ const services: readonly AssistantService[] = [
     state: 'unknown',
     asOf: null,
     monitored: true,
+    accessGroups: ['family'],
+    favorite: false,
+    dependsOn: ['not-released'],
   },
 ];
 
@@ -69,15 +75,26 @@ const base = (overrides: Partial<AssistantContextInput> = {}): AssistantContextI
   articles,
   announcements: [],
   maintenance: [],
+  history: [],
+  groups: ['family', 'media-users'],
   now: '2026-11-14T10:00:00.000Z',
   query: '',
   ...overrides,
 });
 
 type ContextShape = {
+  readonly person: { readonly name: string; readonly groups: readonly string[] };
   readonly page: { readonly service?: string; readonly article?: string };
-  readonly services: readonly { readonly ref: string; readonly id: string }[];
+  readonly services: readonly {
+    readonly ref: string;
+    readonly id: string;
+    readonly accessGroups: readonly string[];
+    readonly favorite: boolean;
+    readonly dependsOn: readonly string[];
+    readonly dependsOnHidden: boolean;
+  }[];
   readonly articles: readonly { readonly slug: string; readonly body?: string }[];
+  readonly history: readonly { readonly service: string; readonly state: string }[];
 };
 
 test('without a question only titles and summaries go into the context', () => {
@@ -118,6 +135,33 @@ test('the service page names its service and every service keeps its ref', () =>
       ['S2', 'files'],
     ],
   );
+});
+
+test('groups, access, favorites and dependencies are in the context', () => {
+  const built = buildAssistantContext(
+    base({
+      history: [
+        { serviceId: 'media-requests', at: 1_790_000_000_000, state: 'down' },
+        { serviceId: 'files', at: 1_790_000_100_000, state: 'unknown' },
+      ],
+    }),
+  );
+  const context = built.context as ContextShape;
+  assert.deepEqual(context.person.groups, ['family', 'media-users']);
+
+  const media = context.services.find((service) => service.id === 'media-requests');
+  assert.deepEqual(media?.accessGroups, ['family', 'media-users']);
+  assert.equal(media?.favorite, true);
+  assert.deepEqual(media?.dependsOn, ['S2']);
+  assert.equal(media?.dependsOnHidden, false);
+  const files = context.services.find((service) => service.id === 'files');
+  assert.deepEqual(files?.dependsOn, []);
+  assert.equal(files?.dependsOnHidden, true);
+
+  assert.deepEqual(context.history, [
+    { service: 'S1', at: '2026-09-21T14:13:20.000Z', state: 'down' },
+    { service: 'S2', at: '2026-09-21T14:15:00.000Z', state: 'unknown' },
+  ]);
 });
 
 test('sources point at the portal, never at a service address', () => {

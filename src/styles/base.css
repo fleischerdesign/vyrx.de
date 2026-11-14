@@ -64,6 +64,12 @@ video {
   max-width: 100%;
 }
 
+/* Ein `hidden`-Attribut ist eine Aussage, keine Bitte: Autor-Stile dürfen es
+ * nicht mit `display` überstimmen. */
+[hidden] {
+  display: none !important;
+}
+
 button,
 input,
 select,

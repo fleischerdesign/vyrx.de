@@ -1,0 +1,113 @@
+---
+/*
+ * Der leise Einstieg auf der Übersicht: ein Satz und zwei Fragen. Er öffnet
+ * dieselbe Schublade wie der runde Knopf, nur mit einer Frage vorausgefüllt.
+ * Kein zusätzliches Skript: Der Klick wird von der Assistenten-Komponente
+ * abgefangen, weil das Attribut `data-assistant-open` dort ankommt.
+ */
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  readonly locale: Locale;
+  readonly examples: readonly string[];
+}
+
+const { locale, examples } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<section class="ask" aria-labelledby="assistant-ask-title" data-assistant-surface hidden>
+  <div class="ask__copy">
+    <p class="overline">{t('assistantAskOverline')}</p>
+    <h2 id="assistant-ask-title">{t('assistantAskTitle')}</h2>
+    <p>{t('assistantAskBody')}</p>
+  </div>
+  <div class="ask__examples">
+    {
+      examples.map((example) => (
+        <button type="button" class="ask__example" data-assistant-open data-assistant-query={example}>
+          <Icon name="sparkles" size="0.95rem" />
+          <span>{example}</span>
+        </button>
+      ))
+    }
+  </div>
+</section>
+
+<style>
+  .ask {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-6);
+    margin-bottom: var(--space-8);
+    padding: var(--space-5) var(--space-6);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+  }
+
+  .ask__copy h2 {
+    margin-top: var(--space-1);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .ask__copy > p:last-child {
+    margin-top: var(--space-2);
+    max-width: 34rem;
+    color: var(--muted);
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+  }
+
+  .ask__examples {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+    flex: none;
+  }
+
+  .ask__example {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+    text-align: left;
+  }
+
+  .ask__example :global(svg) {
+    color: var(--accent);
+    flex: none;
+  }
+
+  .ask__example:hover {
+    border-color: var(--accent-soft-line);
+    background: var(--accent-weaker);
+    color: var(--accent-strong);
+  }
+
+  @media (max-width: 760px) {
+    .ask {
+      display: block;
+      padding: var(--space-4);
+    }
+
+    .ask__examples {
+      margin-top: var(--space-4);
+    }
+
+    .ask__example {
+      width: 100%;
+    }
+  }
+</style>

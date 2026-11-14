@@ -1,4 +1,5 @@
 ---
+import AssistantLink from '@/components/assistant/AssistantLink.astro';
 import StatusRow from '@/components/status/StatusRow.astro';
 import PageHeader from '@/components/ui/PageHeader.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
@@ -49,6 +50,10 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
 ---
 
 <PageHeader overline={t('statusEyebrow')} title={t('statusTitle')} description={t('statusIntro')} />
+
+<div class="ask-row">
+  <AssistantLink label={t('assistantAskStatus')} query={t('assistantAskStatusQuery')} />
+</div>
 
 {
   planned.length > 0 && (
@@ -238,6 +243,10 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
 </script>
 
 <style>
+  .ask-row {
+    margin-bottom: var(--space-6);
+  }
+
   .summary {
     display: flex;
     align-items: flex-start;

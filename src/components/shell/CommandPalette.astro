@@ -55,6 +55,9 @@ const groupLabel = { nav: t('paletteNavigation'), services: t('paletteServices')
 </dialog>
 
 <p hidden data-palette-empty>{t('paletteEmpty')}</p>
+<p hidden data-palette-assistant-label>{t('paletteAssistantLabel')}</p>
+<p hidden data-palette-assistant-hint>{t('paletteAssistantHint')}</p>
+<p hidden data-palette-assistant-group>{t('paletteAssistant')}</p>
 
 <script type="application/json" data-palette-items set:html={JSON.stringify(items)}></script>
 <script type="application/json" data-palette-groups set:html={JSON.stringify(groupLabel)}></script>
@@ -72,6 +75,9 @@ const groupLabel = { nav: t('paletteNavigation'), services: t('paletteServices')
       href: string;
     }[];
     const groups = JSON.parse(document.querySelector('[data-palette-groups]')?.textContent ?? '{}') as Record<string, string>;
+    const assistantLabel = (document.querySelector('[data-palette-assistant-label]') as HTMLElement | null)?.textContent ?? '';
+    const assistantHint = (document.querySelector('[data-palette-assistant-hint]') as HTMLElement | null)?.textContent ?? '';
+    const assistantGroup = (document.querySelector('[data-palette-assistant-group]') as HTMLElement | null)?.textContent ?? '';
 
     let active = 0;
     let shown: HTMLElement[] = [];
@@ -81,21 +87,67 @@ const groupLabel = { nav: t('paletteNavigation'), services: t('paletteServices')
       shown[active]?.scrollIntoView({ block: 'nearest' });
     };
 
+    const assistantItem = (query: string): HTMLElement => {
+      const action = document.createElement('button');
+      action.type = 'button';
+      action.className = 'palette__item';
+      action.setAttribute('role', 'option');
+      action.dataset.active = 'false';
+      action.dataset.assistant = 'true';
+
+      const label = document.createElement('strong');
+      label.textContent = query ? `${assistantLabel}: ${query}` : assistantLabel;
+      action.append(label);
+
+      if (assistantHint) {
+        const hint = document.createElement('small');
+        hint.textContent = assistantHint;
+        action.append(hint);
+      }
+
+      action.addEventListener('click', () => {
+        dialog.close();
+        document.dispatchEvent(new CustomEvent('vyrx:assistant-open', { detail: { query } }));
+      });
+
+      return action;
+    };
+
     const render = (term: string): void => {
-      const needle = term.trim().toLocaleLowerCase('de');
+      const query = term.trim();
+      const needle = query.toLocaleLowerCase('de');
       const matches = items.filter((item) =>
         needle === '' || `${item.label} ${item.hint ?? ''} ${groups[item.group] ?? ''}`.toLocaleLowerCase('de').includes(needle),
       );
 
       list.replaceChildren();
       shown = [];
-      active = 0;
+      // Die Palette bleibt eine Suche: Ein Begriff aktiviert den ersten echten
+      // Treffer. Eine Frage aktiviert den Assistenten, weil er dann der
+      // bessere erste Treffer ist.
+      const looksLikeQuestion =
+        /\?\s*$/.test(query) ||
+        /^(was|wie|wo|warum|welche|welcher|wer|wann|kann|können|ist|sind|gibt|how|what|where|why|which|who|when|can|could|is|are|do|does)\b/i.test(
+          query,
+        );
+      active = matches.length > 0 && (needle === '' || !looksLikeQuestion) ? 1 : 0;
+
+      const heading = document.createElement('li');
+      heading.className = 'palette__group';
+      heading.setAttribute('role', 'presentation');
+      heading.textContent = assistantGroup;
+      list.append(heading);
+
+      const action = assistantItem(query);
+      list.append(action);
+      shown.push(action);
 
       if (matches.length === 0) {
         const empty = document.createElement('li');
         empty.className = 'palette__empty';
         empty.textContent = (document.querySelector('[data-palette-empty]') as HTMLElement | null)?.textContent ?? '';
         list.append(empty);
+        paint();
         return;
       }
 
@@ -155,7 +207,7 @@ const groupLabel = { nav: t('paletteNavigation'), services: t('paletteServices')
         const target = shown[active];
         if (target) {
           event.preventDefault();
-          location.assign(target.getAttribute('href') ?? '/');
+          target.click();
         }
       }
     });
@@ -263,8 +315,18 @@ const groupLabel = { nav: t('paletteNavigation'), services: t('paletteServices')
     display: flex;
     flex-direction: column;
     gap: 2px;
+    width: 100%;
     padding: var(--space-3);
+    border: 0;
     border-radius: var(--radius-sm);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+
+  :global(.palette__item[data-assistant='true'] strong) {
+    color: var(--accent-strong);
   }
 
   :global(.palette__item[data-active='true']) {

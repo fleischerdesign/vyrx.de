@@ -56,6 +56,7 @@ const stateLabel =
   .row {
     display: flex;
     align-items: center;
+    min-width: 0;
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
     background: var(--surface);
@@ -95,6 +96,7 @@ const stateLabel =
     display: block;
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
+    overflow-wrap: anywhere;
   }
 
   .row__text small {

@@ -4,6 +4,7 @@
  * Dienstbezug ist ein *Kontext*, keine Heimat - darum steht er unten und nicht
  * im Aufbau des Artikels.
  */
+import AssistantLink from '@/components/assistant/AssistantLink.astro';
 import Icon from '@/components/ui/Icon.astro';
 import Badge from '@/components/ui/Badge.astro';
 import { useTranslations } from '@/i18n';
@@ -54,6 +55,10 @@ const prefix = locale === 'en' ? '/en' : '';
             ? `${t('knowledgeUpdated')} ${article.data.reviewed}`
             : t('knowledgeUpdatedUnknown')}
         </span>
+      </div>
+
+      <div class="ask-row">
+        <AssistantLink label={t('assistantAskArticle')} query={t('assistantAskArticleQuery')} />
       </div>
 
       {
@@ -193,6 +198,10 @@ const prefix = locale === 'en' ? '/en' : '';
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--faint);
+  }
+
+  .ask-row {
+    margin: var(--space-4) 0 var(--space-2);
   }
 
   .outcome {

@@ -1,4 +1,5 @@
 ---
+import AssistantPrompt from '@/components/assistant/AssistantPrompt.astro';
 import ServiceRow from '@/components/services/ServiceRow.astro';
 import FirstSteps from '@/components/workspace/FirstSteps.astro';
 import PageHeader from '@/components/ui/PageHeader.astro';
@@ -32,6 +33,11 @@ const guides = (await articlesFor(locale)).filter((article) => canReadArticle(ar
   overline={t('overviewEyebrow')}
   title={t('overviewGreeting', { name })}
   description={t('overviewIntro')}
+/>
+
+<AssistantPrompt
+  locale={locale}
+  examples={[t('assistantSuggestOverview1'), t('assistantSuggestOverview2')]}
 />
 
 {
@@ -133,6 +139,7 @@ const guides = (await articlesFor(locale)).filter((article) => canReadArticle(ar
 
   .rows {
     display: grid;
+    min-width: 0;
     gap: var(--space-3);
   }
 

@@ -30,7 +30,15 @@ interface Props {
 
 const { locale, session, title, description } = Astro.props;
 const t = useTranslations(locale);
-const here = routeFrom(Astro.url.pathname).name;
+const route = routeFrom(Astro.url.pathname);
+const here = route.name;
+const currentService =
+  route.name === 'service' && route.param
+    ? session.services.find((service) => service.id === route.param)
+    : undefined;
+const pageService = currentService
+  ? { id: currentService.id, name: text(currentService.name, locale) }
+  : null;
 const currentItem = WORKSPACE_NAV.find((item) => isCurrent(item, here));
 const identity = session.identity;
 const initial = (identity?.name || identity?.username || 'U').charAt(0).toUpperCase();
@@ -109,7 +117,6 @@ const palette: PaletteItem[] = [
           <strong>{currentItem ? t(currentItem.key) : t('navOverview')}</strong>
         </nav>
         <div class="topbar__actions">
-          <AssistantPanel locale={locale} name={identity?.name || identity?.username || ''} suggestions={suggestions} />
           <span class="palette-slot"><CommandPalette locale={locale} items={palette} /></span>
           <LocaleSwitch locale={locale} class="topbar__locale" />
           <ThemeToggle locale={locale} />
@@ -123,6 +130,13 @@ const palette: PaletteItem[] = [
   </div>
 
   <MobileDock locale={locale} isAdmin={session.isAdmin} />
+  <AssistantPanel
+    locale={locale}
+    name={identity?.name || identity?.username || ''}
+    user={identity?.username || ''}
+    pageService={pageService}
+    suggestions={suggestions}
+  />
 </Base>
 
 <style>

@@ -14,8 +14,8 @@ import { activeAnnouncements, announcementText } from './announcements.ts';
 import { buildAssistantContext, type AssistantArticle, type AssistantService } from './assistant-context.ts';
 import { articleSlug, articlesFor, canReadArticle } from './knowledge.ts';
 import { routeFrom, type Locale } from './locale.ts';
-import { loadStatus, stateOf } from './status.ts';
-import { maintenanceFrom } from './store.ts';
+import { loadHistory, loadStatus, stateOf, type StateChange } from './status.ts';
+import { favoritesOf, maintenanceFrom } from './store.ts';
 import { SseParser } from './sse.ts';
 import type { Session } from './session.ts';
 
@@ -90,6 +90,23 @@ export async function contextFor(
   const route = routeFrom(pathname);
   const visible = session.services;
   const status = visible.length > 0 ? await loadStatus(visible.map((service) => service.id)) : null;
+  // Die Historie ist teurer als der aktuelle Zustand: Sie wird nur geladen,
+  // wenn die Seite oder die Frage sie braucht.
+  const wantsHistory =
+    route.name === 'status' ||
+    route.name === 'service' ||
+    /gestern|seit wann|verlauf|zustandswechsel|passiert|history|since|last change/i.test(query);
+  const history: ReadonlyMap<string, readonly StateChange[]> =
+    wantsHistory && visible.length > 0 ? await loadHistory(visible.map((service) => service.id), 24) : new Map();
+
+  let favorites = new Set<string>();
+  if (session.identity) {
+    try {
+      favorites = new Set(favoritesOf(session.identity.username));
+    } catch {
+      // Ein nicht erreichbarer Speicher nimmt den Assistenten nicht mit.
+    }
+  }
 
   const services: readonly AssistantService[] = visible.map((service) => {
     const live = stateOf(service, status);
@@ -101,8 +118,15 @@ export async function contextFor(
       state: live.state,
       asOf: live.asOf,
       monitored: service.monitored,
+      accessGroups: service.accessGroups,
+      favorite: favorites.has(service.id),
+      dependsOn: service.dependsOn,
     };
   });
+
+  const historyChanges = [...history.entries()].flatMap(([serviceId, changes]) =>
+    changes.map((change) => ({ serviceId, at: change.at, state: change.state })),
+  );
 
   const readable = (await articlesFor(locale)).filter((article) => canReadArticle(article, session.identity));
   const articles: readonly AssistantArticle[] = readable.map((article) => ({
@@ -149,6 +173,8 @@ export async function contextFor(
     articles,
     announcements,
     maintenance,
+    history: historyChanges,
+    groups: session.identity?.groups ?? [],
     now: new Date().toISOString(),
     query,
   });

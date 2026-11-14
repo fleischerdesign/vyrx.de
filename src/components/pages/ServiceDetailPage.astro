@@ -1,4 +1,5 @@
 ---
+import AssistantLink from '@/components/assistant/AssistantLink.astro';
 import Icon from '@/components/ui/Icon.astro';
 import Badge from '@/components/ui/Badge.astro';
 import StateDot from '@/components/ui/StateDot.astro';
@@ -82,6 +83,7 @@ const clock = (at: number): string =>
       <Icon name="external" size="1rem" />
     </a>
     <FavoriteButton serviceId={service.id} favorited={favorited} locale={locale} variant="label" next={Astro.url.pathname} />
+    <AssistantLink label={t('assistantAskService')} query={t('assistantAskServiceQuery')} />
   </div>
 </header>
 
