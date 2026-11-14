@@ -658,6 +658,30 @@ const labels = {
         status.className = 'ui-media__status';
         status.dataset.status = block.status;
         status.textContent = block.statusText;
+        let statusPollTimer: number | null = null;
+        const pollStatus = (): void => {
+          let attempts = 0;
+          const tick = async (): Promise<void> => {
+            attempts += 1;
+            try {
+              const response = await fetch(
+                `/api/media/status?mediaType=${block.mediaType}&tmdbId=${block.tmdbId}&title=${encodeURIComponent(block.title)}&locale=${locale}`,
+              );
+              const data = (await response.json()) as { status?: string; statusText?: string };
+              if (data.status && data.status !== 'unknown') {
+                status.dataset.status = data.status;
+                status.textContent = data.statusText ?? data.status;
+              }
+            } catch {
+              // Status bleibt der letzte bekannte Stand.
+            }
+            if (attempts < 3 && statusPollTimer !== null) {
+              statusPollTimer = window.setTimeout(() => { void tick(); }, 15_000);
+            }
+          };
+          statusPollTimer = window.setTimeout(() => { void tick(); }, 5_000);
+        };
+
         const quality = document.createElement('button');
         quality.type = 'button';
         quality.className = 'ui-media-dialog__quality';
@@ -742,6 +766,7 @@ const labels = {
                 status.dataset.status = 'requested';
                 status.textContent = locale === 'de' ? 'angefragt' : 'requested';
                 request.textContent = locale === 'de' ? 'Angefragt' : 'Requested';
+                pollStatus();
               } else if (data.outcome === 'rate') {
                 request.disabled = false;
               }
@@ -854,6 +879,7 @@ const labels = {
                 status.dataset.status = 'requested';
                 status.textContent = locale === 'de' ? 'angefragt' : 'requested';
                 request.textContent = locale === 'de' ? 'Angefragt' : 'Requested';
+                pollStatus();
               } else if (data.outcome === 'rate') {
                 request.disabled = false;
               }
@@ -921,6 +947,10 @@ const labels = {
         const previousOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         const restore = (): void => {
+          if (statusPollTimer !== null) {
+            window.clearTimeout(statusPollTimer);
+            statusPollTimer = null;
+          }
           document.body.style.overflow = previousOverflow;
           dialog.remove();
           trigger.focus();

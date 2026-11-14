@@ -68,7 +68,7 @@ Request/Canary steht noch aus.**
   Nach erfolgreicher Anfrage wechselt die Karte auf „angefragt“.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
-- **77 Tests** und vollständiger Build grün.
+- **78 Tests** und vollständiger Build grün.
 
 Phase 1 ist live. Phase 2 ist scharf; Movie-, Serien- und Batch-Anfragen sind
 aktiv. 4K, Status-Polling und Jellyfin-Personalisierung folgen danach.
@@ -92,6 +92,10 @@ Die schreibende Strecke ist implementiert und über
   Chat-Turn, und das Ergebnis erscheint im Modal. Bei Serien zeigt das Modal
   reguläre Staffeln als Checkboxen (Staffel 0/Specials nicht vorausgewählt);
   der Direktmodus sendet `{mediaType:tv, seasons:[…]}`.
+- Nach einer Anfrage fragt das Modal bis zu dreimal `/api/media/status`
+  (5/15/30 s) ab und aktualisiert den Status-Badge, etwa von „angefragt“ auf
+  „in Bearbeitung“ oder „verfügbar“. Das ist In-App-Polling, keine
+  Push-Benachrichtigung.
 - 4K ist im Titel-Dialog als Toggle sichtbar, wenn die Seerr-Permissions es
   erlauben (ADMIN, REQUEST_4K oder das typspezifische Movie-/TV-Recht). Der
   Request-Body setzt `is4k:true`; der Server prüft das Recht erneut. Eine
@@ -499,7 +503,7 @@ Phase 1 darf lesen, Phase 2 schreiben; ohne Flag keine Schreibroute.
 
 ## 13. Was noch fehlt
 
-1. **Status-Polling** und Benachrichtigungen für Request-Status.
+1. **Benachrichtigungen** für Request-Status (Push/Mail/Ntfy).
 2. **Jellyfin** „Weiter schauen“, zuletzt gesehen und NextUp.
 3. Separate 4K-Verfügbarkeitsanzeige und 4K in Batch-Anfragen.
 

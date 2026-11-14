@@ -522,6 +522,18 @@ export async function ownRequests(session: Session, userId: number, take = 20): 
   });
 }
 
+export async function mediaStatusByTitle(
+  session: Session,
+  userId: number,
+  mediaType: 'movie' | 'tv',
+  tmdbId: number,
+  title: string,
+  locale: Locale,
+): Promise<MediaItem | null> {
+  const items = await searchMedia(session, userId, title, locale);
+  return items.find((item) => item.tmdbId === tmdbId && item.mediaType === mediaType) ?? null;
+}
+
 export async function mediaTitle(
   session: Session,
   userId: number,

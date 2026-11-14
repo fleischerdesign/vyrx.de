@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { resolveMediaUser } from '../src/lib/media-users.ts';
-import { cancelRequest, mediaService, mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
+import { cancelRequest, mediaService, mediaStatusByTitle, mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
 import { canRequest4k } from '../src/lib/media-permissions.ts';
 import type { Session } from '../src/lib/session.ts';
 import {
@@ -330,6 +330,29 @@ test('4K permission bits and request body', async () => {
   try {
     await requestMedia(baseSession(), 2, { mediaType: 'movie', tmdbId: 438631, is4k: true });
     assert.deepEqual(JSON.parse(captured.body), { mediaType: 'movie', mediaId: 438631, is4k: true });
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});
+
+test('mediaStatusByTitle matches the exact id and media type', async () => {
+  process.env.PORTAL_SEERR_API_KEY = 'test-key';
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        results: [
+          { id: 1, mediaType: 'movie', title: 'Other', mediaInfo: { status: 5 } },
+          { id: 438631, mediaType: 'movie', title: 'Dune', mediaInfo: { status: 3 } },
+        ],
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )) as typeof fetch;
+
+  try {
+    const item = await mediaStatusByTitle(baseSession(), 2, 'movie', 438631, 'Dune', 'de');
+    assert.equal(item?.status, 'processing');
   } finally {
     globalThis.fetch = original;
     delete process.env.PORTAL_SEERR_API_KEY;
