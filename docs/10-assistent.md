@@ -5,9 +5,9 @@ Workspace mit Kontext aus sichtbaren Diensten, Status, Historie,
 Ankündigungen, Wartungsfenstern und lesbaren Artikeln.
 
 **Umgesetzt am 2026-11-14:** A, B, C, D und E in einer ersten vollständigen
-Fassung. Der Einstieg ist ein runder Knopf unten rechts; die Kopfzeile trägt
-keinen Assistenten mehr. Streaming rendert Markdown bereits während der
-Antwort, nicht erst am Ende.
+Fassung, dazu ein generativer UI-Baum (`render_ui`). Der Einstieg ist ein runder
+Knopf unten rechts; die Kopfzeile trägt keinen Assistenten mehr. Streaming
+rendert Markdown bereits während der Antwort, nicht erst am Ende.
 
 ## Zielbild
 
@@ -89,9 +89,9 @@ Jeder Zustand trägt seinen Messzeitpunkt.
 Ziel: Der Assistent findet und öffnet, statt nur zu beschreiben.
 
 - [x] **C1 Interne Tools:** `search_knowledge`, `get_service`, `get_status`,
-  `get_history`, `get_maintenance`, `open_page`, `ask_step`. Statusfragen
-  erzeugen zusätzlich serverseitig eine Summary-Karte, auch wenn das Modell
-  kein Werkzeug aufruft.
+  `get_history`, `get_maintenance`, `open_page`, `ask_step`, `render_ui`.
+  Statusfragen erzeugen zusätzlich serverseitig eine Summary-Karte, auch wenn
+  das Modell kein Werkzeug aufruft.
 - [x] **C2 Navigation.** Explizite „öffne/zeige“-Anfragen werden serverseitig
   aufgelöst und als `navigate`-Ereignis mit geprüftem Link geliefert; das Modell
   kann zusätzlich `open_page` aufrufen.
@@ -108,11 +108,15 @@ einen Link. Keine zusätzliche Netzwerkabhängigkeit außer dem Modell.
 
 Ziel: Antworten sehen aus wie das Portal, nicht wie ein Chat.
 
-- [x] **D1 Block-Schema:** `text`, `summary`, `service`, `status`, `article`,
-  `maintenance`, `suggestions`, `step`.
-- [x] **D2 Client rendert native Komponenten.** Der Server validiert IDs und
-  Links; der Client rendert kein fremdes HTML. Status-, Dienst- und
-  Artikelkarten, Wartungsfenster, Schritte und Navigationslinks sind gebaut.
+- [x] **D1 UI-Baum:** generische Knoten `stack`, `grid`, `card`, `section`,
+  `text`, `heading`, `list`, `keyValue`, `badge`, `callout`, `divider`, `stat`,
+  `timeline`, `table`, `details`, `link`; Domain-Knoten `summary`, `service`,
+  `status`, `article`, `maintenance`, `suggestions`, `step`.
+- [x] **D2 Client rendert native Komponenten.** Der Server validiert IDs,
+  Tiefe, Knotenzahl und Links; Domain-Knoten werden aus der Sitzung neu gebaut,
+  generische Knoten nur als Text/Tabellen/Timeline/Layout akzeptiert. Der
+  Client rendert kein fremdes HTML. Karten, Tabellen, Zeitachse, Details,
+  Schritte und Navigationslinks sind gebaut.
 - [x] **D3 Geführte Problemlösung.** `ask_step` zeigt Frage, zwei bis vier
   Optionen und Fortschritt; ein Klick sendet die gewählte Antwort als nächste
   Nachricht.
@@ -120,6 +124,11 @@ Ziel: Antworten sehen aus wie das Portal, nicht wie ein Chat.
   einem Schritt oder Öffnen-Link entfallen sie, weil der nächste Weg schon da
   ist.
 - [x] **D5 Fallback:** reiner Text, wenn das Modell keine Blöcke liefert.
+
+**Generative UI:** `render_ui` nimmt einen typisierten Baum aus dem Katalog
+entgegen. Das Modell komponiert Layout und Präsentation; Fakten kommen aus den
+Domain-Knoten (aus der Sitzung neu gebaut) oder aus Werkzeugen. `summary`,
+`maintenance` und `step` bleiben Server-Werkzeugen vorbehalten.
 
 **Streaming:** Der Client rendert Markdown während des Streams (Absätze,
 Listen, fett, Code, lokale Links) und zeigt einen Cursor; unvollständige
@@ -191,7 +200,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 56
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 64
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
@@ -203,8 +212,9 @@ Tastatur erreichbar.
   geführte Schritt geprüft. Die Statusleiste auf Dienstseiten zeigt den
   gemessenen Zustand unabhängig vom Modelltext.
 - Browser: Streaming-Markdown ohne sichtbare `**`-Reste, Statuskarten,
-  Status-Summary ohne Tool-Aufruf, Öffnen-Link, Schritt mit vier Optionen und
-  Follow-up-Chips.
+  Status-Summary ohne Tool-Aufruf, Öffnen-Link, Schritt mit vier Optionen,
+  Follow-up-Chips und ein vom echten Modell komponierter UI-Baum (Karte, Grid,
+  Stats, KeyValue, Callout).
 
 ## Offene Entscheidungen
 
@@ -213,5 +223,6 @@ Tastatur erreichbar.
 - **Panel:** modal oder non-modal ab 1440 px?
 - **Gesprächsverlauf:** nur `sessionStorage` oder serverseitig mit
   Aufbewahrung?
-- **AG-UI:** internes Block-Schema oder AG-UI-Protokoll? Erst intern, dann
-  prüfen, ob das Protokoll einen Mehrwert bringt.
+- **AG-UI:** entschieden — internes, typisiertes UI-Baumformat. Ein späterer
+  AG-UI-Adapter kann dieselben Knoten als `Custom`-Events ausliefern; das
+  Protokoll ist nicht Voraussetzung für generative UI.
