@@ -70,8 +70,8 @@ Request/Canary steht noch aus.**
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
 - **75 Tests** und vollständiger Build grün.
 
-Phase 1 ist live. Phase 2 ist scharf; Movie- und Serien-Anfragen sind aktiv.
-Cancel, Batch und Jellyfin-Personalisierung folgen danach.
+Phase 1 ist live. Phase 2 ist scharf; Movie-, Serien- und Batch-Anfragen sind
+aktiv. 4K, Cancel, Status-Polling und Jellyfin-Personalisierung folgen danach.
 
 ## 1b. Phase 2 scharf (Movie- und Serien-Anfragen)
 
@@ -84,6 +84,9 @@ Die schreibende Strecke ist implementiert und über
 - Die `confirm`-Karte enthält die kompakte Filmvorschau (Poster, Titel,
   Jahr, Typ, Bewertung, Status und bei Serien die Staffelanzahl) und ersetzt
   die Trefferliste. Keine zusätzliche Konto-Zeile.
+- Medien-Grids mit mehreren Treffern bieten „Mehrere auswählen“: bis zu drei
+  Titel werden gesammelt und im Batch-Dialog nacheinander direkt angefragt.
+  Jede Zeile zeigt ihr eigenes Ergebnis; es gibt kein Alles-oder-nichts.
 - Das Detail-Modal führt „Anfragen“ direkt über `POST /api/media/request`
   (Direktmodus) aus. Das Modal ist die Bestätigung; es gibt keinen weiteren
   Chat-Turn, und das Ergebnis erscheint im Modal. Bei Serien zeigt das Modal
@@ -487,11 +490,10 @@ Phase 1 darf lesen, Phase 2 schreiben; ohne Flag keine Schreibroute.
 
 ## 13. Was noch fehlt
 
-1. **Batch-Anfragen** für mehrere Titel mit gemeinsamer Bestätigung.
-2. **4K** nur mit separatem Recht und sichtbarer Entscheidung.
-3. **Cancel** eigener offener Requests.
-4. **Status-Polling** und Benachrichtigungen für Request-Status.
-5. **Jellyfin** „Weiter schauen“, zuletzt gesehen und NextUp.
+1. **4K** nur mit separatem Recht und sichtbarer Entscheidung.
+2. **Cancel** eigener offener Requests.
+3. **Status-Polling** und Benachrichtigungen für Request-Status.
+4. **Jellyfin** „Weiter schauen“, zuletzt gesehen und NextUp.
 
 ## 14. Abnahmekriterien
 
