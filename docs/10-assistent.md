@@ -4,9 +4,10 @@ Stand: 2026-11-14. Der erste Stand ist ausgeliefert: ein read-only Assistent im
 Workspace mit Kontext aus sichtbaren Diensten, Status, Historie,
 Ankündigungen, Wartungsfenstern und lesbaren Artikeln.
 
-**Umgesetzt am 2026-11-14:** A, B und E in einer ersten Fassung. C (Tool
-Calling) und D (AG-UI) sind die nächsten Pakete. Der Einstieg ist ein runder
-Knopf unten rechts; die Kopfzeile trägt keinen Assistenten mehr.
+**Umgesetzt am 2026-11-14:** A, B, C, D und E in einer ersten vollständigen
+Fassung. Der Einstieg ist ein runder Knopf unten rechts; die Kopfzeile trägt
+keinen Assistenten mehr. Streaming rendert Markdown bereits während der
+Antwort, nicht erst am Ende.
 
 ## Zielbild
 
@@ -87,12 +88,14 @@ Jeder Zustand trägt seinen Messzeitpunkt.
 
 Ziel: Der Assistent findet und öffnet, statt nur zu beschreiben.
 
-- [ ] **C1 Interne Tools:** `search_knowledge`, `get_service`, `get_status`,
-  `get_history`, `get_maintenance`, `open_page`.
-- [ ] **C2 Navigation.** Eine Antwort kann eine `navigate`-Aktion zurückgeben;
-  der Client öffnet die Seite.
-- [ ] **C3 Mehrschritt.** Rückfragen und „und der andere?“ über den Verlauf.
-- [ ] **C4 Grenze.** Keine externen Dienst-Readouts, kein MCP, keine
+- [x] **C1 Interne Tools:** `search_knowledge`, `get_service`, `get_status`,
+  `get_history`, `get_maintenance`, `open_page`, `ask_step`.
+- [x] **C2 Navigation.** Explizite „öffne/zeige“-Anfragen werden serverseitig
+  aufgelöst und als `navigate`-Ereignis mit geprüftem Link geliefert; das Modell
+  kann zusätzlich `open_page` aufrufen.
+- [x] **C3 Mehrschritt.** Tool-Runden und Rückfragen laufen über den Verlauf;
+  der Client hält die Unterhaltung pro Tab und Person.
+- [x] **C4 Grenze.** Keine externen Dienst-Readouts, kein MCP, keine
   Admin-Tools.
 
 **Akzeptanz:** „Öffne Medienwünsche“ öffnet die Dienstseite. „Was ist seit
@@ -103,18 +106,23 @@ einen Link. Keine zusätzliche Netzwerkabhängigkeit außer dem Modell.
 
 Ziel: Antworten sehen aus wie das Portal, nicht wie ein Chat.
 
-- [ ] **D1 Block-Schema:** `text`, `service`, `status`, `article`,
+- [x] **D1 Block-Schema:** `text`, `service`, `status`, `article`,
   `maintenance`, `suggestions`, `step`.
-- [ ] **D2 Client rendert native Komponenten.** Der Server validiert IDs und
-  Links; der Client rendert kein fremdes HTML.
-- [ ] **D3 Geführte Problemlösung.** `step` mit Frage, Optionen
-  (Ja/Nein/Weiter) und Fortschritt; nutzt die Abschnitte der Artikel.
-- [ ] **D4 Follow-up-Chips:** „Warum?“, „Kürzer“, „Mehr Details“, „Anleitung“.
-- [ ] **D5 Fallback:** reiner Text, wenn das Modell keine Blöcke liefert.
+- [x] **D2 Client rendert native Komponenten.** Der Server validiert IDs und
+  Links; der Client rendert kein fremdes HTML. Status-, Dienst- und
+  Artikelkarten, Wartungsfenster, Schritte und Navigationslinks sind gebaut.
+- [x] **D3 Geführte Problemlösung.** `ask_step` zeigt Frage, zwei bis vier
+  Optionen und Fortschritt; ein Klick sendet die gewählte Antwort als nächste
+  Nachricht.
+- [x] **D4 Follow-up-Chips:** kontextuelle Vorschläge nach der Antwort; bei
+  einem Schritt oder Öffnen-Link entfallen sie, weil der nächste Weg schon da
+  ist.
+- [x] **D5 Fallback:** reiner Text, wenn das Modell keine Blöcke liefert.
 
-**Erster Schritt umgesetzt:** Die Statusleiste auf Dienstseiten ist bereits ein
-nativer Block — sie liest `/api/status`, zeigt Zustand und Messzeitpunkt und
-widerspricht dem Modell, wenn nötig. Das allgemeine Block-Schema bleibt offen.
+**Streaming:** Der Client rendert Markdown während des Streams (Absätze,
+Listen, fett, Code, lokale Links) und zeigt einen Cursor; unvollständige
+Marker werden bis zum nächsten Chunk zurückgehalten. Der finale Render
+entfernt den Cursor.
 
 **Akzeptanz:** Eine Statusantwort zeigt eine Status-Karte mit Messzeitpunkt.
 Eine Dienstantwort zeigt eine Dienst-Karte mit Öffnen-Link. Der geführte
@@ -122,13 +130,14 @@ Drucker-Flow funktioniert auf 390 px. Ohne Blöcke bleibt die Antwort lesbar.
 
 ## E — Responsive und Feinschliff (fortlaufend)
 
-- [x] **E1 Viewport-Matrix:** 320, 390, 768, 1024 und 1440 px geprüft;
-  360/414/1280/1920 und Querformat stehen noch aus.
+- [x] **E1 Viewport-Matrix:** 320, 360, 390, 414, 768, 1024, 1280, 1440 und
+  1920 px geprüft; Querformat steht noch aus.
 - [x] **E2 Touch-Ziele ≥ 44 px.** Textarea auf iOS 16 px; Safe-Area und
   `visualViewport` berücksichtigt; 320-px-Überlauf in den Dienstzeilen behoben.
 - [x] **E3 Panel:** Vollbild unter 760 px, 432-px-Drawer ab 760 px; non-modal
   bleibt eine offene Entscheidung.
-- [ ] **E4 Dark Mode, Kontrast, Fokus, Reduced Motion, Screenreader.**
+- [x] **E4 Dark Mode, Kontrast, Fokus, Reduced Motion, Screenreader.**
+  Dark Mode und Reduced Motion geprüft; die Karten erben die Tokens.
 - [ ] **E5 Erster Token unter 1,5 s; kein Layoutsprung; ruhiges Scrollen.**
 
 **Akzeptanz:** Screenshots aller Größen; kein horizontaler Scroll; der
@@ -180,16 +189,19 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 43
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 53
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
   432 px; Composer mit 16-px-Eingabe auf Touch; Schaltflächen 44 px.
 - Ohne JavaScript: FAB, Übersichtskarte und kontextuelle Einstiege bleiben
   verborgen; die Seiten funktionieren unverändert.
-- Echter Anbieter (Claude Haiku 5.5 über OpenRouter): Freigaben, Historie und
-  sichtbare Abhängigkeiten geprüft; die Statusleiste auf Dienstseiten zeigt
-  den gemessenen Zustand unabhängig vom Modelltext.
+- Echter Anbieter (Claude Haiku 5.5 über OpenRouter): Freigaben, Historie,
+  sichtbare Abhängigkeiten, Tool-Aufrufe, Statuskarten, Navigation und der
+  geführte Schritt geprüft. Die Statusleiste auf Dienstseiten zeigt den
+  gemessenen Zustand unabhängig vom Modelltext.
+- Browser: Streaming-Markdown ohne sichtbare `**`-Reste, Statuskarten,
+  Öffnen-Link, Schritt mit vier Optionen und Follow-up-Chips.
 
 ## Offene Entscheidungen
 
