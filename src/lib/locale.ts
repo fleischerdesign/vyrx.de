@@ -154,6 +154,8 @@ export function publicPathPatterns(staticFiles: readonly string[] = []): readonl
 
   // Gebaute Dateien und alles, was aus `public/` mitkommt - Dateien sind öffentlich.
   patterns.add('/_astro/*');
+  // TMDB-Poster sind öffentliche Bilddaten; der Proxy liest keine Identität.
+  patterns.add('/api/media/poster');
   for (const file of staticFiles) patterns.add(`/${file}`);
 
   return [...patterns].sort();

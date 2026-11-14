@@ -879,7 +879,7 @@ export async function executeTool(
                   locale === 'de'
                     ? `Soll ${item.title}${item.year ? ` (${item.year})` : ''} angefragt werden?`
                     : `Request ${item.title}${item.year ? ` (${item.year})` : ''}?`,
-                items: [{ label: locale === 'de' ? 'Konto' : 'Account', value: mediaUser.user.displayName }],
+                items: [],
                 confirmLabel: locale === 'de' ? 'Anfragen' : 'Request',
                 cancelLabel: locale === 'de' ? 'Abbrechen' : 'Cancel',
                 tone: 'accent',
