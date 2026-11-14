@@ -1,14 +1,16 @@
 # 11 — Medien: Suche, Vorschläge und Anfragen
 
-**Status: Entwurf. Nicht implementiert.** Kein Schreibzugriff, solange API-Key,
-Nutzer-Mapping und Freigabe nicht geklärt sind.
+**Status: Phase 1 (read-only) umgesetzt. Phase 2 (Anfragen) ist Entwurf.**
+Kein Schreibzugriff in Phase 1.
 
 ## 1. Kurzbefund
 
-1. **Es gibt keinen Seerr-API-Key in SOPS.** Vorhanden ist
-   `services.apps.seerr_oidc_secret` — das ist das OIDC-Client-Geheimnis für
-   Authentik, **kein** API-Key. Die vorhandenen `services.media.*`-Keys gehören
-   zu Radarr, Sonarr, Prowlarr und SABnzbd/SABnzbd-NZB, nicht zu Seerr.
+1. **Der Seerr-API-Key liegt in SOPS.** Er steht als
+   services/media/seerr_api_key und wird dem Portal als Systemd-Credential
+   seerr-key übergeben. services.apps.seerr_oidc_secret bleibt davon getrennt:
+   das ist das OIDC-Client-Geheimnis für Authentik, kein API-Key. Die
+   vorhandenen services.media.*-Keys gehören zu Radarr, Sonarr, Prowlarr und
+   SABnzbd, nicht zu Seerr.
 2. **Das Portal kennt heute keine E-Mail.** `Identity` liest
    `X-Authentik-Username`, `-Name` und `-Groups`. Caddy kopiert zusätzlich
    `X-Authentik-Email` und `X-Authentik-Uid`; das Portal muss sie aufnehmen,
@@ -31,6 +33,23 @@ Nutzer-Mapping und Freigabe nicht geklärt sind.
    fehl; es wurde nichts installiert und keine Anmeldung versucht. Für einen
    self-hosted Seerr ist die native REST-API der direkteste Weg. Composio
    bleibt für andere externe Apps eine Option, nicht für diesen Dienst.
+
+## 1a. Umgesetzt (Phase 1, read-only)
+
+- `Identity` liest jetzt `email` und `uid` aus `X-Authentik-Email` und
+  `X-Authentik-Uid`.
+- `media_user` speichert die eindeutige Zuordnung Portal-Person → Seerr-ID.
+  `media-users` ist Pflicht; ein reiner `family`-Nutzer erreicht Seerr nicht.
+- Der Seerr-Client setzt bei jedem Aufruf `X-Api-Key` und `X-Api-User`.
+- Assistent-Werkzeuge: `media_search`, `media_discover`, `media_title`.
+- Native Medienkarten mit Poster-Proxy, Status, Jahr, Kurztext und
+  medienbezogenen Follow-ups.
+- Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
+  `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
+- **70 Tests** und vollständiger Build grün.
+
+Noch nicht umgesetzt: die schreibende Anfrage (Phase 2), TV-Staffeln,
+Cancel, Jellyfin-Personalisierung.
 
 ## 2. Ziel
 
@@ -412,25 +431,26 @@ fehlende Mappings werden protokolliert.
 Feature-Flags: `PORTAL_MEDIA_READ` und `PORTAL_MEDIA_REQUESTS` getrennt.
 Phase 1 darf lesen, Phase 2 schreiben; ohne Flag keine Schreibroute.
 
-## 13. Was fehlt, bevor Code entsteht
+## 13. Was noch fehlt
 
-1. **Seerr-API-Key** in Seerr erzeugen und als
-   `services/media/seerr_api_key` in SOPS legen.
-2. **E-Mail-Claim** im Portal aufnehmen (`X-Authentik-Email`) und prüfen, dass
-   die Seerr-Nutzer diese E-Mail tragen.
-3. **Mapping-Entscheidung**: automatisch per E-Mail, Fallback explizit;
-   mehrdeutige Treffer nie raten.
-4. **Gruppen-Entscheidung**: Medienaktion nur `media-users`; `family` sieht
-   höchstens die Erklärung.
-5. **Poster-Proxy** und CSP-Entscheidung.
-6. **Scope**: v1 Filme, v1.5 Serien, 4K erst mit separatem Recht.
-7. **Jellyfin** erst danach; dafür eigener Key und User-Mapping.
-8. **Seerr-User-Antwort einmal lesen**: `GET /api/v1/user?q=<email>` mit dem
-   Key; prüfen, ob `email`, `username` und ggf. `linkedAccounts` enthalten
-   sind. Danach das Mapping-Verfahren festnageln.
-8. **Seerr-User-Antwort einmal lesen**: `GET /api/v1/user?q=<email>` mit dem
-   Key; prüfen, ob `email`, `username` und ggf. `linkedAccounts` enthalten
-   sind. Danach das Mapping-Verfahren festnageln.
+Phase 1 ist umgesetzt. Offen ist die schreibende Phase 2:
+
+1. **Proposal-Tabelle** `media_proposal` mit Actor, Payload, Ablauf,
+   Einmaligkeit und Ergebnis.
+2. **`confirm`-Block** als server-only Bestätigungskarte mit
+   „Anfragen“/„Abbrechen“.
+3. **`POST /api/media/request`**: Same-Origin, Sitzung, Proposal-ID,
+   `media-users`, Mapping; die einzige Schreibstelle.
+4. **Seerr-Schreibcall** mit `X-Api-Key` + `X-Api-User`, Body
+   `{ mediaType:'movie', mediaId, is4k:false }`.
+5. **Quota, Duplicate, Timeout**: 403/409/unklar sauber behandeln; nach
+   Timeout eigene Requests prüfen, nie blind wiederholen.
+6. **Audit**: Actor, Ziel-TMDB-ID, Request-ID, Ergebnis; jede Ablehnung
+   ebenfalls.
+7. **Canary**: ein Testnutzer, ein Film, explizite Freigabe; erst danach
+   `PORTAL_MEDIA_REQUESTS=on`.
+8. **Später**: TV-Staffeln, 4K mit separatem Recht, Cancel, Jellyfin
+   „Weiter schauen“.
 
 ## 14. Abnahmekriterien
 
