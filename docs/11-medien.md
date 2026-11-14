@@ -45,8 +45,9 @@ Request/Canary steht noch aus.**
   `jellyseerr`, die lokale Fixture `media-requests`; beide werden unterstützt.
   Das war die Ursache für das frühere `not_visible`.
 - Assistent-Werkzeuge: `media_search`, `media_discover`, `media_title`.
-- Native Medienkarten mit Poster-Proxy, Status, Jahr, Kurztext und
-  medienbezogenen Follow-ups.
+- Native Medienkarten mit Poster-Proxy, Status, Jahr und Kurztext. Die Karte
+  ist aufklappbar (Details/Weniger) und bietet bei einem unbekannten Titel
+  direkt „Anfragen“; der Klick geht in den bestätigten Request-Flow.
 - Geprüft: Suche *Dune*, Trending, Quota und eigene Requests read-only;
   `X-Api-User: 2` liefert philipp, `X-Api-User: 3` Kugelblitz82.
 - **73 Tests** und vollständiger Build grün.
