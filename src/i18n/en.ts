@@ -15,8 +15,6 @@ export const en: Record<keyof typeof de, string> = {
   themeSwitch: 'Appearance',
   back: 'Back',
   cancel: 'Cancel',
-  updateAvailable: 'New version',
-  updateReload: 'Reload',
   installApp: 'Install app',
   save: 'Save',
   navProject: 'Project',

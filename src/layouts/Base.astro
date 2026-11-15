@@ -73,7 +73,16 @@ const other: Locale = locale === 'de' ? 'en' : 'de';
       if ('serviceWorker' in navigator) {
         const hadController = Boolean(navigator.serviceWorker.controller);
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (hadController) window.location.reload();
+          if (!hadController) return;
+          const reloadWhenSafe = () => {
+            const canReload = window.__vyrxCanReload;
+            if (!canReload || canReload()) {
+              window.location.reload();
+              return;
+            }
+            window.setTimeout(reloadWhenSafe, 1_000);
+          };
+          reloadWhenSafe();
         });
         const register = () => {
           navigator.serviceWorker

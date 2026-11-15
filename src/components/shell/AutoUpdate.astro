@@ -1,0 +1,89 @@
+<script>
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="vyrx-build"]');
+  if (meta?.content) {
+    const current = meta.content;
+    let pending = false;
+    let checking = false;
+    let reloading = false;
+    let lastInteraction = Date.now();
+
+    const noteInteraction = (): void => {
+      lastInteraction = Date.now();
+    };
+    for (const type of ['pointerdown', 'keydown', 'input', 'scroll', 'touchstart']) {
+      window.addEventListener(type, noteInteraction, { passive: true });
+    }
+
+    const isBusy = (): boolean => {
+      if (document.querySelector('dialog[open]')) return true;
+
+      const active = document.activeElement as HTMLElement | null;
+      if (
+        active &&
+        (active.matches('input, textarea, select, [contenteditable="true"]') ||
+          Boolean(active.closest('[contenteditable="true"]')))
+      ) {
+        return true;
+      }
+
+      const fields = [...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('input, textarea, select')];
+      if (
+        fields.some((field) => {
+          if (field.disabled) return false;
+          if (['hidden', 'checkbox', 'radio', 'button', 'submit', 'reset'].includes(field.type)) return false;
+          return String(field.value ?? '').trim() !== '';
+        })
+      ) {
+        return true;
+      }
+
+      const editors = [...document.querySelectorAll<HTMLElement>('[contenteditable="true"]')];
+      if (editors.some((editor) => Boolean(editor.textContent?.trim()))) return true;
+
+      const media = [...document.querySelectorAll<HTMLMediaElement>('video, audio')];
+      return media.some((element) => !element.paused);
+    };
+
+    const canReload = (): boolean =>
+      !isBusy() &&
+      (document.visibilityState === 'hidden' || Date.now() - lastInteraction > 10_000);
+
+    (window as unknown as { __vyrxCanReload?: () => boolean }).__vyrxCanReload = canReload;
+
+    const maybeReload = (): void => {
+      if (!pending || reloading || !canReload()) return;
+      reloading = true;
+      window.location.reload();
+    };
+
+    const check = async (): Promise<void> => {
+      if (checking) return;
+      checking = true;
+      try {
+        const response = await fetch('/api/version', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = (await response.json()) as { version?: string };
+        if (data.version && data.version !== current) {
+          pending = true;
+          maybeReload();
+        }
+      } catch {
+        // Offline oder noch keine Sitzung: kein Reload.
+      } finally {
+        checking = false;
+      }
+    };
+
+    window.addEventListener('focus', () => {
+      void check();
+      maybeReload();
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void check();
+      else maybeReload();
+    });
+    window.setInterval(() => void check(), 5 * 60_000);
+    window.setInterval(maybeReload, 1_000);
+    void check();
+  }
+</script>

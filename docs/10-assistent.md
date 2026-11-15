@@ -246,8 +246,11 @@ Tastatur erreichbar.
   Ein eigener Installations-Button erscheint nur, wenn
   `beforeinstallprompt` verfügbar ist; iOS bleibt beim Share-Menü.
 - **App-Update:** `meta[name="vyrx-build"]` und `GET /api/version` liefern
-  die Deployment-ID. Bei einer neuen Version erscheint ein ruhiger
-  „Neu laden“-Button; kein automatischer Reload mitten im Tippen.
+  die Deployment-ID. Bei einer neuen Version lädt die App automatisch neu,
+  sobald es sicher ist: kein offener Dialog, kein fokussiertes oder gefülltes
+  Eingabefeld, kein laufendes Medium und mindestens zehn Sekunden ohne
+  Interaktion; im Hintergrund darf der Reload sofort passieren. Ein neuer
+  Service Worker benutzt dieselbe Sicherheitsprüfung.
 - **Geräte:** `GET /api/notifications/subscriptions` listet Push-Geräte des
   Owners mit Browser/Plattform und Datum; Entfernen nutzt den bestehenden
   Unsubscribe-Endpunkt. Das aktuelle Gerät wird markiert, wenn die

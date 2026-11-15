@@ -15,8 +15,6 @@ export const de = {
   themeSwitch: 'Darstellung',
   back: 'Zurück',
   cancel: 'Abbrechen',
-  updateAvailable: 'Neue Version',
-  updateReload: 'Neu laden',
   installApp: 'App installieren',
   save: 'Speichern',
 
