@@ -47,6 +47,20 @@ const day = (iso: string): string => iso.slice(0, 10);
 </section>
 
 <section class="block">
+  <h2>{t('accountSettings')}</h2>
+  <div class="account-settings">
+    <div class="account-setting">
+      <span>{t('themeSwitch')}</span>
+      <ThemeToggle locale={locale} />
+    </div>
+    <div class="account-setting">
+      <span>{t('languageSwitch')}</span>
+      <LocaleSwitch locale={locale} />
+    </div>
+  </div>
+</section>
+
+<section class="block">
   <h2>{t('accountGroups')}</h2>
   {
     identity && identity.groups.length > 0 ? (
@@ -114,20 +128,6 @@ const day = (iso: string): string => iso.slice(0, 10);
       </ul>
     )
   }
-</section>
-
-<section class="block">
-  <h2>{t('accountSettings')}</h2>
-  <div class="account-settings">
-    <div class="account-setting">
-      <span>{t('themeSwitch')}</span>
-      <ThemeToggle locale={locale} />
-    </div>
-    <div class="account-setting">
-      <span>{t('languageSwitch')}</span>
-      <LocaleSwitch locale={locale} />
-    </div>
-  </div>
 </section>
 
 <section class="block">
