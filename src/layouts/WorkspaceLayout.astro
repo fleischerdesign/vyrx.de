@@ -52,11 +52,21 @@ const statusSnapshot = await Promise.race([
   loadStatus(session.services.map((service) => service.id)),
   new Promise<null>((resolve) => setTimeout(() => resolve(null), 300)),
 ]);
+const stateLabel = (state: string): string =>
+  state === 'up'
+    ? t('stateUp')
+    : state === 'down'
+      ? t('stateDown')
+      : state === 'unmonitored'
+        ? t('stateUnmonitored')
+        : t('stateUnknown');
 const favoriteServices = identity
   ? favoritesOf(identity.username)
       .flatMap((id) => {
         const service = session.services.find((entry) => entry.id === id);
-        return service ? [{ service, state: stateOf(service, statusSnapshot).state }] : [];
+        if (!service) return [];
+        const state = stateOf(service, statusSnapshot).state;
+        return [{ service, state, stateText: stateLabel(state) }];
       })
       .slice(0, 3)
   : [];
@@ -138,8 +148,8 @@ const palette: PaletteItem[] = [
                 <a
                   class="side__favorite"
                   href={pathFor(locale, 'service', entry.service.id)}
-                  aria-label={text(entry.service.name, locale)}
-                  title={text(entry.service.name, locale)}
+                  aria-label={`${text(entry.service.name, locale)} · ${entry.stateText}`}
+                  title={`${text(entry.service.name, locale)} · ${entry.stateText}`}
                 >
                   <span class="side__dot" data-state={entry.state} aria-hidden="true" />
                   <Icon name={serviceIcon(entry.service.icon)} size="0.95rem" />
@@ -234,18 +244,47 @@ const palette: PaletteItem[] = [
   const menuTrigger = document.querySelector<HTMLButtonElement>('[data-user-menu-trigger]');
   const userMenu = document.querySelector<HTMLElement>('[data-user-menu]');
 
-  const closeMenu = (): void => {
+  const menuItems = (): HTMLElement[] =>
+    userMenu
+      ? [...userMenu.querySelectorAll<HTMLElement>('a, button:not([disabled])')]
+      : [];
+
+  const closeMenu = (restoreFocus = true): void => {
     if (!userMenu || !menuTrigger || userMenu.hidden) return;
     userMenu.hidden = true;
     menuTrigger.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) menuTrigger.focus();
+  };
+
+  const openMenu = (): void => {
+    if (!userMenu || !menuTrigger || !userMenu.hidden) return;
+    userMenu.hidden = false;
+    menuTrigger.setAttribute('aria-expanded', 'true');
+    window.requestAnimationFrame(() => menuItems()[0]?.focus());
   };
 
   menuTrigger?.addEventListener('click', (event) => {
     if (!userMenu) return;
     event.stopPropagation();
-    const open = userMenu.hidden;
-    userMenu.hidden = !open;
-    menuTrigger.setAttribute('aria-expanded', String(open));
+    if (userMenu.hidden) openMenu();
+    else closeMenu();
+  });
+
+  userMenu?.addEventListener('keydown', (event) => {
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp' && event.key !== 'Home' && event.key !== 'End') return;
+    const items = menuItems();
+    if (items.length === 0) return;
+    event.preventDefault();
+    const index = items.indexOf(document.activeElement as HTMLElement);
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? items.length - 1
+          : event.key === 'ArrowDown'
+            ? (index + 1 + items.length) % items.length
+            : (index - 1 + items.length) % items.length;
+    items[next]?.focus();
   });
 
   document.addEventListener('pointerdown', (event) => {
@@ -259,7 +298,7 @@ const palette: PaletteItem[] = [
     if (event.key === 'Escape') closeMenu();
   });
 
-  userMenu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu));
+  userMenu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => closeMenu(false)));
 
   const sidebarToggle = document.querySelector<HTMLButtonElement>('[data-sidebar-toggle]');
   const root = document.documentElement;
@@ -307,7 +346,7 @@ const palette: PaletteItem[] = [
     flex-direction: column;
     padding: var(--space-8) var(--space-4) var(--space-6);
     background: var(--panel);
-    color: #f3f4f7;
+    color: var(--panel-ink);
   }
 
   .side__head {
@@ -321,7 +360,7 @@ const palette: PaletteItem[] = [
     display: flex;
     align-items: center;
     min-width: 0;
-    color: #fff;
+    color: var(--panel-on);
   }
 
   .side__brand-word {
@@ -333,9 +372,9 @@ const palette: PaletteItem[] = [
     place-items: center;
     width: 2rem;
     height: 2rem;
-    border: 1px solid #3b4150;
+    border: 1px solid var(--panel-line);
     border-radius: var(--radius-sm);
-    color: #fff;
+    color: var(--panel-on);
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
@@ -351,19 +390,19 @@ const palette: PaletteItem[] = [
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: none;
-    color: #7f879b;
+    color: var(--panel-faint);
   }
 
   .side__collapse:hover {
-    border-color: #3b4150;
-    background: rgb(255 255 255 / 0.06);
-    color: #fff;
+    border-color: var(--panel-line);
+    background: var(--panel-hover);
+    color: var(--panel-on);
   }
 
   .side__favorites {
     margin-top: var(--space-8);
     padding-top: var(--space-5);
-    border-top: 1px solid #343946;
+    border-top: 1px solid var(--panel-line);
   }
 
   .side__favorites ul {
@@ -378,13 +417,13 @@ const palette: PaletteItem[] = [
     gap: var(--space-3);
     padding: 0.45rem 0.85rem;
     border-radius: var(--radius-sm);
-    color: #a7aebe;
+    color: var(--panel-muted);
     font-size: var(--text-sm);
   }
 
   .side__favorite:hover {
-    background: rgb(255 255 255 / 0.07);
-    color: #fff;
+    background: var(--panel-hover);
+    color: var(--panel-on);
   }
 
   .side__favorite > span:last-of-type {
@@ -398,24 +437,35 @@ const palette: PaletteItem[] = [
     height: 6px;
     flex: none;
     border-radius: 50%;
-    background: #7f879b;
+    background: var(--panel-faint);
   }
 
-  .side__dot[data-state='up'] { background: #65c48e; }
-  .side__dot[data-state='down'] { background: #e06c78; }
-  .side__dot[data-state='unknown'] { background: #d6a85f; }
+  .side__dot[data-state='up'] { background: var(--panel-dot-up); }
+  .side__dot[data-state='down'] {
+    border: 1.5px solid var(--panel-dot-down);
+    background: transparent;
+  }
+  .side__dot[data-state='unknown'] {
+    border-radius: 1px;
+    background: var(--panel-dot-unknown);
+    transform: rotate(45deg);
+  }
+  .side__dot[data-state='unmonitored'] {
+    border: 1px solid var(--panel-dot-muted);
+    background: transparent;
+  }
 
   .side__all {
     display: flex;
     align-items: center;
     gap: var(--space-2);
     margin: var(--space-3) var(--space-4) 0;
-    color: #7f879b;
+    color: var(--panel-faint);
     font-size: var(--text-xs);
   }
 
   .side__all:hover {
-    color: #fff;
+    color: var(--panel-on);
   }
 
   .side__account {
@@ -438,17 +488,28 @@ const palette: PaletteItem[] = [
 
   .side__user:hover,
   .side__user[aria-expanded='true'] {
-    background: rgb(255 255 255 / 0.07);
+    background: var(--panel-hover);
   }
 
   .side__user > :global(svg) {
     margin-inline-start: auto;
-    color: #7f879b;
+    color: var(--panel-faint);
     transition: transform var(--fast) var(--ease);
   }
 
   .side__user[aria-expanded='true'] > :global(svg) {
     transform: rotate(90deg);
+  }
+
+  .side__user:focus-visible,
+  .side__collapse:focus-visible,
+  .side__favorite:focus-visible,
+  .side__all:focus-visible,
+  .side__menu-link:focus-visible,
+  .side__menu :global(.theme-toggle):focus-visible,
+  .side__menu :global(.locale__item):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 
   .side__menu {
@@ -460,9 +521,9 @@ const palette: PaletteItem[] = [
     flex-direction: column;
     gap: 2px;
     padding: var(--space-2);
-    border: 1px solid #3b4150;
+    border: 1px solid var(--panel-line);
     border-radius: var(--radius-md);
-    background: #252a38;
+    background: var(--panel-surface);
     box-shadow: 0 16px 40px rgb(0 0 0 / 0.3);
   }
 
@@ -476,13 +537,13 @@ const palette: PaletteItem[] = [
     gap: var(--space-3);
     padding: 0.55rem 0.6rem;
     border-radius: var(--radius-sm);
-    color: #d6d9e2;
+    color: var(--panel-ink);
     font-size: var(--text-sm);
   }
 
   .side__menu-link:hover {
-    background: rgb(255 255 255 / 0.07);
-    color: #fff;
+    background: var(--panel-hover);
+    color: var(--panel-on);
   }
 
   .side__menu-controls {
@@ -491,7 +552,7 @@ const palette: PaletteItem[] = [
     gap: var(--space-2);
     padding: var(--space-2) 0;
     margin-block: 2px;
-    border-block: 1px solid #3b4150;
+    border-block: 1px solid var(--panel-line);
   }
 
   .side__menu-row {
@@ -500,34 +561,34 @@ const palette: PaletteItem[] = [
     justify-content: space-between;
     gap: var(--space-2);
     padding-inline: 0.6rem;
-    color: #9299a9;
+    color: var(--panel-faint);
     font-size: var(--text-xs);
   }
 
   .side__menu :global(.theme-toggle),
   .side__menu :global(.locale) {
-    border-color: #3b4150;
-    background: #2b3040;
+    border-color: var(--panel-line);
+    background: var(--panel-surface-2);
   }
 
   .side__menu :global(.theme-toggle) {
     width: 1.9rem;
     height: 1.9rem;
-    color: #c5c9d4;
+    color: var(--panel-muted);
   }
 
   .side__menu :global(.locale__item) {
     padding: 0.35rem 0.45rem;
-    color: #a7aebe;
+    color: var(--panel-muted);
   }
 
   .side__menu :global(.locale__item + .locale__item) {
-    border-left-color: #3b4150;
+    border-left-color: var(--panel-line);
   }
 
   .side__menu :global(.locale__item.is-current) {
-    background: #3a3560;
-    color: #fff;
+    background: var(--panel-active);
+    color: var(--panel-on);
   }
 
   .side__label {
@@ -537,12 +598,12 @@ const palette: PaletteItem[] = [
     font-weight: var(--weight-medium);
     letter-spacing: var(--tracking-wider);
     text-transform: uppercase;
-    color: #7f879b;
+    color: var(--panel-faint);
   }
 
   .side__bottom {
     margin-top: auto;
-    border-top: 1px solid #343946;
+    border-top: 1px solid var(--panel-line);
     padding-top: var(--space-5);
   }
 
@@ -559,8 +620,8 @@ const palette: PaletteItem[] = [
     width: 2.1rem;
     height: 2.1rem;
     border-radius: var(--radius-sm);
-    background: #393e50;
-    color: #eaeaf0;
+    background: var(--panel-surface);
+    color: var(--panel-ink);
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     flex: none;
@@ -574,7 +635,7 @@ const palette: PaletteItem[] = [
 
   .side__user-text small {
     display: block;
-    color: #9299a9;
+    color: var(--panel-faint);
     font-size: var(--text-xs);
     margin-top: 1px;
   }
@@ -585,12 +646,12 @@ const palette: PaletteItem[] = [
     gap: var(--space-3);
     margin-top: var(--space-3);
     padding: var(--space-2) var(--space-3);
-    color: #a7aebe;
+    color: var(--panel-muted);
     font-size: var(--text-sm);
   }
 
   .side__logout:hover {
-    color: #fff;
+    color: var(--panel-on);
   }
 
   .content {
@@ -639,12 +700,18 @@ const palette: PaletteItem[] = [
   }
 
   .palette-slot {
-    display: none;
+    display: contents;
   }
 
   @media (min-width: 901px) {
     .palette-slot {
       display: block;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .palette-slot :global(.trigger) {
+      display: none;
     }
   }
 

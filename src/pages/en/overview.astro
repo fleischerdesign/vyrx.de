@@ -11,8 +11,12 @@ const session = readSession(Astro.request);
 if (!session.identity) return Astro.redirect(loginPathFor(pathFor('en', 'overview')));
 
 const t = useTranslations('en');
+const firstVisit = !Astro.cookies.has('vyrx_onboarded');
+if (firstVisit) {
+  Astro.cookies.set('vyrx_onboarded', '1', { path: '/', maxAge: 31_536_000, sameSite: 'lax' });
+}
 ---
 
 <AppShell locale="en" session={session} title={t('navOverview')} description={t('overviewIntro')}>
-  <Overview locale="en" session={session} />
+  <Overview locale="en" session={session} firstVisit={firstVisit} />
 </AppShell>

@@ -12,13 +12,19 @@ interface Props {
 const { locale, isAdmin } = Astro.props;
 const t = useTranslations(locale);
 const here = routeFrom(Astro.url.pathname).name;
-// Höchstens fünf Einträge - Verwaltung bleibt in der Schublade.
-const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin).slice(0, 5);
+const primary = ['overview', 'services', 'account'] as const;
+const primaryItems = primary.flatMap((name) => {
+  const item = WORKSPACE_NAV.find((entry) => entry.name === name);
+  return item ? [item] : [];
+});
+const moreItems = WORKSPACE_NAV.filter(
+  (item) => (item.name === 'knowledge' || item.name === 'status' || (item.name === 'admin' && isAdmin)),
+);
 ---
 
 <nav class="dock" aria-label={t('workspaceLabel')}>
   {
-    items.map((item) => (
+    primaryItems.slice(0, 2).map((item) => (
       <a
         href={pathFor(locale, item.name)}
         class:list={['dock__item', isCurrent(item, here) && 'is-current']}
@@ -29,7 +35,95 @@ const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin).slice(0, 5)
       </a>
     ))
   }
+
+  <button
+    type="button"
+    class="dock__assistant"
+    data-assistant-open
+    data-assistant-surface
+    hidden
+    aria-haspopup="dialog"
+    aria-expanded="false"
+    aria-controls="assistant"
+    aria-label={t('assistantOpen')}
+    title={t('assistantOpen')}
+  >
+    <Icon name="sparkles" size="1.25rem" />
+  </button>
+
+  {
+    primaryItems.slice(2).map((item) => (
+      <a
+        href={pathFor(locale, item.name)}
+        class:list={['dock__item', isCurrent(item, here) && 'is-current']}
+        aria-current={isCurrent(item, here) ? 'page' : undefined}
+      >
+        <Icon name={item.icon} size="1.15rem" />
+        <span>{t(item.key)}</span>
+      </a>
+    ))
+  }
+
+  <button type="button" class="dock__item dock__more" data-more-open aria-haspopup="dialog" aria-expanded="false" aria-controls="dock-more">
+    <Icon name="menu" size="1.15rem" />
+    <span>{t('navMore')}</span>
+  </button>
 </nav>
+
+<dialog class="dock-sheet" id="dock-more" data-more-sheet aria-labelledby="dock-more-title">
+  <div class="dock-sheet__panel">
+    <header class="dock-sheet__head">
+      <strong id="dock-more-title">{t('navMore')}</strong>
+      <button type="button" class="dock-sheet__close" data-more-close aria-label={t('close')}>
+        <Icon name="close" size="1rem" />
+      </button>
+    </header>
+    <button type="button" class="dock-sheet__action dock-sheet__search" data-palette-open>
+      <Icon name="search" size="1.05rem" />
+      <span>{t('paletteOpen')}</span>
+      <Icon name="arrowRight" size="0.9rem" />
+    </button>
+    <div class="dock-sheet__links">
+      {
+        moreItems.map((item) => (
+          <a href={pathFor(locale, item.name)} class="dock-sheet__link">
+            <Icon name={item.icon} size="1.05rem" />
+            <span>{t(item.key)}</span>
+            <Icon name="arrowRight" size="0.9rem" />
+          </a>
+        ))
+      }
+    </div>
+  </div>
+</dialog>
+
+<script>
+  const sheet = document.querySelector<HTMLDialogElement>('[data-more-sheet]');
+  const openButton = document.querySelector<HTMLButtonElement>('[data-more-open]');
+  const closeButton = document.querySelector<HTMLButtonElement>('[data-more-close]');
+
+  const closeSheet = (): void => {
+    if (!sheet?.open) return;
+    sheet.close();
+    openButton?.setAttribute('aria-expanded', 'false');
+  };
+
+  openButton?.addEventListener('click', () => {
+    if (!sheet || sheet.open) return;
+    sheet.showModal();
+    openButton.setAttribute('aria-expanded', 'true');
+  });
+
+  closeButton?.addEventListener('click', closeSheet);
+  sheet?.addEventListener('click', (event) => {
+    if (event.target === sheet) closeSheet();
+  });
+  sheet?.querySelectorAll('[data-palette-open]').forEach((button) => {
+    button.addEventListener('click', closeSheet);
+  });
+  sheet?.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeSheet));
+  sheet?.addEventListener('close', () => openButton?.setAttribute('aria-expanded', 'false'));
+</script>
 
 <style>
   .dock {
@@ -38,7 +132,9 @@ const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin).slice(0, 5)
     bottom: 0;
     z-index: 40;
     display: none;
+    align-items: flex-end;
     justify-content: space-around;
+    gap: 2px;
     background: var(--surface);
     border-top: 1px solid var(--line);
     padding: var(--space-2) var(--space-2) max(var(--space-2), env(safe-area-inset-bottom));
@@ -52,8 +148,11 @@ const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin).slice(0, 5)
     align-items: center;
     gap: 5px;
     padding: var(--space-2) 2px;
+    border: 0;
     border-radius: var(--radius-sm);
+    background: none;
     color: var(--faint);
+    font: inherit;
     font-size: var(--text-xs);
     text-align: center;
   }
@@ -61,6 +160,111 @@ const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin).slice(0, 5)
   .dock__item.is-current {
     background: var(--accent-soft);
     color: var(--accent-strong);
+  }
+
+  .dock__assistant {
+    display: grid;
+    place-items: center;
+    width: 3.2rem;
+    height: 3.2rem;
+    flex: none;
+    margin: 0 2px -0.1rem;
+    border: 4px solid var(--surface);
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    box-shadow:
+      0 12px 28px -14px rgb(23 27 38 / 0.55),
+      0 2px 8px rgb(23 27 38 / 0.12);
+    transform: translateY(-0.85rem);
+  }
+
+  .dock__assistant:active {
+    transform: translateY(-0.85rem) scale(0.97);
+  }
+
+  .dock__assistant[hidden] {
+    display: none;
+  }
+
+  .dock-sheet {
+    width: min(100%, 26rem);
+    max-width: none;
+    margin: auto auto 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+
+  .dock-sheet::backdrop {
+    background: rgb(23 27 38 / 0.4);
+    backdrop-filter: blur(3px);
+  }
+
+  .dock-sheet__panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-4) max(var(--space-6), env(safe-area-inset-bottom));
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--surface);
+    box-shadow: 0 -18px 50px -20px rgb(23 27 38 / 0.4);
+  }
+
+  .dock-sheet__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-2) var(--space-2);
+  }
+
+  .dock-sheet__head strong {
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+  }
+
+  .dock-sheet__close {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+  }
+
+  .dock-sheet__action,
+  .dock-sheet__link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font: inherit;
+    font-size: var(--text-sm);
+    text-align: left;
+  }
+
+  .dock-sheet__action:hover,
+  .dock-sheet__link:hover {
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .dock-sheet__action > :global(svg:last-child),
+  .dock-sheet__link > :global(svg:last-child) {
+    margin-inline-start: auto;
+    color: var(--faint);
+  }
+
+  .dock-sheet__links {
+    display: grid;
+    gap: 2px;
   }
 
   @media (max-width: 900px) {

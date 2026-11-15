@@ -68,6 +68,17 @@
   --panel-ink: #f3f1fc;
   --panel-muted: #b3aec4;
   --panel-accent: #c6b9ff;
+  --panel-faint: #7f879b;
+  --panel-on: #ffffff;
+  --panel-hover: rgb(255 255 255 / 0.07);
+  --panel-surface: #252a38;
+  --panel-surface-2: #2b3040;
+  --panel-active: #3a3560;
+  --panel-badge: #7d3f48;
+  --panel-dot-up: #65c48e;
+  --panel-dot-down: #e06c78;
+  --panel-dot-unknown: #d6a85f;
+  --panel-dot-muted: #7f879b;
 
   /* Zustand */
   --ok: #23826b;

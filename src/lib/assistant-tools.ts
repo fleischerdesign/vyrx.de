@@ -968,6 +968,7 @@ export async function executeTool(
                 posterPath: item.posterPath,
                 backdropPath: item.backdropPath,
                 rating: item.rating,
+                certification: item.certification ?? null,
                 title: locale === 'de' ? 'Anfrage bestätigen' : 'Confirm request',
                 description:
                   locale === 'de'

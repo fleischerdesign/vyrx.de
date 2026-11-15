@@ -93,6 +93,7 @@ export const en: Record<keyof typeof de, string> = {
   helpFaq2A: 'First check whether you are signed in. If you have access, the workspace shows the status. If signing in already fails, talk to the person who invited you.',
   helpFaq3Q: 'What do I see after signing in?',
   helpFaq3A: 'Only offers you are entitled to. The selection may differ from someone else’s; technical operations details are not part of the normal entry.',
+  navMore: 'More',
   navOverview: 'Overview',
   navServices: 'Applications',
   navKnowledge: 'Knowledge',

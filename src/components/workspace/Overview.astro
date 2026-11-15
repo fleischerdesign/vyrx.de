@@ -15,9 +15,10 @@ import { articlesFor, canReadArticle } from '@/lib/knowledge';
 interface Props {
   locale: Locale;
   session: Session;
+  firstVisit: boolean;
 }
 
-const { locale, session } = Astro.props;
+const { locale, session, firstVisit } = Astro.props;
 const t = useTranslations(locale);
 const name = session.identity?.name || session.identity?.username || '';
 const owner = session.identity?.username ?? '';
@@ -27,6 +28,7 @@ const saved = services.filter((service) => favorites.includes(service.id));
 const shown = saved.length > 0 ? saved : services;
 const news = session.identity ? activeAnnouncements(session.identity.groups) : [];
 const guides = (await articlesFor(locale)).filter((article) => canReadArticle(article, session.identity));
+const showFirstSteps = firstVisit && saved.length === 0;
 ---
 
 <PageHeader
@@ -81,9 +83,11 @@ const guides = (await articlesFor(locale)).filter((article) => canReadArticle(ar
   }
 </section>
 
-<section class="block">
-  <FirstSteps locale={locale} services={services.length} guides={guides.length} />
-</section>
+{showFirstSteps && (
+  <section class="block">
+    <FirstSteps locale={locale} services={services.length} guides={guides.length} />
+  </section>
+)}
 
 <style>
   .block + .block {

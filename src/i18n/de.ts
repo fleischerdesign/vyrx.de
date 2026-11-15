@@ -117,6 +117,7 @@ export const de = {
     'Nur Angebote, für die du berechtigt bist. Die Auswahl kann sich von der einer anderen Person unterscheiden; technische Betriebsdetails gehören nicht zum normalen Einstieg.',
 
   // Werkzeugleiste
+  navMore: 'Mehr',
   navOverview: 'Übersicht',
   navServices: 'Anwendungen',
   navKnowledge: 'Wissen',

@@ -108,6 +108,7 @@ export type AssistantBlock =
       readonly posterPath: string | null;
       readonly backdropPath: string | null;
       readonly rating: number | null;
+      readonly certification?: string | null;
       readonly description: string;
       readonly items: readonly { readonly label: string; readonly value: string }[];
       readonly confirmLabel: string;

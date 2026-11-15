@@ -263,6 +263,27 @@ const labels = {
     const formatTime = (at: number): string =>
       new Date(at).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
 
+    const mediaRuntime = (minutes: number | null | undefined): string => {
+      if (!minutes || minutes <= 0) return '';
+      const hours = Math.floor(minutes / 60);
+      const rest = minutes % 60;
+      if (locale === 'de') return hours > 0 ? `${hours} Std. ${rest} Min.` : `${rest} Min.`;
+      return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
+    };
+
+    const mediaMetaText = (block: AssistantBlock, options: { runtime?: boolean } = {}): string => {
+      if (block.type !== 'media') return '';
+      return [
+        block.year,
+        block.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie' : 'Series',
+        options.runtime ? mediaRuntime(block.runtime) : '',
+        block.certification ? `FSK ${block.certification}` : '',
+        block.rating !== null ? `★ ${block.rating.toFixed(1)}` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+    };
+
     const stateText = (state: string): string =>
       state === 'up'
         ? (labels.stateUp ?? '')
@@ -535,25 +556,7 @@ const labels = {
         const body = document.createElement('div');
         body.className = 'ui-media-dialog__body';
         let is4k = false;
-        const runtimeText = (minutes: number | null | undefined): string => {
-          if (!minutes || minutes <= 0) return '';
-          const hours = Math.floor(minutes / 60);
-          const rest = minutes % 60;
-          if (locale === 'de') return hours > 0 ? `${hours} Std. ${rest} Min.` : `${rest} Min.`;
-          return hours > 0 ? `${hours}h ${rest}m` : `${rest}m`;
-        };
-        const metaLine = (item: AssistantBlock): string => {
-          if (item.type !== 'media') return '';
-          return [
-            item.year,
-            item.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie' : 'Series',
-            runtimeText(item.runtime),
-            item.certification ? `FSK ${item.certification}` : '',
-            item.rating !== null ? `★ ${item.rating.toFixed(1)}` : '',
-          ]
-            .filter(Boolean)
-            .join(' · ');
-        };
+        const metaLine = (item: AssistantBlock): string => mediaMetaText(item, { runtime: true });
         const meta = document.createElement('span');
         meta.className = 'ui-media-dialog__meta';
         meta.textContent = metaLine(block);
@@ -1105,14 +1108,7 @@ const labels = {
         title.textContent = block.title;
         const meta = document.createElement('span');
         meta.className = 'ui-media__meta';
-        meta.textContent = [
-          block.year,
-          block.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie' : 'Series',
-          block.certification ? `FSK ${block.certification}` : '',
-          block.rating !== null ? `★ ${block.rating.toFixed(1)}` : '',
-        ]
-          .filter(Boolean)
-          .join(' · ');
+        meta.textContent = mediaMetaText(block);
         const status = document.createElement('span');
         status.className = 'ui-media__status';
         status.dataset.status = block.status;
@@ -1184,9 +1180,8 @@ const labels = {
           mediaTitle.textContent = item.block.title;
           const meta = document.createElement('span');
           meta.textContent = [
-            item.block.year,
-            item.block.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie · Staffelauswahl' : 'Series · season selection',
-            item.block.certification ? `FSK ${item.block.certification}` : '',
+            mediaMetaText(item.block),
+            item.block.mediaType === 'tv' ? (locale === 'de' ? 'Staffelauswahl' : 'Season selection') : '',
           ]
             .filter(Boolean)
             .join(' · ');
@@ -1886,6 +1881,7 @@ const labels = {
                 ? `${block.seasons.length} Staffeln`
                 : `${block.seasons.length} seasons`
               : '',
+            block.certification ? `FSK ${block.certification}` : '',
             typeof block.rating === 'number' ? `★ ${block.rating.toFixed(1)}` : '',
           ]
             .filter(Boolean)
@@ -3039,10 +3035,7 @@ const labels = {
 
   @media (max-width: 900px) {
     .assistant-fab {
-      right: var(--space-4);
-      bottom: calc(5.25rem + env(safe-area-inset-bottom));
-      width: 3.25rem;
-      height: 3.25rem;
+      display: none !important;
     }
 
     .assistant-fab__label {

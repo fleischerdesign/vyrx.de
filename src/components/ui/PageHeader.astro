@@ -44,6 +44,12 @@ const { overline, title, description, class: className } = Astro.props;
     max-width: var(--measure-narrow);
   }
 
+  @media (min-width: 901px) {
+    .page-header .overline {
+      display: none;
+    }
+  }
+
   @media (max-width: 720px) {
     .page-header {
       align-items: flex-start;
