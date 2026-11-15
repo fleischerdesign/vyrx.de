@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 export interface Report {
   readonly id: number;
@@ -185,6 +185,35 @@ function migrate(db: DatabaseSync): void {
       );
 
       CREATE INDEX assistant_message_by_thread ON assistant_message (thread_id, id);
+    `);
+  }
+
+  if (current < 7) {
+    // Benachrichtigungen sind personenbezogen und werden wie Threads über den
+    // Owner gelesen. media_status_seen verhindert, dass derselbe Übergang
+    // mehrfach benachrichtigt wird.
+    db.exec(`
+      CREATE TABLE notification (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner       TEXT NOT NULL,
+        kind        TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        body        TEXT,
+        href        TEXT,
+        created_at  TEXT NOT NULL,
+        read_at     TEXT
+      );
+
+      CREATE INDEX notification_by_owner ON notification (owner, read_at, created_at DESC);
+
+      CREATE TABLE media_status_seen (
+        owner       TEXT NOT NULL,
+        media_type  TEXT NOT NULL,
+        tmdb_id     INTEGER NOT NULL,
+        status      TEXT NOT NULL,
+        seen_at     TEXT NOT NULL,
+        PRIMARY KEY (owner, media_type, tmdb_id)
+      );
     `);
   }
 
@@ -711,6 +740,113 @@ export function appendAssistantMessages(
     db.exec('ROLLBACK');
     throw error;
   }
+}
+
+// ------------------------------------------------------------------------------------------------
+// Benachrichtigungen: ein Ereignis, ein Owner, ein Lesestatus
+// ------------------------------------------------------------------------------------------------
+
+export interface NotificationSummary {
+  readonly id: number;
+  readonly kind: string;
+  readonly title: string;
+  readonly body: string | null;
+  readonly href: string | null;
+  readonly createdAt: string;
+  readonly readAt: string | null;
+}
+
+const notificationFromRow = (row: {
+  id: number;
+  kind: string;
+  title: string;
+  body: string | null;
+  href: string | null;
+  created_at: string;
+  read_at: string | null;
+}): NotificationSummary => ({
+  id: row.id,
+  kind: row.kind,
+  title: row.title,
+  body: row.body,
+  href: row.href,
+  createdAt: row.created_at,
+  readAt: row.read_at,
+});
+
+export function createNotification(
+  owner: string,
+  kind: string,
+  title: string,
+  body: string | null = null,
+  href: string | null = null,
+): number {
+  const changed = open()
+    .prepare('INSERT INTO notification (owner, kind, title, body, href, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(owner, kind.slice(0, 40), title.slice(0, 160), body?.slice(0, 400) ?? null, href?.slice(0, 300) ?? null, now());
+  return Number(changed.lastInsertRowid);
+}
+
+export function notificationsOf(owner: string, limit = 30): readonly NotificationSummary[] {
+  const capped = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const rows = open()
+    .prepare(
+      `SELECT id, kind, title, body, href, created_at, read_at
+       FROM notification WHERE owner = ?
+       ORDER BY (read_at IS NULL) DESC, created_at DESC
+       LIMIT ?`,
+    )
+    .all(owner, capped) as unknown as {
+    id: number;
+    kind: string;
+    title: string;
+    body: string | null;
+    href: string | null;
+    created_at: string;
+    read_at: string | null;
+  }[];
+  return rows.map(notificationFromRow);
+}
+
+export function unreadNotificationCount(owner: string): number {
+  const row = open()
+    .prepare('SELECT COUNT(*) AS n FROM notification WHERE owner = ? AND read_at IS NULL')
+    .get(owner) as { n?: number } | undefined;
+  return Number(row?.n ?? 0);
+}
+
+export function markNotificationRead(id: number, owner: string): boolean {
+  const changed = open()
+    .prepare('UPDATE notification SET read_at = ? WHERE id = ? AND owner = ? AND read_at IS NULL')
+    .run(now(), id, owner);
+  return Number(changed.changes) === 1;
+}
+
+export function markAllNotificationsRead(owner: string): number {
+  const changed = open()
+    .prepare('UPDATE notification SET read_at = ? WHERE owner = ? AND read_at IS NULL')
+    .run(now(), owner);
+  return Number(changed.changes);
+}
+
+/** Vorherigen Status zurückgeben und den neuen festhalten. */
+export function recordMediaStatusSeen(
+  owner: string,
+  mediaType: 'movie' | 'tv',
+  tmdbId: number,
+  status: string,
+): string | null {
+  const db = open();
+  const row = db
+    .prepare('SELECT status FROM media_status_seen WHERE owner = ? AND media_type = ? AND tmdb_id = ?')
+    .get(owner, mediaType, tmdbId) as { status?: string } | undefined;
+  const previous = row?.status ?? null;
+  db.prepare(
+    `INSERT INTO media_status_seen (owner, media_type, tmdb_id, status, seen_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(owner, media_type, tmdb_id) DO UPDATE SET status = excluded.status, seen_at = excluded.seen_at`,
+  ).run(owner, mediaType, tmdbId, status.slice(0, 40), now());
+  return previous;
 }
 
 // ------------------------------------------------------------------------------------------------

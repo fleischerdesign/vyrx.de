@@ -1,0 +1,426 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  readonly locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+const labels = {
+  title: t('notificationsTitle'),
+  empty: t('notificationsEmpty'),
+  readAll: t('notificationsReadAll'),
+  error: t('notificationsError'),
+  open: t('notificationsOpen'),
+  markRead: t('notificationsMarkRead'),
+  unread: t('notificationsUnread'),
+};
+---
+
+<div class="notifications" data-notifications>
+  <button
+    type="button"
+    class="notifications__trigger"
+    data-notifications-trigger
+    aria-label={labels.open}
+    aria-haspopup="dialog"
+    aria-expanded="false"
+    title={labels.title}
+  >
+    <Icon name="bell" size="1.05rem" />
+    <span class="notifications__badge" data-notifications-badge hidden></span>
+  </button>
+
+  <section
+    class="notifications__panel"
+    data-notifications-panel
+    role="dialog"
+    aria-label={labels.title}
+    tabindex="-1"
+    hidden
+  >
+    <header class="notifications__head">
+      <strong>{labels.title}</strong>
+      <button type="button" class="notifications__readall" data-notifications-readall>{labels.readAll}</button>
+    </header>
+    <div class="notifications__list" data-notifications-list role="list"></div>
+    <p class="notifications__empty" data-notifications-empty>{labels.empty}</p>
+  </section>
+</div>
+
+<script type="application/json" data-notifications-labels set:html={JSON.stringify({ ...labels, locale })}></script>
+
+<script>
+  interface Notification {
+    readonly id: number;
+    readonly kind: string;
+    readonly title: string;
+    readonly body: string | null;
+    readonly href: string | null;
+    readonly createdAt: string;
+    readonly readAt: string | null;
+  }
+
+  interface NotificationResponse {
+    readonly notifications?: Notification[];
+    readonly unread?: number;
+  }
+
+  const root = document.querySelector<HTMLElement>('[data-notifications]');
+  const trigger = document.querySelector<HTMLButtonElement>('[data-notifications-trigger]');
+  const panel = document.querySelector<HTMLElement>('[data-notifications-panel]');
+  const list = document.querySelector<HTMLElement>('[data-notifications-list]');
+  const empty = document.querySelector<HTMLElement>('[data-notifications-empty]');
+  const readAll = document.querySelector<HTMLButtonElement>('[data-notifications-readall]');
+  const badge = document.querySelector<HTMLElement>('[data-notifications-badge]');
+  const labelsNode = document.querySelector<HTMLScriptElement>('[data-notifications-labels]');
+
+  if (root && trigger && panel && list && empty && readAll && badge && labelsNode) {
+    let labels: {
+      title: string;
+      empty: string;
+      readAll: string;
+      error: string;
+      open: string;
+      markRead: string;
+      unread: string;
+      locale: 'de' | 'en';
+    };
+    try {
+      labels = JSON.parse(labelsNode.textContent ?? '{}') as typeof labels;
+    } catch {
+      labels = {
+        title: 'Benachrichtigungen',
+        empty: 'Keine Benachrichtigungen.',
+        readAll: 'Alle gelesen',
+        error: 'Benachrichtigungen konnten nicht geladen werden.',
+        open: 'Benachrichtigungen öffnen',
+        markRead: 'Als gelesen markieren',
+        unread: 'ungelesen',
+        locale: 'de',
+      };
+    }
+
+    let loaded = false;
+    let notifications: Notification[] = [];
+    let unread = 0;
+
+    const renderBadge = (): void => {
+      badge.hidden = unread === 0;
+      badge.textContent = unread > 9 ? '9+' : String(unread);
+    };
+
+    const formatTime = (value: string): string => {
+      const at = new Date(value);
+      if (Number.isNaN(at.getTime())) return '';
+      return at.toLocaleString(labels.locale, { dateStyle: 'short', timeStyle: 'short' });
+    };
+
+    const render = (): void => {
+      list.replaceChildren();
+      empty.hidden = notifications.length > 0;
+      empty.textContent = labels.empty;
+      for (let notification of notifications) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'notifications__item';
+        item.dataset.unread = notification.readAt ? 'false' : 'true';
+        item.setAttribute('role', 'listitem');
+        item.setAttribute('aria-label', notification.readAt ? notification.title : `${notification.title}, ${labels.unread}`);
+        const dot = document.createElement('span');
+        dot.className = 'notifications__dot';
+        dot.setAttribute('aria-hidden', 'true');
+        const body = document.createElement('span');
+        body.className = 'notifications__body';
+        const title = document.createElement('strong');
+        title.textContent = notification.title;
+        body.append(title);
+        if (notification.body) {
+          const text = document.createElement('span');
+          text.textContent = notification.body;
+          body.append(text);
+        }
+        const time = document.createElement('time');
+        time.className = 'notifications__time';
+        time.dateTime = notification.createdAt;
+        time.textContent = formatTime(notification.createdAt);
+        item.append(dot, body, time);
+        item.addEventListener('click', async () => {
+          if (!notification.readAt) {
+            await fetch('/api/notifications/read', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ id: notification.id }),
+            }).catch(() => undefined);
+            notification = { ...notification, readAt: new Date().toISOString() };
+            notifications = notifications.map((entry) => (entry.id === notification.id ? notification : entry));
+            unread = Math.max(0, unread - 1);
+            renderBadge();
+            render();
+          }
+          const href = typeof notification.href === 'string' && notification.href.startsWith('/') ? notification.href : null;
+          if (href) window.location.assign(href);
+        });
+        list.append(item);
+      }
+    };
+
+    const load = async (): Promise<void> => {
+      try {
+        const response = await fetch('/api/notifications?limit=30');
+        if (!response.ok) throw new Error('notifications');
+        const data = (await response.json()) as NotificationResponse;
+        notifications = data.notifications ?? [];
+        unread = data.unread ?? 0;
+        loaded = true;
+        renderBadge();
+        if (!panel.hidden) render();
+      } catch {
+        if (!panel.hidden) {
+          notifications = [];
+          empty.hidden = false;
+          empty.textContent = labels.error;
+          list.replaceChildren();
+        }
+      }
+    };
+
+    const open = (): void => {
+      panel.hidden = false;
+      trigger.setAttribute('aria-expanded', 'true');
+      if (!loaded) void load();
+      else render();
+      panel.focus();
+    };
+
+    const close = (): void => {
+      panel.hidden = true;
+      trigger.setAttribute('aria-expanded', 'false');
+      trigger.focus();
+    };
+
+    trigger.addEventListener('click', () => {
+      if (panel.hidden) open();
+      else close();
+    });
+
+    readAll.addEventListener('click', async () => {
+      await fetch('/api/notifications/read', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      }).catch(() => undefined);
+      notifications = notifications.map((notification) => ({
+        ...notification,
+        readAt: notification.readAt ?? new Date().toISOString(),
+      }));
+      unread = 0;
+      renderBadge();
+      render();
+    });
+
+    document.addEventListener('click', (event) => {
+      if (panel.hidden) return;
+      const target = event.target as Element | null;
+      if (target?.closest('[data-notifications]')) return;
+      close();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !panel.hidden) close();
+    });
+
+    void load();
+    window.setInterval(() => {
+      if (document.visibilityState === 'visible') void load();
+    }, 60_000);
+  }
+</script>
+
+<style is:global>
+  .notifications {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .notifications__trigger {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--muted);
+  }
+
+  .notifications__trigger:hover,
+  .notifications__trigger[aria-expanded='true'] {
+    border-color: var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .notifications__badge {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    display: grid;
+    place-items: center;
+    min-width: 0.9rem;
+    height: 0.9rem;
+    padding: 0 3px;
+    border: 2px solid var(--surface-2);
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    line-height: 1;
+  }
+
+  .notifications__panel {
+    position: absolute;
+    top: calc(100% + var(--space-2));
+    right: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    width: min(360px, calc(100vw - 2rem));
+    max-height: min(70vh, 520px);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .notifications__panel[hidden] {
+    display: none;
+  }
+
+  .notifications__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .notifications__head strong {
+    flex: 1;
+    color: var(--ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .notifications__readall {
+    border: 0;
+    background: none;
+    color: var(--accent-strong);
+    font-size: 0.625rem;
+    white-space: nowrap;
+  }
+
+  .notifications__readall:hover {
+    color: var(--accent);
+  }
+
+  .notifications__list {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .notifications__item {
+    display: grid;
+    grid-template-columns: 6px minmax(0, 1fr) auto;
+    gap: var(--space-2);
+    align-items: start;
+    padding: var(--space-3) var(--space-4);
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: none;
+    color: inherit;
+    text-align: left;
+  }
+
+  .notifications__item:last-child {
+    border-bottom: 0;
+  }
+
+  .notifications__item:hover {
+    background: var(--surface-2);
+  }
+
+  .notifications__item[data-unread='true'] {
+    background: var(--accent-weaker);
+  }
+
+  .notifications__dot {
+    width: 6px;
+    height: 6px;
+    margin-top: 5px;
+    border-radius: 50%;
+    background: transparent;
+  }
+
+  .notifications__item[data-unread='true'] .notifications__dot {
+    background: var(--accent);
+  }
+
+  .notifications__body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .notifications__body strong {
+    color: var(--ink);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    line-height: 1.35;
+  }
+
+  .notifications__body span {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.625rem;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+  }
+
+  .notifications__time {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .notifications__empty {
+    padding: var(--space-6) var(--space-4);
+    color: var(--muted);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+
+  .notifications__empty[hidden] {
+    display: none;
+  }
+
+  @media (max-width: 480px) {
+    .notifications__panel {
+      position: fixed;
+      top: 70px;
+      right: var(--space-3);
+      left: var(--space-3);
+      width: auto;
+    }
+  }
+</style>

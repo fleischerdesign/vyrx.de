@@ -182,6 +182,23 @@ Tastatur erreichbar.
 - [ ] **F4 Öffentliche Hilfe.**
 - [ ] **F5 Vergleich von Diensten** (optional).
 
+## G — Benachrichtigungen (In-App, 2026-11-15)
+
+- **Speicher:** SQLite-Schema 7 mit `notification` und `media_status_seen`;
+  jede Abfrage ist owner-scoped.
+- **API:** `GET /api/notifications`, `POST /api/notifications/read`
+  (einzeln oder alle). Keine Erzeugungsroute nach außen.
+- **Erzeuger:** eine angenommene Medienanfrage erzeugt „Anfrage übergeben“;
+  der Statusabgleich erzeugt „Anfrage freigegeben“ und „Jetzt verfügbar“,
+  wenn sich der zuletzt gesehene Status ändert.
+- **UI:** Glocke in der Topbar mit unread badge; Panel mit Kopfzeile,
+  „Alle gelesen“, ruhigen Zeilen, Lesestatus, Zeit und Leerzustand. Kein
+  Chip-Stapel, keine Dauersidebar. Mobile wird das Panel eine randbreite
+  Fläche unter der Topbar, kein Bottom-Sheet.
+- **Grenze:** In-App only. Web Push, E-Mail/Ntfy, Quiet Hours und
+  Kategorieeinstellungen sind der nächste Ausbau; ohne Push werden
+  Benachrichtigungen erst beim nächsten Laden/Poll sichtbar.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
@@ -219,7 +236,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 81
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 83
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
@@ -244,6 +261,8 @@ Tastatur erreichbar.
 - **Gesprächsverlauf:** entschieden — serverseitig, pro Person; alte
   `sessionStorage`-Stände werden migriert. Aufbewahrungsfrist bleibt eine
   separate Betriebsentscheidung.
+- **Benachrichtigungen:** In-App ist entschieden und gebaut; Web Push und
+  weitere Kanäle sind noch nicht entschieden.
 - **AG-UI:** entschieden — internes, typisiertes UI-Baumformat. Ein späterer
   AG-UI-Adapter kann dieselben Knoten als `Custom`-Events ausliefern; das
   Protokoll ist nicht Voraussetzung für generative UI.

@@ -8,6 +8,7 @@ import {
   consumeMediaProposal,
   countRecentMediaProposals,
   createMediaProposal,
+  createNotification,
   finishMediaProposal,
   mediaProposalOf,
   recordAction,
@@ -186,6 +187,18 @@ const execute = async (
   }
 
   finishMediaProposal(proposal.id, outcome, { requestId });
+  if (outcome === 'accepted') {
+    try {
+      createNotification(
+        proposal.actor,
+        'request',
+        locale === 'de' ? 'Anfrage übergeben' : 'Request submitted',
+        proposal.payload.title,
+      );
+    } catch {
+      // Die Anfrage ist bereits raus; eine Benachrichtigung darf sie nicht kippen.
+    }
+  }
   recordAction({
     actor: proposal.actor,
     serviceId: proposal.serviceId,
