@@ -351,6 +351,7 @@ export const de = {
 
   // Konto
   accountEyebrow: 'Dein Workspace / Konto',
+  accountSettings: 'Einstellungen',
   accountTitle: 'Dein Zugang.',
   accountIntro: 'Weniger technische Metadaten. Klare Wege zu deinen Einstellungen.',
   accountIdentity: 'Angemeldet als',

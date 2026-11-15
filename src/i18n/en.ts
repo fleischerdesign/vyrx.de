@@ -310,6 +310,7 @@ export const en: Record<keyof typeof de, string> = {
   stateUnknown: 'Unknown',
   stateUnmonitored: 'Not monitored',
   accountEyebrow: 'Your workspace / Account',
+  accountSettings: 'Settings',
   accountTitle: 'Your access.',
   accountIntro: 'Less technical metadata. Clear paths to your settings.',
   accountIdentity: 'Signed in as',

@@ -211,10 +211,6 @@ const palette: PaletteItem[] = [
           <InstallApp locale={locale} />
           <AutoUpdate />
           <NotificationCenter locale={locale} />
-          <span class="topbar__utilities">
-            <LocaleSwitch locale={locale} class="topbar__locale" />
-            <ThemeToggle locale={locale} />
-          </span>
         </div>
       </header>
 
@@ -635,12 +631,6 @@ const palette: PaletteItem[] = [
     font-weight: var(--weight-semibold);
   }
 
-  .topbar__utilities {
-    display: none;
-    align-items: center;
-    gap: var(--space-3);
-  }
-
   .topbar__actions {
     display: flex;
     align-items: center;
@@ -761,10 +751,6 @@ const palette: PaletteItem[] = [
 
     .topbar__brand {
       display: block;
-    }
-
-    .topbar__utilities {
-      display: flex;
     }
 
     .side__collapse {
