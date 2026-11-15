@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 export interface Report {
   readonly id: number;
@@ -231,6 +231,21 @@ function migrate(db: DatabaseSync): void {
       );
 
       CREATE INDEX push_subscription_by_owner ON push_subscription (owner);
+    `);
+  }
+
+  if (current < 9) {
+    // Ruhezeit und Kategorien sind eine Meinung pro Person, kein globaler Schalter.
+    db.exec(`
+      CREATE TABLE notification_preference (
+        owner        TEXT PRIMARY KEY,
+        push         INTEGER NOT NULL DEFAULT 1,
+        quiet_start  TEXT,
+        quiet_end    TEXT,
+        request      INTEGER NOT NULL DEFAULT 1,
+        routine      INTEGER NOT NULL DEFAULT 1,
+        updated_at   TEXT NOT NULL
+      );
     `);
   }
 
@@ -909,6 +924,99 @@ export function pushSubscriptionsOf(owner: string): readonly PushSubscriptionRec
 export function removePushSubscription(owner: string, endpoint: string): boolean {
   const changed = open().prepare('DELETE FROM push_subscription WHERE owner = ? AND endpoint = ?').run(owner, endpoint);
   return Number(changed.changes) === 1;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Benachrichtigungs-Einstellungen: Ruhezeit und Kategorien pro Person
+// ------------------------------------------------------------------------------------------------
+
+export interface NotificationPreferences {
+  readonly push: boolean;
+  readonly quietStart: string | null;
+  readonly quietEnd: string | null;
+  readonly request: boolean;
+  readonly routine: boolean;
+}
+
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  push: true,
+  quietStart: null,
+  quietEnd: null,
+  request: true,
+  routine: true,
+};
+
+export function notificationPreferencesOf(owner: string): NotificationPreferences {
+  const row = open()
+    .prepare(
+      'SELECT push, quiet_start, quiet_end, request, routine FROM notification_preference WHERE owner = ?',
+    )
+    .get(owner) as
+    | { push: number; quiet_start: string | null; quiet_end: string | null; request: number; routine: number }
+    | undefined;
+  if (!row) return DEFAULT_PREFERENCES;
+  return {
+    push: row.push === 1,
+    quietStart: row.quiet_start,
+    quietEnd: row.quiet_end,
+    request: row.request === 1,
+    routine: row.routine === 1,
+  };
+}
+
+export function saveNotificationPreferences(
+  owner: string,
+  patch: Partial<NotificationPreferences>,
+): NotificationPreferences {
+  const current = notificationPreferencesOf(owner);
+  const next: NotificationPreferences = {
+    push: patch.push ?? current.push,
+    quietStart: patch.quietStart !== undefined ? patch.quietStart : current.quietStart,
+    quietEnd: patch.quietEnd !== undefined ? patch.quietEnd : current.quietEnd,
+    request: patch.request ?? current.request,
+    routine: patch.routine ?? current.routine,
+  };
+  open()
+    .prepare(
+      `INSERT INTO notification_preference (owner, push, quiet_start, quiet_end, request, routine, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(owner) DO UPDATE SET push = excluded.push, quiet_start = excluded.quiet_start,
+         quiet_end = excluded.quiet_end, request = excluded.request, routine = excluded.routine,
+         updated_at = excluded.updated_at`,
+    )
+    .run(
+      owner,
+      next.push ? 1 : 0,
+      next.quietStart,
+      next.quietEnd,
+      next.request ? 1 : 0,
+      next.routine ? 1 : 0,
+      now(),
+    );
+  return next;
+}
+
+const minutesOf = (value: string): number | null => {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+};
+
+/** Ruhezeit gilt in Europe/Berlin, unabhängig von der Serverzeitzone. */
+export function inQuietHours(preferences: NotificationPreferences, at = new Date()): boolean {
+  if (!preferences.quietStart || !preferences.quietEnd) return false;
+  const start = minutesOf(preferences.quietStart);
+  const end = minutesOf(preferences.quietEnd);
+  if (start === null || end === null || start === end) return false;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Berlin',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(at);
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? '0');
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? '0');
+  const current = hour * 60 + minute;
+  return start < end ? current >= start && current < end : current >= start || current < end;
 }
 
 // ------------------------------------------------------------------------------------------------

@@ -23,6 +23,13 @@ const labels = {
   pushDenied: t('notificationsPushDenied'),
   pushUnsupported: t('notificationsPushUnsupported'),
   pushError: t('notificationsPushError'),
+  settings: t('notificationsSettings'),
+  requestCategory: t('notificationsRequestCategory'),
+  quiet: t('notificationsQuiet'),
+  quietUntil: t('notificationsQuietUntil'),
+  quietHint: t('notificationsQuietHint'),
+  saved: t('notificationsSaved'),
+  saveError: t('notificationsSaveError'),
 };
 ---
 
@@ -51,12 +58,29 @@ const labels = {
     <header class="notifications__head">
       <strong>{labels.title}</strong>
       <button type="button" class="notifications__readall" data-notifications-readall>{labels.readAll}</button>
+      <button type="button" class="notifications__settings-toggle" data-notifications-settings aria-label={labels.settings} aria-pressed="false" title={labels.settings}>
+        <Icon name="settings" size="0.95rem" />
+      </button>
     </header>
     <div class="notifications__list" data-notifications-list role="list"></div>
     <p class="notifications__empty" data-notifications-empty>{labels.empty}</p>
     <div class="notifications__foot" data-notifications-push-wrap hidden>
       <button type="button" class="notifications__push" data-notifications-push>{labels.pushEnable}</button>
       <span class="notifications__push-state" data-notifications-push-state></span>
+    </div>
+    <div class="notifications__settings-view" data-notifications-settings-view hidden>
+      <label class="notifications__setting">
+        <span>{labels.requestCategory}</span>
+        <input type="checkbox" data-notifications-request />
+      </label>
+      <div class="notifications__setting-row">
+        <span>{labels.quiet}</span>
+        <input type="time" data-notifications-quiet-start aria-label={labels.quiet} />
+        <span>{labels.quietUntil}</span>
+        <input type="time" data-notifications-quiet-end aria-label={labels.quiet} />
+      </div>
+      <p class="notifications__setting-hint">{labels.quietHint}</p>
+      <p class="notifications__setting-status" data-notifications-settings-status role="status"></p>
     </div>
   </section>
 </div>
@@ -90,6 +114,12 @@ const labels = {
   const pushWrap = document.querySelector<HTMLElement>('[data-notifications-push-wrap]');
   const pushButton = document.querySelector<HTMLButtonElement>('[data-notifications-push]');
   const pushState = document.querySelector<HTMLElement>('[data-notifications-push-state]');
+  const settingsButton = document.querySelector<HTMLButtonElement>('[data-notifications-settings]');
+  const settingsView = document.querySelector<HTMLElement>('[data-notifications-settings-view]');
+  const requestToggle = document.querySelector<HTMLInputElement>('[data-notifications-request]');
+  const quietStart = document.querySelector<HTMLInputElement>('[data-notifications-quiet-start]');
+  const quietEnd = document.querySelector<HTMLInputElement>('[data-notifications-quiet-end]');
+  const settingsStatus = document.querySelector<HTMLElement>('[data-notifications-settings-status]');
 
   if (root && trigger && panel && list && empty && readAll && badge && labelsNode) {
     let labels: {
@@ -106,6 +136,13 @@ const labels = {
       pushDenied: string;
       pushUnsupported: string;
       pushError: string;
+      settings: string;
+      requestCategory: string;
+      quiet: string;
+      quietUntil: string;
+      quietHint: string;
+      saved: string;
+      saveError: string;
       locale: 'de' | 'en';
     };
     try {
@@ -125,6 +162,13 @@ const labels = {
         pushDenied: 'Benachrichtigungen sind im Browser blockiert.',
         pushUnsupported: 'Dieser Browser unterstützt kein Web Push.',
         pushError: 'Push konnte nicht eingerichtet werden.',
+        settings: 'Einstellungen',
+        requestCategory: 'Anfrage-Status',
+        quiet: 'Ruhezeit',
+        quietUntil: 'bis',
+        quietHint: 'Push wird während der Ruhezeit nicht gesendet.',
+        saved: 'Gespeichert.',
+        saveError: 'Speichern fehlgeschlagen.',
         locale: 'de',
       };
     }
@@ -215,6 +259,7 @@ const labels = {
 
     const open = (): void => {
       panel.hidden = false;
+      setView('list');
       trigger.setAttribute('aria-expanded', 'true');
       if (!loaded) void load();
       else render();
@@ -222,6 +267,7 @@ const labels = {
     };
 
     const close = (): void => {
+      setView('list');
       panel.hidden = true;
       trigger.setAttribute('aria-expanded', 'false');
       trigger.focus();
@@ -257,6 +303,88 @@ const labels = {
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && !panel.hidden) close();
     });
+
+    interface Preferences {
+      push: boolean;
+      quietStart: string | null;
+      quietEnd: string | null;
+      request: boolean;
+      routine: boolean;
+    }
+
+    let preferences: Preferences = { push: true, quietStart: null, quietEnd: null, request: true, routine: true };
+    let preferencesLoaded = false;
+    let preferencesPromise: Promise<void> | null = null;
+    let saveTimer: number | null = null;
+
+    const setPreferencesBusy = (busy: boolean): void => {
+      for (const input of [requestToggle, quietStart, quietEnd]) {
+        if (input) input.disabled = busy;
+      }
+    };
+
+    const renderPreferences = (): void => {
+      if (requestToggle) requestToggle.checked = preferences.request;
+      if (quietStart) quietStart.value = preferences.quietStart ?? '';
+      if (quietEnd) quietEnd.value = preferences.quietEnd ?? '';
+    };
+
+    const savePreferences = async (patch: Partial<Preferences>): Promise<void> => {
+      if (settingsStatus) settingsStatus.textContent = '';
+      try {
+        const response = await fetch('/api/notifications/preferences', {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(patch),
+        });
+        if (!response.ok) throw new Error('save');
+        const data = (await response.json()) as { preferences?: Preferences };
+        if (data.preferences) preferences = data.preferences;
+        renderPreferences();
+        if (settingsStatus) settingsStatus.textContent = labels.saved;
+        window.setTimeout(() => {
+          if (settingsStatus) settingsStatus.textContent = '';
+        }, 1800);
+      } catch {
+        if (settingsStatus) settingsStatus.textContent = labels.saveError;
+      }
+    };
+
+    const loadPreferences = async (): Promise<void> => {
+      if (preferencesLoaded) {
+        renderPreferences();
+        return;
+      }
+      if (!preferencesPromise) {
+        preferencesPromise = (async () => {
+          try {
+            const response = await fetch('/api/notifications/preferences');
+            if (!response.ok) throw new Error('preferences');
+            const data = (await response.json()) as { preferences?: Preferences };
+            if (data.preferences) preferences = data.preferences;
+          } catch {
+            // Defaults bleiben sichtbar.
+          }
+          preferencesLoaded = true;
+          renderPreferences();
+        })().finally(() => {
+          preferencesPromise = null;
+        });
+      }
+      await preferencesPromise;
+    };
+
+    const setView = (view: 'list' | 'settings'): void => {
+      if (!panel) return;
+      panel.dataset.view = view;
+      if (settingsView) settingsView.hidden = view !== 'settings';
+      settingsButton?.setAttribute('aria-pressed', String(view === 'settings'));
+      if (view === 'settings') {
+        setPreferencesBusy(!preferencesLoaded);
+        void loadPreferences().finally(() => setPreferencesBusy(false));
+        requestToggle?.focus();
+      }
+    };
 
     let pushSubscription: PushSubscription | null = null;
     let pushPublicKey: string | null = null;
@@ -351,7 +479,28 @@ const labels = {
       }
     };
 
+    settingsButton?.addEventListener('click', () => {
+      setView(panel.dataset.view === 'settings' ? 'list' : 'settings');
+    });
+
+    requestToggle?.addEventListener('change', () => {
+      void savePreferences({ request: requestToggle.checked });
+    });
+
+    const saveQuiet = (): void => {
+      if (saveTimer !== null) window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(() => {
+        void savePreferences({
+          quietStart: quietStart?.value || null,
+          quietEnd: quietEnd?.value || null,
+        });
+      }, 250);
+    };
+    quietStart?.addEventListener('change', saveQuiet);
+    quietEnd?.addEventListener('change', saveQuiet);
+
     void load();
+    void loadPreferences();
     void setupPush();
     window.setInterval(() => {
       if (document.visibilityState === 'visible') void load();
@@ -447,6 +596,95 @@ const labels = {
 
   .notifications__readall:hover {
     color: var(--accent);
+  }
+
+  .notifications__settings-toggle {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: none;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--muted);
+  }
+
+  .notifications__settings-toggle:hover,
+  .notifications__settings-toggle[aria-pressed='true'] {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .notifications__settings-view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+  }
+
+  .notifications__settings-view[hidden] {
+    display: none;
+  }
+
+  .notifications__setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+  }
+
+  .notifications__setting input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+
+  .notifications__setting-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+  }
+
+  .notifications__setting-row span:first-child {
+    flex: 1;
+  }
+
+  .notifications__setting-row input[type='time'] {
+    width: 6.4rem;
+    padding: 0.3rem 0.4rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: var(--text-xs);
+  }
+
+  .notifications__setting-hint,
+  .notifications__setting-status {
+    margin: 0;
+    color: var(--faint);
+    font-size: 0.5625rem;
+    line-height: 1.4;
+  }
+
+  .notifications__setting-status:empty {
+    display: none;
+  }
+
+  .notifications__panel[data-view='settings'] .notifications__list,
+  .notifications__panel[data-view='settings'] .notifications__empty,
+  .notifications__panel[data-view='settings'] .notifications__foot {
+    display: none;
+  }
+
+  .notifications__panel[data-view='settings'] .notifications__readall {
+    display: none;
   }
 
   .notifications__list {

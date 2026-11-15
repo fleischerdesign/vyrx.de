@@ -8,8 +8,11 @@ import {
   createNotification,
   markAllNotificationsRead,
   markNotificationRead,
+  inQuietHours,
+  notificationPreferencesOf,
   notificationsOf,
   pushSubscriptionsOf,
+  saveNotificationPreferences,
   recordMediaStatusSeen,
   removePushSubscription,
   savePushSubscription,
@@ -66,4 +69,19 @@ test('push subscriptions are owner-scoped and removable only by their owner', ()
   assert.equal(removePushSubscription('alice', 'https://push.example/a'), true);
   assert.equal(pushSubscriptionsOf('alice').length, 0);
   assert.equal(pushSubscriptionsOf('bob').length, 1);
+});
+
+test('notification preferences default, persist and evaluate quiet hours in Berlin', () => {
+  const defaults = notificationPreferencesOf('alice');
+  assert.equal(defaults.request, true);
+  assert.equal(defaults.quietStart, null);
+
+  saveNotificationPreferences('alice', { quietStart: '22:00', quietEnd: '08:00', request: false });
+  const saved = notificationPreferencesOf('alice');
+  assert.equal(saved.request, false);
+  assert.equal(inQuietHours(saved, new Date('2026-11-15T23:00:00+01:00')), true);
+  assert.equal(inQuietHours(saved, new Date('2026-11-16T07:00:00+01:00')), true);
+  assert.equal(inQuietHours(saved, new Date('2026-11-16T08:00:00+01:00')), false);
+  assert.equal(inQuietHours(saved, new Date('2026-11-16T12:00:00+01:00')), false);
+  assert.equal(notificationPreferencesOf('bob').request, true);
 });

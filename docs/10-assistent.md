@@ -202,8 +202,14 @@ Tastatur erreichbar.
   Geräte. `public/sw.js` zeigt Push-Nachrichten und öffnet beim Klick das
   Ziel; die Aktivierung erfolgt ausschließlich über „Push aktivieren“ im
   Panel, nicht automatisch beim Laden.
-- **Weiterhin offen:** Quiet Hours, Kategorie-/Kanaleinstellungen,
-  Hintergrund-Statusprüfung ohne offenes Modal, E-Mail/Ntfy und Routinen.
+- **Einstellungen:** Schema 9 speichert Ruhezeit und die Kategorie
+  „Anfrage-Status“ pro Person. `GET/PATCH /api/notifications/preferences`
+  verwalten sie. Die Ruhezeit gilt in Europe/Berlin und unterdrückt nur Push,
+  nicht den In-App-Eintrag; die Anfrage-Kategorie schaltet In-App und Push
+  gemeinsam. Die Einstellungen liegen als ruhige Ansicht im
+  Benachrichtigungspanel, speichern automatisch und zeigen „Gespeichert.“
+- **Weiterhin offen:** Routine-Kategorie, Hintergrund-Statusprüfung ohne
+  offenes Modal und Routinen. E-Mail/Ntfy sind bewusst nicht Teil des Plans.
 
 ## Nicht Teil dieses Plans
 
@@ -242,7 +248,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 84
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 85
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import webpush from 'web-push';
 import {
   createNotification,
+  inQuietHours,
+  notificationPreferencesOf,
   pushSubscriptionsOf,
   removePushSubscription,
 } from './store.ts';
@@ -55,8 +57,12 @@ export interface PushPayload {
   readonly href: string | null;
 }
 
-export async function pushOwner(owner: string, payload: PushPayload): Promise<void> {
+export async function pushOwner(owner: string, kind: string, payload: PushPayload): Promise<void> {
   if (!vapid()) return;
+  const preferences = notificationPreferencesOf(owner);
+  if (!preferences.push || inQuietHours(preferences)) return;
+  if (kind === 'request' && !preferences.request) return;
+  if (kind === 'routine' && !preferences.routine) return;
   const subscriptions = pushSubscriptionsOf(owner);
   await Promise.all(
     subscriptions.map(async (subscription) => {
@@ -85,7 +91,10 @@ export function notifyOwner(
   body: string | null = null,
   href: string | null = null,
 ): number {
+  const preferences = notificationPreferencesOf(owner);
+  if (kind === 'request' && !preferences.request) return 0;
+  if (kind === 'routine' && !preferences.routine) return 0;
   const id = createNotification(owner, kind, title, body, href);
-  void pushOwner(owner, { title, body, href }).catch(() => undefined);
+  void pushOwner(owner, kind, { title, body, href }).catch(() => undefined);
   return id;
 }
