@@ -284,6 +284,25 @@ Tastatur erreichbar.
   Turn versucht es erneut. Kein harter 10-Nachrichten-Fehler mehr.
 - API-Grenzen: 24 Nachrichten / 48.000 Zeichen; das Fenster bleibt darunter.
 
+## K — Routine-Framework (2026-11-15)
+
+- **Routinen sind Code:** `src/lib/routines/` enthält Definitionen
+  (ID, Titel, Audience, Zeitplan, `run()`) und ein Registry. Eine neue
+  Routine ist eine Datei plus Registry-Eintrag; keine beliebigen Prompts und
+  keine Schreibrechte.
+- **Audience:** zunächst `media-users` (Owner mit Seerr-Zuordnung).
+- **Zeitplan:** täglich oder wöchentlich in Europe/Berlin; DST wird über
+  lokale Zeitumrechnung behandelt.
+- **Zustand:** Schema 13, `routine_state` pro Owner und Routine. Der erste
+  Kontakt plant nur den nächsten Lauf; kein Deployment-Feuerwerk.
+- **Ausführung:** der bestehende 5-Minuten-Scan ruft `runDueRoutines()` auf.
+  Kein neuer Timer, kein neuer Dienst.
+- **Ergebnis:** `notifyOwner(..., 'routine', ...)`; Kategorie, Ruhezeit und
+  Push gelten. Die erste Routine ist der wöchentliche Medien-Digest
+  (Sonntag 18:00) mit verfügbaren und offenen Anfragen.
+- **Grenze:** noch keine Routine-Verwaltungsoberfläche; Aktivierung ist
+  Code plus Kategorie-Schalter.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
@@ -321,7 +340,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 98
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 100
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

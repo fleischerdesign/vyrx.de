@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { APIRoute } from 'astro';
 import { runMediaWatchScan } from '../../../lib/media-watch-worker.ts';
+import { runDueRoutines } from '../../../lib/routine-runner.ts';
 
 export const prerender = false;
 
@@ -35,5 +36,6 @@ export const POST: APIRoute = async ({ request }) => {
   const provided = request.headers.get('x-vyrx-scan');
   if (!provided || !matches(provided, expected)) return reply(403, { error: 'forbidden' });
   const stats = await runMediaWatchScan();
-  return reply(200, { ...stats });
+  const routines = await runDueRoutines();
+  return reply(200, { ...stats, routines });
 };

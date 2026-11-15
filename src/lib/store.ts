@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 12;
+const SCHEMA_VERSION = 13;
 
 export interface Report {
   readonly id: number;
@@ -306,6 +306,23 @@ function migrate(db: DatabaseSync): void {
       ALTER TABLE assistant_thread ADD COLUMN summary TEXT;
       ALTER TABLE assistant_thread ADD COLUMN summary_until_id INTEGER;
       ALTER TABLE assistant_thread ADD COLUMN summary_updated_at TEXT;
+    `);
+  }
+
+  if (current < 13) {
+    // Routinen sind Code, ihr Laufzustand ist Daten. Eine Zeile pro Owner und
+    // Routine; der nächste Lauf wird beim ersten Sehen geplant, nie sofort
+    // ausgelöst.
+    db.exec(`
+      CREATE TABLE routine_state (
+        owner        TEXT NOT NULL,
+        routine_id   TEXT NOT NULL,
+        next_run_at  TEXT NOT NULL,
+        last_run_at  TEXT,
+        last_status  TEXT,
+        last_error   TEXT,
+        PRIMARY KEY (owner, routine_id)
+      );
     `);
   }
 
@@ -1368,6 +1385,71 @@ export function updateMediaWatchObservation(
       watch.tmdbId,
       watch.is4k ? 1 : 0,
     );
+}
+
+// ------------------------------------------------------------------------------------------------
+// Routinen: Laufzustand, keine Definitionen
+// ------------------------------------------------------------------------------------------------
+
+export interface RoutineState {
+  readonly owner: string;
+  readonly routineId: string;
+  readonly nextRunAt: string;
+  readonly lastRunAt: string | null;
+  readonly lastStatus: string | null;
+  readonly lastError: string | null;
+}
+
+export function routineStateOf(owner: string, routineId: string): RoutineState | null {
+  const row = open()
+    .prepare(
+      'SELECT owner, routine_id, next_run_at, last_run_at, last_status, last_error FROM routine_state WHERE owner = ? AND routine_id = ?',
+    )
+    .get(owner, routineId) as
+    | {
+        owner: string;
+        routine_id: string;
+        next_run_at: string;
+        last_run_at: string | null;
+        last_status: string | null;
+        last_error: string | null;
+      }
+    | undefined;
+  return row
+    ? {
+        owner: row.owner,
+        routineId: row.routine_id,
+        nextRunAt: row.next_run_at,
+        lastRunAt: row.last_run_at,
+        lastStatus: row.last_status,
+        lastError: row.last_error,
+      }
+    : null;
+}
+
+export function saveRoutineState(state: RoutineState): void {
+  open()
+    .prepare(
+      `INSERT INTO routine_state (owner, routine_id, next_run_at, last_run_at, last_status, last_error)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(owner, routine_id) DO UPDATE SET next_run_at = excluded.next_run_at,
+         last_run_at = excluded.last_run_at, last_status = excluded.last_status, last_error = excluded.last_error`,
+    )
+    .run(
+      state.owner,
+      state.routineId,
+      state.nextRunAt,
+      state.lastRunAt,
+      state.lastStatus,
+      state.lastError?.slice(0, 400) ?? null,
+    );
+}
+
+export function mediaWatchesOf(owner: string): readonly MediaWatch[] {
+  const rows = open()
+    .prepare('SELECT * FROM media_watch WHERE owner = ? ORDER BY updated_at DESC')
+    .all(owner) as unknown as Parameters<typeof watchFromRow>[0][];
+  return rows.map(watchFromRow);
 }
 
 // ------------------------------------------------------------------------------------------------

@@ -133,6 +133,7 @@ export const en: Record<keyof typeof de, string> = {
   notificationsOpen: 'Open notifications',
   notificationsMarkRead: 'Mark as read',
   notificationsSettings: 'Settings',
+  notificationsRoutineCategory: 'Routines',
   notificationsRequestCategory: 'Request status',
   notificationsQuiet: 'Quiet hours',
   notificationsQuietUntil: 'to',

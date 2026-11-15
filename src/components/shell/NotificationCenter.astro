@@ -25,6 +25,7 @@ const labels = {
   pushError: t('notificationsPushError'),
   settings: t('notificationsSettings'),
   requestCategory: t('notificationsRequestCategory'),
+  routineCategory: t('notificationsRoutineCategory'),
   quiet: t('notificationsQuiet'),
   quietUntil: t('notificationsQuietUntil'),
   quietHint: t('notificationsQuietHint'),
@@ -78,6 +79,10 @@ const labels = {
         <span>{labels.requestCategory}</span>
         <input type="checkbox" data-notifications-request />
       </label>
+      <label class="notifications__setting">
+        <span>{labels.routineCategory}</span>
+        <input type="checkbox" data-notifications-routine />
+      </label>
       <div class="notifications__setting-row">
         <span>{labels.quiet}</span>
         <input type="time" data-notifications-quiet-start aria-label={labels.quiet} />
@@ -127,6 +132,7 @@ const labels = {
   const settingsButton = document.querySelector<HTMLButtonElement>('[data-notifications-settings]');
   const settingsView = document.querySelector<HTMLElement>('[data-notifications-settings-view]');
   const requestToggle = document.querySelector<HTMLInputElement>('[data-notifications-request]');
+  const routineToggle = document.querySelector<HTMLInputElement>('[data-notifications-routine]');
   const quietStart = document.querySelector<HTMLInputElement>('[data-notifications-quiet-start]');
   const quietEnd = document.querySelector<HTMLInputElement>('[data-notifications-quiet-end]');
   const settingsStatus = document.querySelector<HTMLElement>('[data-notifications-settings-status]');
@@ -150,6 +156,7 @@ const labels = {
       pushError: string;
       settings: string;
       requestCategory: string;
+      routineCategory: string;
       quiet: string;
       quietUntil: string;
       quietHint: string;
@@ -181,6 +188,7 @@ const labels = {
         pushError: 'Push konnte nicht eingerichtet werden.',
         settings: 'Einstellungen',
         requestCategory: 'Anfrage-Status',
+        routineCategory: 'Routinen',
         quiet: 'Ruhezeit',
         quietUntil: 'bis',
         quietHint: 'Push wird während der Ruhezeit nicht gesendet.',
@@ -347,6 +355,7 @@ const labels = {
 
     const renderPreferences = (): void => {
       if (requestToggle) requestToggle.checked = preferences.request;
+      if (routineToggle) routineToggle.checked = preferences.routine;
       if (quietStart) quietStart.value = preferences.quietStart ?? '';
       if (quietEnd) quietEnd.value = preferences.quietEnd ?? '';
     };
@@ -570,6 +579,10 @@ const labels = {
 
     requestToggle?.addEventListener('change', () => {
       void savePreferences({ request: requestToggle.checked });
+    });
+
+    routineToggle?.addEventListener('change', () => {
+      void savePreferences({ routine: routineToggle.checked });
     });
 
     const saveQuiet = (): void => {

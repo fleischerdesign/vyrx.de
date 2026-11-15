@@ -158,6 +158,7 @@ export const de = {
   notificationsOpen: 'Benachrichtigungen öffnen',
   notificationsMarkRead: 'Als gelesen markieren',
   notificationsSettings: 'Einstellungen',
+  notificationsRoutineCategory: 'Routinen',
   notificationsRequestCategory: 'Anfrage-Status',
   notificationsQuiet: 'Ruhezeit',
   notificationsQuietUntil: 'bis',
