@@ -495,8 +495,11 @@ const labels = {
         const hero = document.createElement('div');
         hero.className = 'ui-media-dialog__hero';
         hero.setAttribute('aria-hidden', 'true');
-        if (block.backdropPath) {
-          hero.style.backgroundImage = `url("/api/media/poster?path=${encodeURIComponent(block.backdropPath)}&size=w780")`;
+        const heroPath = block.backdropPath ?? block.posterPath;
+        if (heroPath) {
+          hero.style.backgroundImage = `url("/api/media/poster?path=${encodeURIComponent(heroPath)}&size=w780")`;
+        } else {
+          hero.dataset.empty = 'true';
         }
 
         const play = document.createElement('a');
@@ -522,6 +525,13 @@ const labels = {
         poster.className = 'ui-media-dialog__poster';
         const fallback = mediaFallback();
         poster.append(fallback);
+        if (!block.posterPath) {
+          poster.dataset.empty = 'true';
+          const mark = document.createElement('span');
+          mark.className = 'ui-media-dialog__poster-mark';
+          mark.textContent = block.title.slice(0, 2).toLocaleUpperCase('de');
+          poster.append(mark);
+        }
         if (block.posterPath) {
           const image = document.createElement('img');
           image.alt = '';
@@ -4862,6 +4872,13 @@ const labels = {
     background-size: cover;
   }
 
+  .ui-media-dialog__hero[data-empty] {
+    height: 120px;
+    background:
+      radial-gradient(circle at 18% 18%, var(--accent-weak), transparent 55%),
+      linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  }
+
   .ui-media-dialog__hero::after {
     content: '';
     position: absolute;
@@ -4911,6 +4928,27 @@ const labels = {
     border-radius: var(--radius-md);
     background: linear-gradient(145deg, var(--surface-2), var(--surface-3));
     box-shadow: var(--shadow-sm);
+  }
+
+  .ui-media-dialog__poster[data-empty] {
+    background: linear-gradient(145deg, var(--accent-weak), var(--surface-2));
+  }
+
+  .ui-media-dialog__poster-mark {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    color: var(--accent-strong);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: var(--weight-medium);
+    letter-spacing: 0.08em;
+  }
+
+  .ui-media-dialog__poster[data-empty] .ui-media__fallback {
+    opacity: 0.25;
   }
 
   .ui-media-dialog__poster img {
