@@ -128,7 +128,26 @@ const day = (iso: string): string => iso.slice(0, 10);
   </div>
 </section>
 
+<section class="block">
+  <a class="session-logout" href="/outpost.goauthentik.io/sign_out">
+    <Icon name="lock" size="1rem" />
+    {t('logout')}
+  </a>
+</section>
+
 <style>
+  .session-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--bad);
+    font-size: var(--text-sm);
+  }
+
+  .session-logout:hover {
+    color: var(--ink);
+  }
+
   .identity {
     display: flex;
     align-items: center;

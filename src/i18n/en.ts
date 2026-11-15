@@ -198,6 +198,10 @@ export const en: Record<keyof typeof de, string> = {
   assistantSuggestDefault1: 'What can I do here?',
   assistantSuggestDefault2: 'Where do I find help?',
 
+  sidebarYourServices: 'Your services',
+  sidebarAllServices: 'All applications',
+  sidebarCollapse: 'Collapse sidebar',
+  sidebarExpand: 'Expand sidebar',
   workspaceLabel: 'Workspace',
   logout: 'Sign out',
   menu: 'Menu',

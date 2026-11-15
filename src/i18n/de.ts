@@ -223,6 +223,10 @@ export const de = {
   assistantSuggestDefault1: 'Was kann ich hier tun?',
   assistantSuggestDefault2: 'Wo finde ich Hilfe?',
 
+  sidebarYourServices: 'Deine Dienste',
+  sidebarAllServices: 'Alle Anwendungen',
+  sidebarCollapse: 'Seitenleiste einklappen',
+  sidebarExpand: 'Seitenleiste ausklappen',
   workspaceLabel: 'Workspace',
   logout: 'Abmelden',
   menu: 'Menü',

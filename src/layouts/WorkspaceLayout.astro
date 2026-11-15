@@ -17,6 +17,9 @@ import CommandPalette, { type PaletteItem } from '@/components/shell/CommandPale
 import AssistantPanel from '@/components/assistant/AssistantPanel.astro';
 import Wordmark from '@/components/brand/Wordmark.astro';
 import Icon from '@/components/ui/Icon.astro';
+import { serviceIcon } from '@/lib/icons';
+import { favoritesOf } from '@/lib/store';
+import { loadStatus, stateOf } from '@/lib/status';
 import { useTranslations, type MessageKey } from '@/i18n';
 import { isCurrent, WORKSPACE_NAV } from '@/lib/nav';
 import { routeFrom, pathFor, type Locale, type RouteName } from '@/lib/locale';
@@ -45,6 +48,19 @@ const pageService = currentService
 const currentItem = WORKSPACE_NAV.find((item) => isCurrent(item, here));
 const identity = session.identity;
 const initial = (identity?.name || identity?.username || 'U').charAt(0).toUpperCase();
+const statusSnapshot = await Promise.race([
+  loadStatus(session.services.map((service) => service.id)),
+  new Promise<null>((resolve) => setTimeout(() => resolve(null), 300)),
+]);
+const favoriteServices = identity
+  ? favoritesOf(identity.username)
+      .flatMap((id) => {
+        const service = session.services.find((entry) => entry.id === id);
+        return service ? [{ service, state: stateOf(service, statusSnapshot).state }] : [];
+      })
+      .slice(0, 3)
+  : [];
+const attentionCount = session.services.filter((service) => stateOf(service, statusSnapshot).state === 'down').length;
 const suggestionsFor: Partial<Record<RouteName, readonly MessageKey[]>> = {
   overview: ['assistantSuggestOverview1', 'assistantSuggestOverview2', 'assistantSuggestOverview3'],
   services: ['assistantSuggestOverview1', 'assistantSuggestOverview2', 'assistantSuggestOverview3'],
@@ -84,28 +100,99 @@ const palette: PaletteItem[] = [
 <Base locale={locale} title={title} description={description} noindex>
   <SkipLink locale={locale} />
 
+  <script is:inline>
+    try {
+      if (localStorage.getItem('vyrx-sidebar') === 'collapsed') document.documentElement.dataset.sidebar = 'collapsed';
+    } catch {}
+  </script>
+
   <div class="shell">
     <aside class="side">
-      <a class="side__brand" href={pathFor(locale, 'overview')} aria-label={t('brandHome')}>
-        <Wordmark height="1.3rem" />
-      </a>
+      <div class="side__head">
+        <a class="side__brand" href={pathFor(locale, 'overview')} aria-label={t('brandHome')}>
+          <span class="side__brand-word"><Wordmark height="1.3rem" /></span>
+          <span class="side__brand-mark" aria-hidden="true">V</span>
+        </a>
+        <button
+          type="button"
+          class="side__collapse"
+          data-sidebar-toggle
+          data-collapse-label={t('sidebarCollapse')}
+          data-expand-label={t('sidebarExpand')}
+          aria-label={t('sidebarCollapse')}
+          aria-pressed="false"
+          title={t('sidebarCollapse')}
+        >
+          <Icon name="arrowLeft" size="0.9rem" />
+        </button>
+      </div>
 
-      <p class="side__label">{t('workspaceLabel')}</p>
-      <WorkspaceNav locale={locale} isAdmin={session.isAdmin} current={here} />
+      <WorkspaceNav locale={locale} isAdmin={session.isAdmin} current={here} attentionCount={attentionCount} />
+
+      {favoriteServices.length > 0 && (
+        <section class="side__favorites" aria-labelledby="side-favorites-title">
+          <p class="side__label" id="side-favorites-title">{t('sidebarYourServices')}</p>
+          <ul>
+            {favoriteServices.map((entry) => (
+              <li>
+                <a
+                  class="side__favorite"
+                  href={pathFor(locale, 'service', entry.service.id)}
+                  aria-label={text(entry.service.name, locale)}
+                  title={text(entry.service.name, locale)}
+                >
+                  <span class="side__dot" data-state={entry.state} aria-hidden="true" />
+                  <Icon name={serviceIcon(entry.service.icon)} size="0.95rem" />
+                  <span>{text(entry.service.name, locale)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+          <a class="side__all" href={pathFor(locale, 'services')}>
+            {t('sidebarAllServices')}
+            <Icon name="arrowRight" size="0.85rem" />
+          </a>
+        </section>
+      )}
 
       <div class="side__bottom">
-        <p class="side__label">{t('yourAccess')}</p>
-        <div class="side__user">
-          <span class="side__avatar" aria-hidden="true">{initial}</span>
-          <span class="side__user-text">
-            <strong>{identity?.name || identity?.username}</strong>
-            <small>{t('personalSpace')}</small>
-          </span>
+        <div class="side__account">
+          <button
+            type="button"
+            class="side__user"
+            data-user-menu-trigger
+            aria-haspopup="menu"
+            aria-expanded="false"
+            aria-controls="side-user-menu"
+          >
+            <span class="side__avatar" aria-hidden="true">{initial}</span>
+            <span class="side__user-text">
+              <strong>{identity?.name || identity?.username}</strong>
+              <small>{t('personalSpace')}</small>
+            </span>
+            <Icon name="chevronRight" size="0.8rem" />
+          </button>
+          <div class="side__menu" id="side-user-menu" data-user-menu role="menu" hidden>
+            <a class="side__menu-link" href={pathFor(locale, 'account')} role="menuitem">
+              <Icon name="user" size="1rem" />
+              {t('navAccount')}
+            </a>
+            <div class="side__menu-controls">
+              <div class="side__menu-row">
+                <span>{t('themeSwitch')}</span>
+                <ThemeToggle locale={locale} />
+              </div>
+              <div class="side__menu-row">
+                <span>{t('languageSwitch')}</span>
+                <LocaleSwitch locale={locale} />
+              </div>
+            </div>
+            <a class="side__menu-link" href="/outpost.goauthentik.io/sign_out" role="menuitem">
+              <Icon name="lock" size="1rem" />
+              {t('logout')}
+            </a>
+          </div>
         </div>
-        <a class="side__logout" href="/outpost.goauthentik.io/sign_out">
-          <Icon name="lock" size="1rem" />
-          {t('logout')}
-        </a>
       </div>
     </aside>
 
@@ -124,8 +211,10 @@ const palette: PaletteItem[] = [
           <InstallApp locale={locale} />
           <AutoUpdate />
           <NotificationCenter locale={locale} />
-          <LocaleSwitch locale={locale} class="topbar__locale" />
-          <ThemeToggle locale={locale} />
+          <span class="topbar__utilities">
+            <LocaleSwitch locale={locale} class="topbar__locale" />
+            <ThemeToggle locale={locale} />
+          </span>
         </div>
       </header>
 
@@ -145,15 +234,77 @@ const palette: PaletteItem[] = [
   />
 </Base>
 
+<script>
+  const menuTrigger = document.querySelector<HTMLButtonElement>('[data-user-menu-trigger]');
+  const userMenu = document.querySelector<HTMLElement>('[data-user-menu]');
+
+  const closeMenu = (): void => {
+    if (!userMenu || !menuTrigger || userMenu.hidden) return;
+    userMenu.hidden = true;
+    menuTrigger.setAttribute('aria-expanded', 'false');
+  };
+
+  menuTrigger?.addEventListener('click', (event) => {
+    if (!userMenu) return;
+    event.stopPropagation();
+    const open = userMenu.hidden;
+    userMenu.hidden = !open;
+    menuTrigger.setAttribute('aria-expanded', String(open));
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!userMenu || userMenu.hidden) return;
+    const target = event.target as Node | null;
+    if (target && (userMenu.contains(target) || menuTrigger?.contains(target))) return;
+    closeMenu();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeMenu();
+  });
+
+  userMenu?.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu));
+
+  const sidebarToggle = document.querySelector<HTMLButtonElement>('[data-sidebar-toggle]');
+  const root = document.documentElement;
+
+  const reflectSidebar = (): void => {
+    if (!sidebarToggle) return;
+    const collapsed = root.dataset.sidebar === 'collapsed';
+    sidebarToggle.setAttribute('aria-pressed', String(collapsed));
+    sidebarToggle.setAttribute(
+      'aria-label',
+      sidebarToggle.dataset[collapsed ? 'expandLabel' : 'collapseLabel'] ?? '',
+    );
+    sidebarToggle.title = sidebarToggle.getAttribute('aria-label') ?? '';
+  };
+
+  sidebarToggle?.addEventListener('click', () => {
+    const collapsed = root.dataset.sidebar !== 'collapsed';
+    if (collapsed) root.dataset.sidebar = 'collapsed';
+    else delete root.dataset.sidebar;
+    try {
+      localStorage.setItem('vyrx-sidebar', collapsed ? 'collapsed' : 'expanded');
+    } catch {
+      // Kein Speicher: die Wahl gilt für diese Seite.
+    }
+    reflectSidebar();
+  });
+
+  reflectSidebar();
+</script>
+
 <style>
   .shell {
     display: grid;
     grid-template-columns: 248px minmax(0, 1fr);
     min-height: 100dvh;
+    transition: grid-template-columns var(--fast) var(--ease);
   }
 
   .side {
     position: sticky;
+    transition: padding var(--fast) var(--ease);
     top: 0;
     height: 100dvh;
     display: flex;
@@ -163,8 +314,223 @@ const palette: PaletteItem[] = [
     color: #f3f4f7;
   }
 
-  .side__brand {
+  .side__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
     margin: var(--space-1) var(--space-4) var(--space-10);
+  }
+
+  .side__brand {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    color: #fff;
+  }
+
+  .side__brand-word {
+    display: block;
+  }
+
+  .side__brand-mark {
+    display: none;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid #3b4150;
+    border-radius: var(--radius-sm);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .side__collapse {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin-inline-start: auto;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: #7f879b;
+  }
+
+  .side__collapse:hover {
+    border-color: #3b4150;
+    background: rgb(255 255 255 / 0.06);
+    color: #fff;
+  }
+
+  .side__favorites {
+    margin-top: var(--space-8);
+    padding-top: var(--space-5);
+    border-top: 1px solid #343946;
+  }
+
+  .side__favorites ul {
+    display: grid;
+    gap: 1px;
+    list-style: none;
+  }
+
+  .side__favorite {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.45rem 0.85rem;
+    border-radius: var(--radius-sm);
+    color: #a7aebe;
+    font-size: var(--text-sm);
+  }
+
+  .side__favorite:hover {
+    background: rgb(255 255 255 / 0.07);
+    color: #fff;
+  }
+
+  .side__favorite > span:last-of-type {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .side__dot {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-radius: 50%;
+    background: #7f879b;
+  }
+
+  .side__dot[data-state='up'] { background: #65c48e; }
+  .side__dot[data-state='down'] { background: #e06c78; }
+  .side__dot[data-state='unknown'] { background: #d6a85f; }
+
+  .side__all {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-3) var(--space-4) 0;
+    color: #7f879b;
+    font-size: var(--text-xs);
+  }
+
+  .side__all:hover {
+    color: #fff;
+  }
+
+  .side__account {
+    position: relative;
+  }
+
+  .side__user {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+  }
+
+  .side__user:hover,
+  .side__user[aria-expanded='true'] {
+    background: rgb(255 255 255 / 0.07);
+  }
+
+  .side__user > :global(svg) {
+    margin-inline-start: auto;
+    color: #7f879b;
+    transition: transform var(--fast) var(--ease);
+  }
+
+  .side__user[aria-expanded='true'] > :global(svg) {
+    transform: rotate(90deg);
+  }
+
+  .side__menu {
+    position: absolute;
+    inset-inline: 0;
+    bottom: calc(100% + var(--space-2));
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-2);
+    border: 1px solid #3b4150;
+    border-radius: var(--radius-md);
+    background: #252a38;
+    box-shadow: 0 16px 40px rgb(0 0 0 / 0.3);
+  }
+
+  .side__menu[hidden] {
+    display: none;
+  }
+
+  .side__menu-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 0.55rem 0.6rem;
+    border-radius: var(--radius-sm);
+    color: #d6d9e2;
+    font-size: var(--text-sm);
+  }
+
+  .side__menu-link:hover {
+    background: rgb(255 255 255 / 0.07);
+    color: #fff;
+  }
+
+  .side__menu-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    margin-block: 2px;
+    border-block: 1px solid #3b4150;
+  }
+
+  .side__menu-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding-inline: 0.6rem;
+    color: #9299a9;
+    font-size: var(--text-xs);
+  }
+
+  .side__menu :global(.theme-toggle),
+  .side__menu :global(.locale) {
+    border-color: #3b4150;
+    background: #2b3040;
+  }
+
+  .side__menu :global(.theme-toggle) {
+    width: 1.9rem;
+    height: 1.9rem;
+    color: #c5c9d4;
+  }
+
+  .side__menu :global(.locale__item) {
+    padding: 0.35rem 0.45rem;
+    color: #a7aebe;
+  }
+
+  .side__menu :global(.locale__item + .locale__item) {
+    border-left-color: #3b4150;
+  }
+
+  .side__menu :global(.locale__item.is-current) {
+    background: #3a3560;
     color: #fff;
   }
 
@@ -269,6 +635,12 @@ const palette: PaletteItem[] = [
     font-weight: var(--weight-semibold);
   }
 
+  .topbar__utilities {
+    display: none;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
   .topbar__actions {
     display: flex;
     align-items: center;
@@ -291,6 +663,93 @@ const palette: PaletteItem[] = [
     padding: var(--space-12) clamp(var(--space-4), 4vw, var(--space-12)) var(--space-24);
   }
 
+  :global(html[data-sidebar='collapsed']) .shell {
+    grid-template-columns: 76px minmax(0, 1fr);
+  }
+
+  :global(html[data-sidebar='collapsed']) .side {
+    align-items: center;
+    padding-inline: 8px;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__head {
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-inline: 0;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__brand-word {
+    display: none;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__brand-mark {
+    display: grid;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__collapse {
+    margin-inline-start: 0;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__collapse :global(svg) {
+    transform: rotate(180deg);
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__label,
+  :global(html[data-sidebar='collapsed']) .side__favorites {
+    display: none;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side :global(.ws-nav) {
+    width: 100%;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side :global(.ws-nav__item) {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side :global(.ws-nav__item > span:not(.ws-nav__badge)) {
+    display: none;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side :global(.ws-nav__badge) {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    min-width: 0.9rem;
+    height: 0.9rem;
+    padding-inline: 0.2rem;
+    font-size: 0.5rem;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__bottom {
+    width: 100%;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__user {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__user-text,
+  :global(html[data-sidebar='collapsed']) .side__user > :global(svg) {
+    display: none;
+  }
+
+  :global(html[data-sidebar='collapsed']) .side__menu {
+    right: auto;
+    bottom: 0;
+    left: calc(100% + 8px);
+    width: 220px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .shell,
+    .side {
+      transition: none;
+    }
+  }
+
   @media (max-width: 900px) {
     .shell {
       display: block;
@@ -302,6 +761,14 @@ const palette: PaletteItem[] = [
 
     .topbar__brand {
       display: block;
+    }
+
+    .topbar__utilities {
+      display: flex;
+    }
+
+    .side__collapse {
+      display: none;
     }
 
     .crumb {

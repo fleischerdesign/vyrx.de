@@ -9,9 +9,10 @@ interface Props {
   isAdmin: boolean;
   /** Für das Aktiv-Zeichen, wenn die Adresse nicht schon die Ansicht verrät. */
   current?: RouteName;
+  attentionCount?: number;
 }
 
-const { locale, isAdmin, current } = Astro.props;
+const { locale, isAdmin, current, attentionCount = 0 } = Astro.props;
 const t = useTranslations(locale);
 const here = current ?? routeFrom(Astro.url.pathname).name;
 const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin);
@@ -26,9 +27,15 @@ const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin);
             href={pathFor(locale, item.name)}
             class:list={['ws-nav__item', isCurrent(item, here) && 'is-current']}
             aria-current={isCurrent(item, here) ? 'page' : undefined}
+            aria-label={t(item.key)}
           >
             <Icon name={item.icon} size="1.1rem" />
             <span>{t(item.key)}</span>
+            {item.name === 'status' && attentionCount > 0 && (
+              <span class="ws-nav__badge" aria-label={`${t('navStatus')}: ${attentionCount}`}>
+                {attentionCount}
+              </span>
+            )}
           </a>
         </li>
       ))
@@ -44,6 +51,7 @@ const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin);
   }
 
   .ws-nav__item {
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--space-3);
@@ -63,11 +71,36 @@ const items = WORKSPACE_NAV.filter((item) => !item.admin || isAdmin);
   }
 
   .ws-nav__item.is-current {
-    background: #33304e;
+    background: rgb(170 164 255 / 0.1);
     color: #fff;
+  }
+
+  .ws-nav__item.is-current::before {
+    content: '';
+    position: absolute;
+    inset-block: 8px;
+    inset-inline-start: 0;
+    width: 2px;
+    border-radius: 2px;
+    background: #aaa4ff;
   }
 
   .ws-nav__item.is-current :global(svg) {
     color: #aaa4ff;
+  }
+
+  .ws-nav__badge {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    margin-inline-start: auto;
+    padding-inline: 0.25rem;
+    border-radius: var(--radius-pill);
+    background: #7d3f48;
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    line-height: 1;
   }
 </style>
