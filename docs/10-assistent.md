@@ -1,6 +1,6 @@
 # 10 — Assistent
 
-Stand: 2026-11-14. Der erste Stand ist ausgeliefert: ein read-only Assistent im
+Stand: 2026-11-15. Der erste Stand ist ausgeliefert: ein read-only Assistent im
 Workspace mit Kontext aus sichtbaren Diensten, Status, Historie,
 Ankündigungen, Wartungsfenstern und lesbaren Artikeln.
 
@@ -96,7 +96,7 @@ Ziel: Der Assistent findet und öffnet, statt nur zu beschreiben.
   aufgelöst und als `navigate`-Ereignis mit geprüftem Link geliefert; das Modell
   kann zusätzlich `open_page` aufrufen.
 - [x] **C3 Mehrschritt.** Tool-Runden und Rückfragen laufen über den Verlauf;
-  der Client hält die Unterhaltung pro Tab und Person.
+  Threads liegen serverseitig pro Person, nicht mehr nur pro Tab.
 - [x] **C4 Grenze.** Keine externen Dienst-Readouts, kein MCP, keine
   Admin-Tools.
 
@@ -164,9 +164,19 @@ Drucker-Flow funktioniert auf 390 px. Ohne Blöcke bleibt die Antwort lesbar.
 Composer bleibt mit offener Tastatur sichtbar; alle Bedienelemente sind per
 Tastatur erreichbar.
 
-## F — Später
+## F — Persistente Threads (umgesetzt 2026-11-15)
 
-- [ ] **F1 Gesprächsverlauf serverseitig** (Aufbewahrung entscheiden).
+- [x] **F1 Gesprächsverlauf serverseitig.** SQLite-Schema 6 mit
+  `assistant_thread` und `assistant_message`; jede Abfrage trägt den Owner,
+  es gibt keine threadübergreifende Admin-Abfrage. API: Liste/Suche, Detail,
+  Anlegen, Umbenennen, Pinnen, Löschen, Nachrichten anhängen. UI: Verlauf als
+  ruhige Vollansicht im Panel (kein Bottom-Sheet, keine Dauersidebar), Suche,
+  Gruppen Heute/Gestern/Älter, aktueller Thread markiert, Umbenennen inline
+  mit explizitem Speichern, Löschen mit Inline-Bestätigung. Beim Öffnen wird
+  der letzte Thread fortgesetzt; neue Chats entstehen erst mit der ersten
+  Nachricht. Der alte `sessionStorage`-Verlauf wird beim ersten Laden in einen
+  Server-Thread migriert.
+- [ ] **F2 Aktionen mit Bestätigung und Audit.**
 - [ ] **F2 Aktionen mit Bestätigung und Audit.**
 - [ ] **F3 Vorlesen und Diktat.**
 - [ ] **F4 Öffentliche Hilfe.**
@@ -209,7 +219,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 65
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 81
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
@@ -231,8 +241,9 @@ Tastatur erreichbar.
 - **Mobiler Einstieg:** entschieden — der runde FAB über dem Dock. Ein
   „Neu“-Badge ist optional.
 - **Panel:** modal oder non-modal ab 1440 px?
-- **Gesprächsverlauf:** nur `sessionStorage` oder serverseitig mit
-  Aufbewahrung?
+- **Gesprächsverlauf:** entschieden — serverseitig, pro Person; alte
+  `sessionStorage`-Stände werden migriert. Aufbewahrungsfrist bleibt eine
+  separate Betriebsentscheidung.
 - **AG-UI:** entschieden — internes, typisiertes UI-Baumformat. Ein späterer
   AG-UI-Adapter kann dieselben Knoten als `Custom`-Events ausliefern; das
   Protokoll ist nicht Voraussetzung für generative UI.

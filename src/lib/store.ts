@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 export interface Report {
   readonly id: number;
@@ -152,6 +152,39 @@ function migrate(db: DatabaseSync): void {
       );
 
       CREATE INDEX media_proposal_by_actor ON media_proposal (actor, created_at DESC);
+    `);
+  }
+
+  if (current < 6) {
+    // Der Chatverlauf ist personenbezogener Inhalt und wird deshalb pro
+    // Eigentümer gespeichert. Das ist die bewusste Ausnahme von der Regel,
+    // dass hier kein Text aus der Außenwelt liegt: der Text gehört der Person,
+    // die ihn geschrieben hat, und ist ohne deren owner nicht erreichbar.
+    db.exec(`
+      CREATE TABLE assistant_thread (
+        id          TEXT PRIMARY KEY,
+        owner       TEXT NOT NULL,
+        title       TEXT NOT NULL,
+        pinned      INTEGER NOT NULL DEFAULT 0,
+        created_at  TEXT NOT NULL,
+        updated_at  TEXT NOT NULL
+      );
+
+      CREATE INDEX assistant_thread_by_owner ON assistant_thread (owner, pinned DESC, updated_at DESC);
+
+      CREATE TABLE assistant_message (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        thread_id       TEXT NOT NULL REFERENCES assistant_thread(id) ON DELETE CASCADE,
+        owner           TEXT NOT NULL,
+        role            TEXT NOT NULL,
+        content         TEXT NOT NULL,
+        ui_json         TEXT,
+        sources_json    TEXT,
+        navigations_json TEXT,
+        created_at      TEXT NOT NULL
+      );
+
+      CREATE INDEX assistant_message_by_thread ON assistant_message (thread_id, id);
     `);
   }
 
@@ -462,6 +495,222 @@ export function consumeMediaProposal(
     )
     .run(now(), outcome, JSON.stringify(result), id, actor);
   return Number(changed.changes) === 1;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Assistenten-Threads: Text gehört der Person, nicht dem Dienst
+// ------------------------------------------------------------------------------------------------
+
+export interface AssistantThreadSummary {
+  readonly id: string;
+  readonly title: string;
+  readonly preview: string;
+  readonly pinned: boolean;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export interface AssistantThreadMessage {
+  readonly id: number;
+  readonly role: 'user' | 'assistant';
+  readonly content: string;
+  readonly ui: readonly unknown[] | null;
+  readonly sources: readonly unknown[] | null;
+  readonly navigations: readonly unknown[] | null;
+  readonly createdAt: string;
+}
+
+export interface AssistantThreadDetail extends AssistantThreadSummary {
+  readonly messages: readonly AssistantThreadMessage[];
+}
+
+const cleanTitle = (value: string): string => {
+  const title = value.replace(/\s+/g, ' ').trim().slice(0, 120);
+  return title || 'Neue Unterhaltung';
+};
+
+const parseJson = (value: string | null): readonly unknown[] | null => {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const summaryFromRow = (row: {
+  id: string;
+  title: string;
+  preview: string | null;
+  pinned: number;
+  created_at: string;
+  updated_at: string;
+}): AssistantThreadSummary => ({
+  id: row.id,
+  title: row.title,
+  preview: (row.preview ?? '').replace(/\s+/g, ' ').trim().slice(0, 180),
+  pinned: row.pinned === 1,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+export function createAssistantThread(owner: string, title: string): AssistantThreadSummary {
+  const db = open();
+  const id = randomBytes(16).toString('base64url');
+  const at = now();
+  const clean = cleanTitle(title);
+  db.prepare('INSERT INTO assistant_thread (id, owner, title, pinned, created_at, updated_at) VALUES (?, ?, ?, 0, ?, ?)').run(
+    id,
+    owner,
+    clean,
+    at,
+    at,
+  );
+  return { id, title: clean, preview: '', pinned: false, createdAt: at, updatedAt: at };
+}
+
+export function assistantThreadsOf(owner: string, limit = 50, query = ''): readonly AssistantThreadSummary[] {
+  const capped = Math.max(1, Math.min(100, Math.trunc(limit)));
+  const search = query.trim().slice(0, 120);
+  const rows = search
+    ? (open()
+        .prepare(
+          `SELECT t.id, t.title, t.pinned, t.created_at, t.updated_at,
+             (SELECT m.content FROM assistant_message m WHERE m.thread_id = t.id AND m.owner = t.owner ORDER BY m.id DESC LIMIT 1) AS preview
+           FROM assistant_thread t
+           WHERE t.owner = ?
+             AND (t.title LIKE ? ESCAPE '\\' OR EXISTS (
+               SELECT 1 FROM assistant_message m
+               WHERE m.thread_id = t.id AND m.owner = t.owner AND m.content LIKE ? ESCAPE '\\'
+             ))
+           ORDER BY t.pinned DESC, t.updated_at DESC
+           LIMIT ?`,
+        )
+        .all(owner, `%${search}%`, `%${search}%`, capped) as unknown as {
+        id: string;
+        title: string;
+        preview: string | null;
+        pinned: number;
+        created_at: string;
+        updated_at: string;
+      }[])
+    : (open()
+        .prepare(
+          `SELECT t.id, t.title, t.pinned, t.created_at, t.updated_at,
+             (SELECT m.content FROM assistant_message m WHERE m.thread_id = t.id AND m.owner = t.owner ORDER BY m.id DESC LIMIT 1) AS preview
+           FROM assistant_thread t
+           WHERE t.owner = ?
+           ORDER BY t.pinned DESC, t.updated_at DESC
+           LIMIT ?`,
+        )
+        .all(owner, capped) as unknown as {
+        id: string;
+        title: string;
+        preview: string | null;
+        pinned: number;
+        created_at: string;
+        updated_at: string;
+      }[]);
+  return rows.map(summaryFromRow);
+}
+
+export function assistantThreadOf(id: string, owner: string): AssistantThreadDetail | null {
+  const db = open();
+  const row = db
+    .prepare('SELECT id, title, pinned, created_at, updated_at FROM assistant_thread WHERE id = ? AND owner = ?')
+    .get(id, owner) as
+    | { id: string; title: string; pinned: number; created_at: string; updated_at: string }
+    | undefined;
+  if (!row) return null;
+  const messages = db
+    .prepare(
+      `SELECT id, role, content, ui_json, sources_json, navigations_json, created_at
+       FROM assistant_message WHERE thread_id = ? AND owner = ? ORDER BY id ASC`,
+    )
+    .all(id, owner) as {
+    id: number;
+    role: string;
+    content: string;
+    ui_json: string | null;
+    sources_json: string | null;
+    navigations_json: string | null;
+    created_at: string;
+  }[];
+  const preview = messages.at(-1)?.content ?? '';
+  return {
+    ...summaryFromRow({ ...row, preview }),
+    messages: messages.map((message) => ({
+      id: message.id,
+      role: message.role === 'user' ? 'user' : 'assistant',
+      content: message.content,
+      ui: parseJson(message.ui_json),
+      sources: parseJson(message.sources_json),
+      navigations: parseJson(message.navigations_json),
+      createdAt: message.created_at,
+    })),
+  };
+}
+
+export function renameAssistantThread(id: string, owner: string, title: string): boolean {
+  const changed = open()
+    .prepare('UPDATE assistant_thread SET title = ?, updated_at = ? WHERE id = ? AND owner = ?')
+    .run(cleanTitle(title), now(), id, owner);
+  return Number(changed.changes) === 1;
+}
+
+export function pinAssistantThread(id: string, owner: string, pinned: boolean): boolean {
+  const changed = open()
+    .prepare('UPDATE assistant_thread SET pinned = ?, updated_at = ? WHERE id = ? AND owner = ?')
+    .run(pinned ? 1 : 0, now(), id, owner);
+  return Number(changed.changes) === 1;
+}
+
+export function deleteAssistantThread(id: string, owner: string): boolean {
+  const changed = open().prepare('DELETE FROM assistant_thread WHERE id = ? AND owner = ?').run(id, owner);
+  return Number(changed.changes) === 1;
+}
+
+export function appendAssistantMessages(
+  threadId: string,
+  owner: string,
+  messages: readonly {
+    readonly role: 'user' | 'assistant';
+    readonly content: string;
+    readonly ui?: readonly unknown[] | null;
+    readonly sources?: readonly unknown[] | null;
+    readonly navigations?: readonly unknown[] | null;
+  }[],
+): boolean {
+  if (messages.length === 0) return false;
+  const db = open();
+  const ownerRow = db.prepare('SELECT 1 AS there FROM assistant_thread WHERE id = ? AND owner = ?').get(threadId, owner);
+  if (!ownerRow) return false;
+  const at = now();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const insert = db.prepare(
+      'INSERT INTO assistant_message (thread_id, owner, role, content, ui_json, sources_json, navigations_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    );
+    for (const message of messages) {
+      insert.run(
+        threadId,
+        owner,
+        message.role,
+        message.content.slice(0, 20_000),
+        message.ui ? JSON.stringify(message.ui) : null,
+        message.sources ? JSON.stringify(message.sources) : null,
+        message.navigations ? JSON.stringify(message.navigations) : null,
+        at,
+      );
+    }
+    db.prepare('UPDATE assistant_thread SET updated_at = ? WHERE id = ? AND owner = ?').run(at, threadId, owner);
+    db.exec('COMMIT');
+    return true;
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 // ------------------------------------------------------------------------------------------------

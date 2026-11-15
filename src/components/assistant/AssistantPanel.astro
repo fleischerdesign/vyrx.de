@@ -43,6 +43,23 @@ const labels = {
   stateUnknown: t('stateUnknown'),
   stateUnmonitored: t('stateUnmonitored'),
   open: t('assistantOpenLink'),
+  cancel: t('cancel'),
+  save: t('save'),
+  history: t('assistantHistory'),
+  historySearch: t('assistantHistorySearch'),
+  historyEmpty: t('assistantHistoryEmpty'),
+  historyError: t('assistantHistoryError'),
+  threadRename: t('assistantThreadRename'),
+  threadDelete: t('assistantThreadDelete'),
+  threadDeleteConfirm: t('assistantThreadDeleteConfirm'),
+  threadPin: t('assistantThreadPin'),
+  threadUnpin: t('assistantThreadUnpin'),
+  threadPinned: t('assistantThreadPinned'),
+  threadToday: t('assistantThreadToday'),
+  threadYesterday: t('assistantThreadYesterday'),
+  threadOlder: t('assistantThreadOlder'),
+  threadUntitled: t('assistantThreadUntitled'),
+  threadMore: t('assistantThreadMore'),
 };
 ---
 
@@ -70,6 +87,9 @@ const labels = {
         <strong id="assistant-title">{t('assistantTitle')}</strong>
         <small>{t('assistantSubtitle')}</small>
       </span>
+      <button type="button" class="assistant__icon" data-assistant-history title={t('assistantHistory')} aria-label={t('assistantHistory')} aria-expanded="false">
+        <Icon name="list" size="1rem" />
+      </button>
       <button type="button" class="assistant__icon" data-assistant-new title={t('assistantNew')} aria-label={t('assistantNew')}>
         <Icon name="plus" size="1rem" />
       </button>
@@ -84,6 +104,25 @@ const labels = {
       <span data-assistant-context-state></span>
       <a class="assistant__context-link" href={pathFor(locale, 'status')}>{t('assistantStatusLink')}</a>
     </div>
+
+    <section class="assistant__threads" data-assistant-threads aria-label={t('assistantHistory')} hidden>
+      <div class="assistant__threads-head">
+        <button type="button" class="assistant__threads-back" data-assistant-threads-back aria-label={t('back')}>
+          <Icon name="arrowLeft" size="1rem" />
+        </button>
+        <strong>{t('assistantHistory')}</strong>
+        <button type="button" class="assistant__threads-new" data-assistant-threads-new aria-label={t('assistantNew')} title={t('assistantNew')}>
+          <Icon name="plus" size="1rem" />
+        </button>
+      </div>
+      <label class="assistant__threads-search">
+        <Icon name="search" size="0.95rem" />
+        <span class="visually-hidden">{t('assistantHistorySearch')}</span>
+        <input type="search" placeholder={t('assistantHistorySearch')} data-assistant-threads-search />
+      </label>
+      <div class="assistant__threads-list" data-assistant-threads-list></div>
+      <p class="assistant__threads-empty" data-assistant-threads-empty>{t('assistantHistoryEmpty')}</p>
+    </section>
 
     <div class="assistant__log" data-assistant-log role="log" aria-live="polite" aria-relevant="additions text">
       <div class="assistant__intro" data-assistant-intro>
@@ -154,6 +193,19 @@ const labels = {
     navigations?: readonly Navigation[];
   };
 
+  interface ThreadSummary {
+    readonly id: string;
+    readonly title: string;
+    readonly preview: string;
+    readonly pinned: boolean;
+    readonly createdAt: string;
+    readonly updatedAt: string;
+  }
+
+  interface ThreadDetail extends ThreadSummary {
+    readonly messages: readonly Message[];
+  }
+
   const dialog = document.getElementById('assistant') as HTMLDialogElement | null;
   const fab = document.querySelector<HTMLButtonElement>('.assistant-fab');
   const form = document.querySelector<HTMLFormElement>('[data-assistant-form]');
@@ -164,6 +216,14 @@ const labels = {
   const contextStrip = document.querySelector<HTMLElement>('[data-assistant-context]');
   const contextName = document.querySelector<HTMLElement>('[data-assistant-context-name]');
   const contextState = document.querySelector<HTMLElement>('[data-assistant-context-state]');
+  const historyButton = document.querySelector<HTMLButtonElement>('[data-assistant-history]');
+  const threadsPanel = document.querySelector<HTMLElement>('[data-assistant-threads]');
+  const threadsList = document.querySelector<HTMLElement>('[data-assistant-threads-list]');
+  const threadsEmpty = document.querySelector<HTMLElement>('[data-assistant-threads-empty]');
+  const threadsSearch = document.querySelector<HTMLInputElement>('[data-assistant-threads-search]');
+  const threadsBack = document.querySelector<HTMLButtonElement>('[data-assistant-threads-back]');
+  const threadsNew = document.querySelector<HTMLButtonElement>('[data-assistant-threads-new]');
+  const dialogPanel = dialog?.querySelector<HTMLElement>('.assistant__panel') ?? null;
   const configNode = document.querySelector<HTMLScriptElement>('[data-assistant-config]');
 
   if (dialog && fab && form && input && sendButton && log && intro && configNode) {
@@ -186,6 +246,12 @@ const labels = {
     let controller: AbortController | null = null;
     let run = 0;
     let streamFrame = 0;
+    let currentThreadId: string | null = null;
+    let threads: ThreadSummary[] = [];
+    let historySearchTimer: number | null = null;
+    let threadsReady: Promise<void> = Promise.resolve();
+    let freshRequested = false;
+    const threadStorageKey = `vyrx.assistant.thread.${config.user || 'guest'}`;
 
     const scroll = (): void => {
       log.scrollTop = log.scrollHeight;
@@ -2051,6 +2117,332 @@ const labels = {
       }
     };
 
+    const threadTitle = (value: string): string => {
+      const title = value.replace(/\s+/g, ' ').trim().slice(0, 58);
+      return title || (labels.threadUntitled ?? 'Neue Unterhaltung');
+    };
+
+    const storeThreadId = (id: string | null): void => {
+      try {
+        if (id) localStorage.setItem(threadStorageKey, id);
+        else localStorage.removeItem(threadStorageKey);
+      } catch {
+        // Kein lokaler Speicher: der Server bleibt die Quelle.
+      }
+    };
+
+    const ensureThread = async (firstMessage: string): Promise<boolean> => {
+      if (currentThreadId) return true;
+      try {
+        const response = await fetch('/api/assistant/threads', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title: threadTitle(firstMessage) }),
+        });
+        if (!response.ok) return false;
+        const data = (await response.json()) as { thread?: ThreadSummary };
+        if (!data.thread?.id) return false;
+        currentThreadId = data.thread.id;
+        storeThreadId(currentThreadId);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const persistMessages = async (entries: readonly Message[], threadId = currentThreadId): Promise<void> => {
+      if (!threadId || entries.length === 0) return;
+      try {
+        await fetch(`/api/assistant/threads/${encodeURIComponent(threadId)}/messages`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ messages: entries }),
+        });
+      } catch {
+        // Der Chat bleibt nutzbar; beim nächsten Turn wird erneut gespeichert.
+      }
+    };
+
+    const renderConversation = (stored: readonly Message[]): void => {
+      messages = [...stored];
+      intro.hidden = true;
+      log.replaceChildren();
+      for (const message of messages) {
+        if (message.role === 'user') {
+          addUser(message.content);
+        } else {
+          const { turn, answer } = addAnswer();
+          if (message.content) {
+            renderMarkdown(answer, message.content, false);
+            if (!(message.ui ?? message.blocks ?? []).some((node) => node.type === 'media')) {
+              renderSources(turn, message.content, (message.sources ?? []) as readonly Source[]);
+            }
+          } else {
+            answer.remove();
+          }
+          renderUi(turn, message.ui ?? message.blocks ?? []);
+          renderNavigations(turn, message.navigations ?? []);
+        }
+      }
+      scroll();
+    };
+
+    const loadThread = async (id: string): Promise<void> => {
+      if (busy) {
+        run += 1;
+        stop();
+        setBusy(false);
+      }
+      try {
+        const response = await fetch(`/api/assistant/threads/${encodeURIComponent(id)}`);
+        if (!response.ok) return;
+        const data = (await response.json()) as { thread?: ThreadDetail };
+        if (!data.thread) return;
+        currentThreadId = data.thread.id;
+        storeThreadId(currentThreadId);
+        renderConversation(data.thread.messages as readonly Message[]);
+      } catch {
+        // Der letzte lokale Stand bleibt sichtbar.
+      }
+    };
+
+    const loadThreads = async (query = ''): Promise<void> => {
+      if (!threadsList) return;
+      try {
+        const response = await fetch(`/api/assistant/threads?limit=50&q=${encodeURIComponent(query)}`);
+        if (!response.ok) throw new Error('threads');
+        const data = (await response.json()) as { threads?: ThreadSummary[] };
+        threads = data.threads ?? [];
+        renderThreads();
+      } catch {
+        threads = [];
+        renderThreads(labels.historyError ?? '');
+      }
+    };
+
+    const threadTime = (value: string): string => {
+      const at = new Date(value);
+      if (Number.isNaN(at.getTime())) return '';
+      const today = new Date();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      const day = at.getTime();
+      if (day >= start) return at.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+      if (day >= start - 86_400_000) return labels.threadYesterday ?? '';
+      return at.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' });
+    };
+
+    const threadGroupLabel = (value: string): string => {
+      const at = new Date(value);
+      if (Number.isNaN(at.getTime())) return labels.threadOlder ?? '';
+      const today = new Date();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+      if (at.getTime() >= start) return labels.threadToday ?? '';
+      if (at.getTime() >= start - 86_400_000) return labels.threadYesterday ?? '';
+      return labels.threadOlder ?? '';
+    };
+
+    const closeThreadMenu = (): void => {
+      document.querySelectorAll('.assistant__thread-menu').forEach((menu) => menu.remove());
+    };
+
+    const renameThread = (thread: ThreadSummary, item: HTMLElement): void => {
+      closeThreadMenu();
+      if (item.querySelector('.assistant__thread-rename-wrap')) return;
+      const wrap = document.createElement('div');
+      wrap.className = 'assistant__thread-rename-wrap';
+      const editor = document.createElement('input');
+      editor.className = 'assistant__thread-rename';
+      editor.value = thread.title;
+      editor.setAttribute('aria-label', labels.threadRename ?? '');
+      const save = document.createElement('button');
+      save.type = 'button';
+      save.className = 'assistant__thread-save';
+      save.textContent = labels.save ?? 'Speichern';
+      const cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.className = 'assistant__thread-cancel';
+      cancel.textContent = labels.cancel ?? 'Abbrechen';
+      let saving = false;
+      const close = (): void => wrap.remove();
+      const commit = async (): Promise<void> => {
+        if (saving) return;
+        const title = editor.value.replace(/\s+/g, ' ').trim();
+        if (!title || title === thread.title) {
+          close();
+          return;
+        }
+        saving = true;
+        await fetch(`/api/assistant/threads/${encodeURIComponent(thread.id)}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ title }),
+        }).catch(() => undefined);
+        wrap.remove();
+        await loadThreads(threadsSearch?.value ?? '');
+      };
+      save.addEventListener('click', () => { void commit(); });
+      cancel.addEventListener('click', close);
+      editor.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          void commit();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          close();
+        }
+      });
+      wrap.append(editor, save, cancel);
+      item.append(wrap);
+      editor.focus();
+      editor.setSelectionRange(0, editor.value.length);
+    };
+
+    const deleteThread = (thread: ThreadSummary, item: HTMLElement): void => {
+      closeThreadMenu();
+      const confirm = document.createElement('div');
+      confirm.className = 'assistant__thread-confirm';
+      const question = document.createElement('span');
+      question.textContent = labels.threadDeleteConfirm ?? '';
+      const yes = document.createElement('button');
+      yes.type = 'button';
+      yes.dataset.danger = 'true';
+      yes.textContent = labels.threadDelete ?? '';
+      const no = document.createElement('button');
+      no.type = 'button';
+      no.textContent = labels.cancel ?? 'Abbrechen';
+      no.addEventListener('click', () => confirm.remove());
+      yes.addEventListener('click', async () => {
+        await fetch(`/api/assistant/threads/${encodeURIComponent(thread.id)}`, { method: 'DELETE' }).catch(() => undefined);
+        if (currentThreadId === thread.id) newConversation();
+        await loadThreads(threadsSearch?.value ?? '');
+      });
+      confirm.append(question, yes, no);
+      item.append(confirm);
+    };
+
+    const openThreadMenu = (thread: ThreadSummary, item: HTMLElement): void => {
+      closeThreadMenu();
+      const menu = document.createElement('div');
+      menu.className = 'assistant__thread-menu';
+      const rename = document.createElement('button');
+      rename.type = 'button';
+      rename.textContent = labels.threadRename ?? '';
+      rename.addEventListener('click', () => renameThread(thread, item));
+      const pin = document.createElement('button');
+      pin.type = 'button';
+      pin.textContent = thread.pinned ? (labels.threadUnpin ?? '') : (labels.threadPin ?? '');
+      pin.addEventListener('click', async () => {
+        await fetch(`/api/assistant/threads/${encodeURIComponent(thread.id)}`, {
+          method: 'PATCH',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ pinned: !thread.pinned }),
+        }).catch(() => undefined);
+        closeThreadMenu();
+        await loadThreads(threadsSearch?.value ?? '');
+      });
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.dataset.danger = 'true';
+      remove.textContent = labels.threadDelete ?? '';
+      remove.addEventListener('click', () => deleteThread(thread, item));
+      menu.append(rename, pin, remove);
+      item.append(menu);
+      window.setTimeout(() => {
+        const close = (event: MouseEvent): void => {
+          if (!(event.target as Element | null)?.closest('.assistant__thread-menu')) {
+            closeThreadMenu();
+            document.removeEventListener('click', close);
+          }
+        };
+        document.addEventListener('click', close, { once: true });
+      }, 0);
+    };
+
+    const threadRow = (thread: ThreadSummary): HTMLElement => {
+      const item = document.createElement('div');
+      item.className = 'assistant__thread-item';
+      item.dataset.current = String(thread.id === currentThreadId);
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'assistant__thread-open';
+      const main = document.createElement('span');
+      main.className = 'assistant__thread-main';
+      const title = document.createElement('span');
+      title.className = 'assistant__thread-title';
+      title.textContent = thread.title || (labels.threadUntitled ?? '');
+      const preview = document.createElement('span');
+      preview.className = 'assistant__thread-preview';
+      preview.textContent = thread.preview || (labels.threadUntitled ?? '');
+      main.append(title, preview);
+      const time = document.createElement('span');
+      time.className = 'assistant__thread-time';
+      time.textContent = threadTime(thread.updatedAt);
+      open.append(main, time);
+      open.addEventListener('click', () => {
+        void loadThread(thread.id);
+        closeHistory();
+      });
+      const more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'assistant__thread-more';
+      more.textContent = '⋯';
+      more.setAttribute('aria-label', labels.threadMore ?? '');
+      more.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openThreadMenu(thread, item);
+      });
+      item.append(open, more);
+      return item;
+    };
+
+    const renderThreads = (error = ''): void => {
+      if (!threadsList || !threadsEmpty) return;
+      threadsList.replaceChildren();
+      if (error) {
+        threadsEmpty.hidden = false;
+        threadsEmpty.textContent = error;
+        return;
+      }
+      threadsEmpty.hidden = threads.length > 0;
+      threadsEmpty.textContent = labels.historyEmpty ?? '';
+      const groups: { label: string; items: ThreadSummary[] }[] = [];
+      const pinned = threads.filter((thread) => thread.pinned);
+      if (pinned.length > 0) groups.push({ label: labels.threadPinned ?? '', items: pinned });
+      for (const thread of threads.filter((entry) => !entry.pinned)) {
+        const label = threadGroupLabel(thread.updatedAt);
+        const group = groups.find((entry) => entry.label === label);
+        if (group) group.items.push(thread);
+        else groups.push({ label, items: [thread] });
+      }
+      for (const group of groups) {
+        const section = document.createElement('div');
+        section.className = 'assistant__thread-group';
+        const label = document.createElement('span');
+        label.className = 'assistant__thread-group-label';
+        label.textContent = group.label;
+        section.append(label);
+        for (const thread of group.items) section.append(threadRow(thread));
+        threadsList.append(section);
+      }
+    };
+
+    const openHistory = (): void => {
+      if (!threadsPanel || !dialogPanel) return;
+      threadsPanel.hidden = false;
+      dialogPanel.classList.add('is-history');
+      historyButton?.setAttribute('aria-expanded', 'true');
+      void loadThreads();
+      threadsSearch?.focus();
+    };
+
+    const closeHistory = (): void => {
+      if (!threadsPanel || !dialogPanel) return;
+      threadsPanel.hidden = true;
+      dialogPanel.classList.remove('is-history');
+      historyButton?.setAttribute('aria-expanded', 'false');
+      input.focus();
+    };
+
     const isStoredMessage = (value: unknown): value is Message => {
       if (value === null || typeof value !== 'object') return false;
       const entry = value as { role?: unknown; content?: unknown; sources?: unknown; ui?: unknown; blocks?: unknown; navigations?: unknown };
@@ -2114,6 +2506,7 @@ const labels = {
       let navigations: Navigation[] = [];
       let streamError = '';
       const asked = last.content;
+      const turnThreadId = currentThreadId;
       const { turn, answer } = addAnswer();
 
       try {
@@ -2190,15 +2583,19 @@ const labels = {
           renderNavigations(turn, navigations);
           if (!uiNodes.some((node) => node.type === 'media')) renderSources(turn, streamed, sources);
           renderFollowUps(turn, asked);
-          messages.push({ role: 'assistant', content: streamed.trim(), sources, ui: uiNodes, navigations });
+          const assistantMessage: Message = { role: 'assistant', content: streamed.trim(), sources, ui: uiNodes, navigations };
+          messages.push(assistantMessage);
           save();
+          void persistMessages([assistantMessage], turnThreadId);
         } else if (uiNodes.length > 0 || navigations.length > 0) {
           answer.remove();
           renderUi(turn, uiNodes);
           renderNavigations(turn, navigations);
           renderFollowUps(turn, asked);
-          messages.push({ role: 'assistant', content: '', sources, ui: uiNodes, navigations });
+          const assistantMessage: Message = { role: 'assistant', content: '', sources, ui: uiNodes, navigations };
+          messages.push(assistantMessage);
           save();
+          void persistMessages([assistantMessage], turnThreadId);
         } else {
           renderMarkdown(answer, labels.empty ?? '', false);
         }
@@ -2228,14 +2625,20 @@ const labels = {
 
     const send = async (value: string): Promise<void> => {
       if (busy) return;
+      await threadsReady;
+      freshRequested = false;
       const trimmed = value.trim();
       if (!trimmed) return;
-      messages.push({ role: 'user', content: trimmed });
+      const userMessage: Message = { role: 'user', content: trimmed };
+      messages.push(userMessage);
       save();
       intro.hidden = true;
       addUser(trimmed);
       input.value = '';
       input.style.height = 'auto';
+      const created = await ensureThread(trimmed);
+      const threadId = currentThreadId;
+      if (created) void persistMessages([userMessage], threadId);
       await requestAnswer();
     };
 
@@ -2247,6 +2650,10 @@ const labels = {
       run += 1;
       stop();
       messages = [];
+      currentThreadId = null;
+      freshRequested = true;
+      storeThreadId(null);
+      closeHistory();
       try {
         sessionStorage.removeItem(storageKey);
       } catch {
@@ -2314,6 +2721,21 @@ const labels = {
 
     document.querySelector('[data-assistant-close]')?.addEventListener('click', close);
     document.querySelector('[data-assistant-new]')?.addEventListener('click', newConversation);
+    historyButton?.addEventListener('click', () => {
+      if (dialogPanel?.classList.contains('is-history')) closeHistory();
+      else openHistory();
+    });
+    threadsBack?.addEventListener('click', closeHistory);
+    threadsNew?.addEventListener('click', () => {
+      newConversation();
+      closeHistory();
+    });
+    threadsSearch?.addEventListener('input', () => {
+      if (historySearchTimer !== null) window.clearTimeout(historySearchTimer);
+      historySearchTimer = window.setTimeout(() => {
+        void loadThreads(threadsSearch.value);
+      }, 180);
+    });
 
     document.querySelectorAll<HTMLElement>('[data-assistant-suggestion]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -2355,6 +2777,36 @@ const labels = {
       }
     });
 
+    const initializeThreads = async (): Promise<void> => {
+      const savedId = (() => {
+        try {
+          return localStorage.getItem(threadStorageKey);
+        } catch {
+          return null;
+        }
+      })();
+      try {
+        const response = await fetch('/api/assistant/threads?limit=50');
+        if (response.ok) {
+          const data = (await response.json()) as { threads?: ThreadSummary[] };
+          threads = data.threads ?? [];
+          if (freshRequested || currentThreadId || messages.length > 0) return;
+          const target = savedId && threads.some((thread) => thread.id === savedId) ? savedId : threads[0]?.id;
+          if (target) {
+            await loadThread(target);
+            return;
+          }
+        }
+      } catch {
+        // Ohne Server bleibt der lokale Sitzungsverlauf.
+      }
+      restore();
+      if (messages.length > 0) {
+        const firstUser = messages.find((message) => message.role === 'user');
+        if (firstUser && (await ensureThread(firstUser.content))) await persistMessages(messages);
+      }
+    };
+
     // Ohne JavaScript bleiben alle Einstiege verborgen. Erst wenn dieses
     // Skript läuft, gibt es einen Assistenten zu öffnen.
     document
@@ -2363,7 +2815,7 @@ const labels = {
         element.hidden = false;
       });
 
-    restore();
+    threadsReady = initializeThreads();
   }
 </script>
 
@@ -2577,6 +3029,315 @@ const labels = {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
+  }
+
+  .assistant__threads {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    padding: var(--space-4) var(--space-5) var(--space-5);
+    background: var(--surface);
+  }
+
+  .assistant__panel.is-history .assistant__threads {
+    display: flex;
+  }
+
+  .assistant__panel.is-history [data-assistant-new] {
+    display: none;
+  }
+
+  .assistant__panel.is-history .assistant__log,
+  .assistant__panel.is-history .assistant__composer,
+  .assistant__panel.is-history .assistant__context {
+    display: none;
+  }
+
+  .assistant__threads-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 2.25rem;
+  }
+
+  .assistant__threads-head strong {
+    flex: 1;
+    color: var(--ink);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .assistant__threads-back,
+  .assistant__threads-new {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--muted);
+  }
+
+  .assistant__threads-back:hover,
+  .assistant__threads-new:hover {
+    border-color: var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .assistant__threads-search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    color: var(--faint);
+  }
+
+  .assistant__threads-search:focus-within {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+
+  .assistant__threads-search input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: none;
+    color: var(--ink);
+    font-size: var(--text-xs);
+  }
+
+  .assistant__threads-search input::placeholder {
+    color: var(--faint);
+  }
+
+  .assistant__threads-list {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .assistant__thread-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .assistant__thread-group-label {
+    padding: 0 0.2rem;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .assistant__thread-item {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    border-radius: var(--radius-md);
+  }
+
+  .assistant__thread-item:hover,
+  .assistant__thread-item:focus-within {
+    background: var(--surface-2);
+  }
+
+  .assistant__thread-item[data-current='true'] {
+    background: var(--accent-weaker);
+  }
+
+  .assistant__thread-item[data-current='true']::before {
+    content: '';
+    position: absolute;
+    top: 10px;
+    bottom: 10px;
+    left: 0;
+    width: 2px;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+  }
+
+  .assistant__thread-open {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-2);
+    flex: 1;
+    min-width: 0;
+    padding: 0.55rem 0.6rem;
+    border: 0;
+    background: none;
+    color: inherit;
+    text-align: left;
+  }
+
+  .assistant__thread-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .assistant__thread-title {
+    overflow: hidden;
+    color: var(--ink);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-medium);
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .assistant__thread-preview {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 0.625rem;
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .assistant__thread-time {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    white-space: nowrap;
+  }
+
+  .assistant__thread-more {
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    flex: none;
+    border: 0;
+    background: none;
+    color: var(--faint);
+    font-size: 1rem;
+    line-height: 1;
+  }
+
+  .assistant__thread-more:hover {
+    color: var(--ink);
+  }
+
+  .assistant__thread-menu {
+    position: absolute;
+    top: 2rem;
+    right: 0.3rem;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    min-width: 9rem;
+    padding: 3px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
+  }
+
+  .assistant__thread-menu button {
+    padding: 0.4rem 0.55rem;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--ink-2);
+    font-size: var(--text-xs);
+    text-align: left;
+  }
+
+  .assistant__thread-menu button:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .assistant__thread-menu button[data-danger='true'] {
+    color: var(--bad);
+  }
+
+  .assistant__thread-rename-wrap {
+    display: flex;
+    gap: 4px;
+    padding: 0.25rem 0.4rem 0.4rem;
+  }
+
+  .assistant__thread-rename {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .assistant__thread-rename-wrap .assistant__thread-save,
+  .assistant__thread-rename-wrap .assistant__thread-cancel {
+    flex: none;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: 0.625rem;
+  }
+
+  .assistant__thread-rename-wrap .assistant__thread-save {
+    border-color: var(--accent-soft-line);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .assistant__thread-rename {
+    width: 100%;
+    padding: 0.35rem 0.45rem;
+    border: 1px solid var(--ring);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font-size: var(--text-xs);
+    outline: 0;
+  }
+
+  .assistant__thread-confirm {
+    display: flex;
+    gap: 4px;
+    padding: 0.25rem 0.4rem 0.4rem;
+  }
+
+  .assistant__thread-confirm button {
+    flex: 1;
+    padding: 0.35rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink-2);
+    font-size: 0.625rem;
+  }
+
+  .assistant__thread-confirm button[data-danger='true'] {
+    border-color: var(--bad-line);
+    background: var(--bad-soft);
+    color: var(--bad);
+  }
+
+  .assistant__threads-empty {
+    margin-top: var(--space-5);
+    color: var(--muted);
+    font-size: var(--text-xs);
+    text-align: center;
+  }
+
+  .assistant__threads-empty[hidden] {
+    display: none;
   }
 
   .assistant__hello {
