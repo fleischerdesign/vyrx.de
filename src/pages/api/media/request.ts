@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { isSameOrigin } from '../../../lib/http.ts';
 import { canRequest4k } from '../../../lib/media-permissions.ts';
 import { notifyOwner } from '../../../lib/web-push.ts';
+import { upsertMediaWatch } from '../../../lib/store.ts';
 import { resolveMediaUser, type MediaUserFailure, type MediaUserSuccess } from '../../../lib/media-users.ts';
 import { mediaTitle, ownRequests, requestMedia, seerrQuota, SeerrError } from '../../../lib/seerr.ts';
 import { readSession, type Session } from '../../../lib/session.ts';
@@ -188,6 +189,20 @@ const execute = async (
 
   finishMediaProposal(proposal.id, outcome, { requestId });
   if (outcome === 'accepted') {
+    try {
+      upsertMediaWatch({
+        owner: proposal.actor,
+        mediaType: proposal.payload.mediaType,
+        tmdbId: proposal.payload.tmdbId,
+        is4k: proposal.payload.is4k === true,
+        title: proposal.payload.title,
+        locale,
+        seasons: proposal.payload.seasons,
+        requestId,
+      });
+    } catch {
+      // Der Request ist bereits angenommen; der Watch darf ihn nicht kippen.
+    }
     try {
       notifyOwner(
         proposal.actor,

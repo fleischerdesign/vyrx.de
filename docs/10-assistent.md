@@ -208,8 +208,32 @@ Tastatur erreichbar.
   nicht den In-App-Eintrag; die Anfrage-Kategorie schaltet In-App und Push
   gemeinsam. Die Einstellungen liegen als ruhige Ansicht im
   Benachrichtigungspanel, speichern automatisch und zeigen „Gespeichert.“
-- **Weiterhin offen:** Routine-Kategorie, Hintergrund-Statusprüfung ohne
-  offenes Modal und Routinen. E-Mail/Ntfy sind bewusst nicht Teil des Plans.
+- **Weiterhin offen:** Routine-Kategorie und Routinen. E-Mail/Ntfy sind
+  bewusst nicht Teil des Plans.
+
+## H — Media-Watch-Scanner (2026-11-15)
+
+- **Kein Seerr-Webhook, keine Seerr-Konfiguration.** Das Portal liest die
+  bestehende Seerr-API mit dem vorhandenen API-Key.
+- **Schema 10/11:** `media_watch`, `media_watch_event`,
+  `media_scan_state`. Schlüssel: Owner + Medientyp + `tmdbId` + 4K.
+- **Ein Aufruf pro Owner:** `/api/v1/request?requestedBy=<id>`; die Antwort
+  trägt `media.status`, `status4k` und die Staffelstatus.
+- **Serien:** nur die angeforderten Staffeln zählen; `partial` einmal,
+  `available` erst wenn alle angeforderten Staffeln verfügbar sind.
+- **4K:** eigener Watch und eigene Statusspur.
+- **Dedupe:** `media_watch_event` verhindert doppelte Meldungen über Scans,
+  Retries und Prozessneustarts.
+- **Backfill:** Bestehende aktive Requests werden beim ersten Scan einmalig
+  still als Baseline erfasst; keine retroaktive Notification.
+- **Scheduler:** systemd-Timer alle 5 Minuten, aufgerufen über einen internen
+  `POST /api/notifications/scan` mit Scan-Secret. Kein In-Process-Timer,
+  keine Seerr-UI.
+- **Fehler:** Seerr-Ausfall/Timeout lässt Watches unverändert; der nächste
+  Lauf versucht es erneut. Zwei fehlende Request-Antworten deaktivieren einen
+  Watch still.
+- **Benachrichtigungen:** laufen über `notifyOwner`; Kategorie, Ruhezeit und
+  Push-Abonnement gelten unverändert.
 
 ## Nicht Teil dieses Plans
 
@@ -248,7 +272,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 85
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 94
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { resolveMediaUser } from '../src/lib/media-users.ts';
-import { cancelRequest, mediaService, mediaStatusByTitle, mediaTitle, requestMedia, searchMedia } from '../src/lib/seerr.ts';
+import { cancelRequest, mediaService, mediaStatusByTitle, mediaTitle, ownRequests, requestMedia, searchMedia } from '../src/lib/seerr.ts';
 import { canRequest4k } from '../src/lib/media-permissions.ts';
 import type { Session } from '../src/lib/session.ts';
 import {
@@ -353,6 +353,41 @@ test('mediaStatusByTitle matches the exact id and media type', async () => {
   try {
     const item = await mediaStatusByTitle(baseSession(), 2, 'movie', 438631, 'Dune', 'de');
     assert.equal(item?.status, 'processing');
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});
+
+test('ownRequests exposes media status, 4K status and season states', async () => {
+  process.env.PORTAL_SEERR_API_KEY = 'test-key';
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        results: [
+          {
+            id: 263,
+            status: 2,
+            is4k: false,
+            media: { mediaType: 'tv', tmdbId: 90228, status: 3, status4k: 1 },
+            seasons: [
+              { seasonNumber: 1, status: 5, status4k: 1 },
+              { seasonNumber: 2, status: 3, status4k: 1 },
+            ],
+          },
+        ],
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )) as typeof fetch;
+  try {
+    const [request] = await ownRequests(baseSession(), 2, 10);
+    assert.equal(request?.mediaStatus, 3);
+    assert.equal(request?.mediaStatus4k, 1);
+    assert.deepEqual(request?.seasons, [
+      { seasonNumber: 1, status: 5, status4k: 1 },
+      { seasonNumber: 2, status: 3, status4k: 1 },
+    ]);
   } finally {
     globalThis.fetch = original;
     delete process.env.PORTAL_SEERR_API_KEY;

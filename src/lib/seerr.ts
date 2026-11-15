@@ -492,11 +492,21 @@ export async function cancelRequest(session: Session, userId: number, requestId:
   await request<void>(session, `request/${requestId}`, { userId, method: 'DELETE' });
 }
 
+export interface OwnMediaRequestSeason {
+  readonly seasonNumber: number;
+  readonly status: number | null;
+  readonly status4k: number | null;
+}
+
 export interface OwnMediaRequest {
   readonly id: number;
   readonly status: number;
   readonly mediaType: 'movie' | 'tv' | null;
   readonly tmdbId: number | null;
+  readonly is4k: boolean;
+  readonly mediaStatus: number | null;
+  readonly mediaStatus4k: number | null;
+  readonly seasons: readonly OwnMediaRequestSeason[];
 }
 
 /** Eigene Requests; requestedBy ist auch für Admins Pflicht, sonst sieht ein Admin alle. */
@@ -511,12 +521,30 @@ export async function ownRequests(session: Session, userId: number, take = 20): 
     const media = row.media && typeof row.media === 'object' ? (row.media as Record<string, unknown>) : null;
     if (typeof row.id !== 'number') return [];
     const mediaType = media?.mediaType === 'movie' || media?.mediaType === 'tv' ? media.mediaType : null;
+    const seasons = Array.isArray(row.seasons)
+      ? row.seasons.flatMap((season) => {
+          if (season === null || typeof season !== 'object') return [];
+          const value = season as Record<string, unknown>;
+          if (typeof value.seasonNumber !== 'number') return [];
+          return [
+            {
+              seasonNumber: value.seasonNumber,
+              status: typeof value.status === 'number' ? value.status : null,
+              status4k: typeof value.status4k === 'number' ? value.status4k : null,
+            },
+          ];
+        })
+      : [];
     return [
       {
         id: row.id,
         status: typeof row.status === 'number' ? row.status : 0,
         mediaType,
         tmdbId: typeof media?.tmdbId === 'number' ? media.tmdbId : null,
+        is4k: row.is4k === true,
+        mediaStatus: typeof media?.status === 'number' ? media.status : null,
+        mediaStatus4k: typeof media?.status4k === 'number' ? media.status4k : null,
+        seasons,
       },
     ];
   });

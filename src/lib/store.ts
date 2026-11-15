@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 11;
 
 export interface Report {
   readonly id: number;
@@ -245,6 +245,55 @@ function migrate(db: DatabaseSync): void {
         request      INTEGER NOT NULL DEFAULT 1,
         routine      INTEGER NOT NULL DEFAULT 1,
         updated_at   TEXT NOT NULL
+      );
+    `);
+  }
+
+  if (current < 10) {
+    // Ein Watch ist die kleinste Einheit, die einen Statusübergang genau einmal
+    // erzeugen kann: Owner + Medientyp + TMDB-ID + Qualität.
+    db.exec(`
+      CREATE TABLE media_watch (
+        owner               TEXT NOT NULL,
+        media_type          TEXT NOT NULL,
+        tmdb_id             INTEGER NOT NULL,
+        is4k                INTEGER NOT NULL DEFAULT 0,
+        title               TEXT NOT NULL,
+        locale              TEXT NOT NULL DEFAULT 'de',
+        seasons_json        TEXT,
+        request_ids_json    TEXT,
+        last_status         TEXT NOT NULL,
+        last_request_status TEXT,
+        active              INTEGER NOT NULL DEFAULT 1,
+        misses              INTEGER NOT NULL DEFAULT 0,
+        failures            INTEGER NOT NULL DEFAULT 0,
+        last_checked_at     TEXT,
+        next_check_at       TEXT,
+        created_at          TEXT NOT NULL,
+        updated_at          TEXT NOT NULL,
+        PRIMARY KEY (owner, media_type, tmdb_id, is4k)
+      );
+
+      CREATE INDEX media_watch_active ON media_watch (active, next_check_at);
+
+      CREATE TABLE media_watch_event (
+        owner       TEXT NOT NULL,
+        media_type  TEXT NOT NULL,
+        tmdb_id     INTEGER NOT NULL,
+        is4k        INTEGER NOT NULL,
+        event       TEXT NOT NULL,
+        created_at  TEXT NOT NULL,
+        PRIMARY KEY (owner, media_type, tmdb_id, is4k, event)
+      );
+    `);
+  }
+
+  if (current < 11) {
+    // Einmalige stille Baseline für Anfragen, die vor dem Watch-Feature existierten.
+    db.exec(`
+      CREATE TABLE media_scan_state (
+        owner         TEXT PRIMARY KEY,
+        backfilled_at TEXT NOT NULL
       );
     `);
   }
@@ -774,6 +823,42 @@ export function appendAssistantMessages(
   }
 }
 
+export interface MediaUserMappingEntry extends MediaUserMapping {
+  readonly owner: string;
+}
+
+export function mediaUserMappings(): readonly MediaUserMappingEntry[] {
+  const rows = open()
+    .prepare('SELECT owner, seerr_user_id, seerr_email, seerr_username, verified_at FROM media_user ORDER BY owner ASC')
+    .all() as unknown as {
+    owner: string;
+    seerr_user_id: number;
+    seerr_email: string | null;
+    seerr_username: string | null;
+    verified_at: string;
+  }[];
+  return rows.map((row) => ({
+    owner: row.owner,
+    seerrUserId: row.seerr_user_id,
+    seerrEmail: row.seerr_email,
+    seerrUsername: row.seerr_username,
+    verifiedAt: row.verified_at,
+  }));
+}
+
+export function mediaScanBackfilled(owner: string): boolean {
+  return Boolean(open().prepare('SELECT 1 AS there FROM media_scan_state WHERE owner = ?').get(owner));
+}
+
+export function markMediaScanComplete(owner: string): void {
+  open()
+    .prepare(
+      `INSERT INTO media_scan_state (owner, backfilled_at) VALUES (?, ?)
+       ON CONFLICT(owner) DO UPDATE SET backfilled_at = excluded.backfilled_at`,
+    )
+    .run(owner, now());
+}
+
 // ------------------------------------------------------------------------------------------------
 // Benachrichtigungen: ein Ereignis, ein Owner, ein Lesestatus
 // ------------------------------------------------------------------------------------------------
@@ -1017,6 +1102,208 @@ export function inQuietHours(preferences: NotificationPreferences, at = new Date
   const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? '0');
   const current = hour * 60 + minute;
   return start < end ? current >= start && current < end : current >= start || current < end;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Media-Watches: Statusübergänge genau einmal
+// ------------------------------------------------------------------------------------------------
+
+export interface MediaWatch {
+  readonly owner: string;
+  readonly mediaType: 'movie' | 'tv';
+  readonly tmdbId: number;
+  readonly is4k: boolean;
+  readonly title: string;
+  readonly locale: 'de' | 'en';
+  readonly seasons: readonly number[] | null;
+  readonly requestIds: readonly number[];
+  readonly lastStatus: string;
+  readonly lastRequestStatus: string | null;
+  readonly active: boolean;
+  readonly misses: number;
+  readonly failures: number;
+  readonly lastCheckedAt: string | null;
+  readonly nextCheckAt: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+const parseNumberArray = (value: string | null): readonly number[] | null => {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is number => typeof entry === 'number') : null;
+  } catch {
+    return null;
+  }
+};
+
+const watchFromRow = (row: {
+  owner: string;
+  media_type: string;
+  tmdb_id: number;
+  is4k: number;
+  title: string;
+  locale: string;
+  seasons_json: string | null;
+  request_ids_json: string | null;
+  last_status: string;
+  last_request_status: string | null;
+  active: number;
+  misses: number;
+  failures: number;
+  last_checked_at: string | null;
+  next_check_at: string | null;
+  created_at: string;
+  updated_at: string;
+}): MediaWatch => ({
+  owner: row.owner,
+  mediaType: row.media_type === 'tv' ? 'tv' : 'movie',
+  tmdbId: row.tmdb_id,
+  is4k: row.is4k === 1,
+  title: row.title,
+  locale: row.locale === 'en' ? 'en' : 'de',
+  seasons: parseNumberArray(row.seasons_json),
+  requestIds: parseNumberArray(row.request_ids_json) ?? [],
+  lastStatus: row.last_status,
+  lastRequestStatus: row.last_request_status,
+  active: row.active === 1,
+  misses: row.misses,
+  failures: row.failures,
+  lastCheckedAt: row.last_checked_at,
+  nextCheckAt: row.next_check_at,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+export function upsertMediaWatch(input: {
+  readonly owner: string;
+  readonly mediaType: 'movie' | 'tv';
+  readonly tmdbId: number;
+  readonly is4k: boolean;
+  readonly title: string;
+  readonly locale: 'de' | 'en';
+  readonly seasons: readonly number[] | null;
+  readonly requestId: number | null;
+  readonly lastStatus?: string;
+  readonly lastRequestStatus?: string | null;
+}): MediaWatch {
+  const db = open();
+  const at = now();
+  const existing = db
+    .prepare('SELECT * FROM media_watch WHERE owner = ? AND media_type = ? AND tmdb_id = ? AND is4k = ?')
+    .get(input.owner, input.mediaType, input.tmdbId, input.is4k ? 1 : 0) as
+    | Parameters<typeof watchFromRow>[0]
+    | undefined;
+  const mergedSeasons = [...new Set([...(parseNumberArray(existing?.seasons_json ?? null) ?? []), ...(input.seasons ?? [])])].sort(
+    (a, b) => a - b,
+  );
+  const mergedRequests = [...new Set([...(parseNumberArray(existing?.request_ids_json ?? null) ?? []), ...(input.requestId ? [input.requestId] : [])])].sort(
+    (a, b) => a - b,
+  );
+  const seasonsJson = mergedSeasons.length > 0 ? JSON.stringify(mergedSeasons) : null;
+  const requestsJson = mergedRequests.length > 0 ? JSON.stringify(mergedRequests) : null;
+  if (existing) {
+    db.prepare(
+      `UPDATE media_watch SET title = ?, locale = ?, seasons_json = ?, request_ids_json = ?,
+       active = 1, misses = 0, failures = 0, next_check_at = ?, updated_at = ?
+       WHERE owner = ? AND media_type = ? AND tmdb_id = ? AND is4k = ?`,
+    ).run(
+      input.title || existing.title,
+      input.locale,
+      seasonsJson,
+      requestsJson,
+      at,
+      at,
+      input.owner,
+      input.mediaType,
+      input.tmdbId,
+      input.is4k ? 1 : 0,
+    );
+  } else {
+    db.prepare(
+      `INSERT INTO media_watch (owner, media_type, tmdb_id, is4k, title, locale, seasons_json,
+        request_ids_json, last_status, last_request_status, active, created_at, updated_at, next_check_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+    ).run(
+      input.owner,
+      input.mediaType,
+      input.tmdbId,
+      input.is4k ? 1 : 0,
+      input.title,
+      input.locale,
+      seasonsJson,
+      requestsJson,
+      input.lastStatus ?? 'unknown',
+      input.lastRequestStatus ?? null,
+      at,
+      at,
+      at,
+    );
+  }
+  const row = db
+    .prepare('SELECT * FROM media_watch WHERE owner = ? AND media_type = ? AND tmdb_id = ? AND is4k = ?')
+    .get(input.owner, input.mediaType, input.tmdbId, input.is4k ? 1 : 0) as Parameters<typeof watchFromRow>[0];
+  return watchFromRow(row);
+}
+
+export function mediaWatchOf(
+  owner: string,
+  mediaType: 'movie' | 'tv',
+  tmdbId: number,
+  is4k: boolean,
+): MediaWatch | null {
+  const row = open()
+    .prepare('SELECT * FROM media_watch WHERE owner = ? AND media_type = ? AND tmdb_id = ? AND is4k = ?')
+    .get(owner, mediaType, tmdbId, is4k ? 1 : 0) as Parameters<typeof watchFromRow>[0] | undefined;
+  return row ? watchFromRow(row) : null;
+}
+
+export function activeMediaWatches(): readonly MediaWatch[] {
+  const rows = open()
+    .prepare('SELECT * FROM media_watch WHERE active = 1 ORDER BY owner ASC, updated_at ASC')
+    .all() as unknown as Parameters<typeof watchFromRow>[0][];
+  return rows.map(watchFromRow);
+}
+
+export function recordMediaWatchEvent(watch: MediaWatch, event: string): boolean {
+  const changed = open()
+    .prepare('INSERT OR IGNORE INTO media_watch_event (owner, media_type, tmdb_id, is4k, event, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(watch.owner, watch.mediaType, watch.tmdbId, watch.is4k ? 1 : 0, event, now());
+  return Number(changed.changes) === 1;
+}
+
+export function updateMediaWatchObservation(
+  watch: MediaWatch,
+  observation: {
+    readonly status: string;
+    readonly requestStatus: string | null;
+    readonly active: boolean;
+    readonly misses: number;
+    readonly failures?: number;
+  },
+): void {
+  const at = now();
+  open()
+    .prepare(
+      `UPDATE media_watch SET last_status = ?, last_request_status = ?, active = ?, misses = ?,
+       failures = ?, last_checked_at = ?, updated_at = ?, next_check_at = ?
+       WHERE owner = ? AND media_type = ? AND tmdb_id = ? AND is4k = ?`,
+    )
+    .run(
+      observation.status,
+      observation.requestStatus,
+      observation.active ? 1 : 0,
+      observation.misses,
+      observation.failures ?? 0,
+      at,
+      at,
+      at,
+      watch.owner,
+      watch.mediaType,
+      watch.tmdbId,
+      watch.is4k ? 1 : 0,
+    );
 }
 
 // ------------------------------------------------------------------------------------------------
