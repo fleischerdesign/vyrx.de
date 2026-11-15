@@ -31,6 +31,7 @@ const labels = {
   retry: t('assistantRetry'),
   error: t('assistantError'),
   stopped: t('assistantStopped'),
+  interrupted: t('assistantInterrupted'),
   empty: t('assistantEmpty'),
   sources: t('assistantSources'),
   tooMany: t('assistantTooMany'),
@@ -2109,6 +2110,24 @@ const labels = {
       scroll();
     };
 
+    const addInlineError = (turn: HTMLElement, message: string): void => {
+      const box = document.createElement('div');
+      box.className = 'assistant__error assistant__error--inline';
+      const paragraph = document.createElement('p');
+      paragraph.textContent = message;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'assistant__retry';
+      button.textContent = labels.retry ?? '';
+      button.addEventListener('click', () => {
+        turn.remove();
+        void requestAnswer();
+      });
+      box.append(paragraph, button);
+      turn.append(box);
+      scroll();
+    };
+
     const save = (): void => {
       try {
         sessionStorage.setItem(storageKey, JSON.stringify(messages.slice(-12)));
@@ -2602,14 +2621,43 @@ const labels = {
         scroll();
       } catch (error) {
         if (id !== run) return;
-        turn.remove();
 
         if (controller.signal.aborted) {
+          turn.remove();
           const stopped = document.createElement('p');
           stopped.className = 'assistant__stopped';
           stopped.textContent = labels.stopped ?? '';
           log.append(stopped);
+        } else if (streamed.trim() || uiNodes.length > 0 || navigations.length > 0) {
+          if (streamFrame) {
+            cancelAnimationFrame(streamFrame);
+            streamFrame = 0;
+          }
+          answer.classList.remove('is-streaming');
+          try {
+            if (streamed.trim()) {
+              renderMarkdown(answer, streamed, false);
+              renderUi(turn, uiNodes);
+              renderNavigations(turn, navigations);
+              if (!uiNodes.some((node) => node.type === 'media')) {
+                renderSources(turn, streamed, sources);
+              }
+            } else {
+              answer.remove();
+              renderUi(turn, uiNodes);
+              renderNavigations(turn, navigations);
+            }
+            const message =
+              error instanceof Error && error.message && error.message !== labels.error
+                ? error.message
+                : (labels.interrupted ?? labels.error ?? '');
+            addInlineError(turn, message);
+          } catch {
+            turn.remove();
+            addError(labels.error ?? '', true);
+          }
         } else {
+          turn.remove();
           const message = error instanceof Error && error.message ? error.message : (labels.error ?? '');
           addError(message, true);
         }
@@ -5436,6 +5484,10 @@ const labels = {
     border-radius: var(--radius-md);
     background: var(--bad-soft);
     color: var(--bad);
+  }
+
+  .assistant__error--inline {
+    margin-top: var(--space-2);
   }
 
   .assistant__error p {

@@ -160,6 +160,9 @@ export const POST: APIRoute = async ({ request }) => {
         send('done', {});
       } catch (error) {
         if (!request.signal.aborted) {
+          const detail = error instanceof Error ? error.message : 'unknown';
+          const status = error instanceof AssistantProviderError ? error.status : null;
+          console.error(`assistant provider failure${status ? ` (${status})` : ''}: ${detail}`);
           const message = error instanceof AssistantProviderError && error.status === 429 ? 'rate' : 'provider';
           try {
             send('error', { message });

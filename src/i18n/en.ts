@@ -156,6 +156,7 @@ export const en: Record<keyof typeof de, string> = {
   assistantError: 'The assistant is not reachable right now.',
   assistantRetry: 'Try again',
   assistantStopped: 'Stopped.',
+  assistantInterrupted: 'The answer was interrupted. The visible part remains.',
   assistantEmpty: 'No answer received.',
   assistantSources: 'Sources',
   assistantTooMany: 'Too many requests. Please wait a moment.',

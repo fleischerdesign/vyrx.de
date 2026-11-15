@@ -181,6 +181,7 @@ export const de = {
   assistantError: 'Der Assistent ist gerade nicht erreichbar.',
   assistantRetry: 'Erneut versuchen',
   assistantStopped: 'Abgebrochen.',
+  assistantInterrupted: 'Die Antwort wurde unterbrochen. Der bereits sichtbare Teil bleibt stehen.',
   assistantEmpty: 'Keine Antwort erhalten.',
   assistantSources: 'Quellen',
   assistantTooMany: 'Zu viele Anfragen. Bitte warte einen Moment.',

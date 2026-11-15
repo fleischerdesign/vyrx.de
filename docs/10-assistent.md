@@ -27,6 +27,10 @@ einem Weg — einem Link, einer Karte oder dem nächsten Schritt.
   Historie, Wissen, Wartung).
 - **Jede Antwort endet mit einem Weg.** Ein Link, eine Dienst-Karte, ein
   nächster Schritt — nicht nur ein Absatz.
+- **Teilantworten bleiben stehen.** Bricht der Provider-Stream nach bereits
+  gestreamtem Text ab, wird die Antwort nicht mehr gelöscht: der sichtbare
+  Teil bleibt, darunter stehen ein knapper Unterbrechungstext und
+  „Erneut versuchen“. Provider-Fehler werden mit Status und Meldung geloggt.
 - **Ruhige Oberfläche.** Rich Blocks statt Sprechblasen; keine schwebende
   Chat-Blase. Der Assistent bleibt eine ruhige Schublade.
 - **Ohne JavaScript bleibt der Einstieg aus.** Die Seiten funktionieren weiter;
