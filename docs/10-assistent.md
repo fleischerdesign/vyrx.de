@@ -182,7 +182,7 @@ Tastatur erreichbar.
 - [ ] **F4 Öffentliche Hilfe.**
 - [ ] **F5 Vergleich von Diensten** (optional).
 
-## G — Benachrichtigungen (In-App, 2026-11-15)
+## G — Benachrichtigungen (In-App + Web Push, 2026-11-15)
 
 - **Speicher:** SQLite-Schema 7 mit `notification` und `media_status_seen`;
   jede Abfrage ist owner-scoped.
@@ -195,9 +195,15 @@ Tastatur erreichbar.
   „Alle gelesen“, ruhigen Zeilen, Lesestatus, Zeit und Leerzustand. Kein
   Chip-Stapel, keine Dauersidebar. Mobile wird das Panel eine randbreite
   Fläche unter der Topbar, kein Bottom-Sheet.
-- **Grenze:** In-App only. Web Push, E-Mail/Ntfy, Quiet Hours und
-  Kategorieeinstellungen sind der nächste Ausbau; ohne Push werden
-  Benachrichtigungen erst beim nächsten Laden/Poll sichtbar.
+- **Web Push:** SQLite-Schema 8 speichert Push-Abonnements owner-scoped;
+  VAPID-Schlüssel liegen in SOPS und werden dem Portal als Credentials
+  übergeben. `GET /api/notifications/push` liefert nur den öffentlichen
+  Schlüssel, `POST /api/notifications/subscribe` und `/unsubscribe` verwalten
+  Geräte. `public/sw.js` zeigt Push-Nachrichten und öffnet beim Klick das
+  Ziel; die Aktivierung erfolgt ausschließlich über „Push aktivieren“ im
+  Panel, nicht automatisch beim Laden.
+- **Weiterhin offen:** Quiet Hours, Kategorie-/Kanaleinstellungen,
+  Hintergrund-Statusprüfung ohne offenes Modal, E-Mail/Ntfy und Routinen.
 
 ## Nicht Teil dieses Plans
 
@@ -236,7 +242,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 83
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 84
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

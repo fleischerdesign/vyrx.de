@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 export interface Report {
   readonly id: number;
@@ -214,6 +214,23 @@ function migrate(db: DatabaseSync): void {
         seen_at     TEXT NOT NULL,
         PRIMARY KEY (owner, media_type, tmdb_id)
       );
+    `);
+  }
+
+  if (current < 8) {
+    // Web-Push-Endpunkte sind Geräte, keine Personen. Der Owner bleibt Teil
+    // jedes Zugriffs; ein Gerät kann nur seine eigenen Endpunkte abmelden.
+    db.exec(`
+      CREATE TABLE push_subscription (
+        endpoint    TEXT PRIMARY KEY,
+        owner       TEXT NOT NULL,
+        p256dh      TEXT NOT NULL,
+        auth        TEXT NOT NULL,
+        created_at  TEXT NOT NULL,
+        user_agent  TEXT
+      );
+
+      CREATE INDEX push_subscription_by_owner ON push_subscription (owner);
     `);
   }
 
@@ -847,6 +864,51 @@ export function recordMediaStatusSeen(
      ON CONFLICT(owner, media_type, tmdb_id) DO UPDATE SET status = excluded.status, seen_at = excluded.seen_at`,
   ).run(owner, mediaType, tmdbId, status.slice(0, 40), now());
   return previous;
+}
+
+// ------------------------------------------------------------------------------------------------
+// Push-Abonnements: Geräteadressen, keine Personen
+// ------------------------------------------------------------------------------------------------
+
+export interface PushSubscriptionRecord {
+  readonly endpoint: string;
+  readonly owner: string;
+  readonly p256dh: string;
+  readonly auth: string;
+  readonly createdAt: string;
+  readonly userAgent: string | null;
+}
+
+export function savePushSubscription(
+  owner: string,
+  subscription: { readonly endpoint: string; readonly p256dh: string; readonly auth: string; readonly userAgent?: string | null },
+): void {
+  open()
+    .prepare(
+      `INSERT INTO push_subscription (endpoint, owner, p256dh, auth, created_at, user_agent)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(endpoint) DO UPDATE SET owner = excluded.owner, p256dh = excluded.p256dh,
+         auth = excluded.auth, user_agent = excluded.user_agent`,
+    )
+    .run(
+      subscription.endpoint,
+      owner,
+      subscription.p256dh,
+      subscription.auth,
+      now(),
+      subscription.userAgent?.slice(0, 300) ?? null,
+    );
+}
+
+export function pushSubscriptionsOf(owner: string): readonly PushSubscriptionRecord[] {
+  return open()
+    .prepare('SELECT endpoint, owner, p256dh, auth, created_at, user_agent FROM push_subscription WHERE owner = ?')
+    .all(owner) as unknown as PushSubscriptionRecord[];
+}
+
+export function removePushSubscription(owner: string, endpoint: string): boolean {
+  const changed = open().prepare('DELETE FROM push_subscription WHERE owner = ? AND endpoint = ?').run(owner, endpoint);
+  return Number(changed.changes) === 1;
 }
 
 // ------------------------------------------------------------------------------------------------

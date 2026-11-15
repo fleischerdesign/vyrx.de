@@ -3,7 +3,8 @@ import { isSameOrigin } from '../../../lib/http.ts';
 import { resolveMediaUser } from '../../../lib/media-users.ts';
 import { mediaStatusByTitle, SeerrError } from '../../../lib/seerr.ts';
 import { readSession } from '../../../lib/session.ts';
-import { createNotification, recordMediaStatusSeen } from '../../../lib/store.ts';
+import { notifyOwner } from '../../../lib/web-push.ts';
+import { recordMediaStatusSeen } from '../../../lib/store.ts';
 
 /*
  * Kleiner Statusabgleich nach einer Anfrage. Der Seerr-Detailendpunkt trägt
@@ -45,18 +46,20 @@ export const GET: APIRoute = async ({ request, url }) => {
       if (previous && previous !== item.status) {
         try {
           if (item.status === 'processing') {
-            createNotification(
+            notifyOwner(
               owner,
               'request',
               locale === 'de' ? 'Anfrage freigegeben' : 'Request approved',
               item.title,
+              locale === 'de' ? '/overview/' : '/en/overview/',
             );
           } else if (item.status === 'available') {
-            createNotification(
+            notifyOwner(
               owner,
               'request',
               locale === 'de' ? 'Jetzt verfügbar' : 'Now available',
               item.title,
+              locale === 'de' ? '/overview/' : '/en/overview/',
             );
           }
         } catch {

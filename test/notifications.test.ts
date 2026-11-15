@@ -9,7 +9,10 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   notificationsOf,
+  pushSubscriptionsOf,
   recordMediaStatusSeen,
+  removePushSubscription,
+  savePushSubscription,
   unreadNotificationCount,
 } from '../src/lib/store.ts';
 
@@ -52,4 +55,15 @@ test('media status transitions are recorded once per owner and title', () => {
   assert.equal(recordMediaStatusSeen('alice', 'movie', 438631, 'processing'), 'requested');
   assert.equal(recordMediaStatusSeen('alice', 'movie', 438631, 'processing'), 'processing');
   assert.equal(recordMediaStatusSeen('bob', 'movie', 438631, 'requested'), null);
+});
+
+test('push subscriptions are owner-scoped and removable only by their owner', () => {
+  savePushSubscription('alice', { endpoint: 'https://push.example/a', p256dh: 'key-a', auth: 'auth-a' });
+  savePushSubscription('bob', { endpoint: 'https://push.example/b', p256dh: 'key-b', auth: 'auth-b' });
+  assert.equal(pushSubscriptionsOf('alice').length, 1);
+  assert.equal(pushSubscriptionsOf('bob').length, 1);
+  assert.equal(removePushSubscription('bob', 'https://push.example/a'), false);
+  assert.equal(removePushSubscription('alice', 'https://push.example/a'), true);
+  assert.equal(pushSubscriptionsOf('alice').length, 0);
+  assert.equal(pushSubscriptionsOf('bob').length, 1);
 });

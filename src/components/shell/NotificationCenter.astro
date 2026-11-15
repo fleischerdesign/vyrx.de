@@ -17,6 +17,12 @@ const labels = {
   open: t('notificationsOpen'),
   markRead: t('notificationsMarkRead'),
   unread: t('notificationsUnread'),
+  pushEnable: t('notificationsPushEnable'),
+  pushDisable: t('notificationsPushDisable'),
+  pushActive: t('notificationsPushActive'),
+  pushDenied: t('notificationsPushDenied'),
+  pushUnsupported: t('notificationsPushUnsupported'),
+  pushError: t('notificationsPushError'),
 };
 ---
 
@@ -48,6 +54,10 @@ const labels = {
     </header>
     <div class="notifications__list" data-notifications-list role="list"></div>
     <p class="notifications__empty" data-notifications-empty>{labels.empty}</p>
+    <div class="notifications__foot" data-notifications-push-wrap hidden>
+      <button type="button" class="notifications__push" data-notifications-push>{labels.pushEnable}</button>
+      <span class="notifications__push-state" data-notifications-push-state></span>
+    </div>
   </section>
 </div>
 
@@ -77,6 +87,9 @@ const labels = {
   const readAll = document.querySelector<HTMLButtonElement>('[data-notifications-readall]');
   const badge = document.querySelector<HTMLElement>('[data-notifications-badge]');
   const labelsNode = document.querySelector<HTMLScriptElement>('[data-notifications-labels]');
+  const pushWrap = document.querySelector<HTMLElement>('[data-notifications-push-wrap]');
+  const pushButton = document.querySelector<HTMLButtonElement>('[data-notifications-push]');
+  const pushState = document.querySelector<HTMLElement>('[data-notifications-push-state]');
 
   if (root && trigger && panel && list && empty && readAll && badge && labelsNode) {
     let labels: {
@@ -87,6 +100,12 @@ const labels = {
       open: string;
       markRead: string;
       unread: string;
+      pushEnable: string;
+      pushDisable: string;
+      pushActive: string;
+      pushDenied: string;
+      pushUnsupported: string;
+      pushError: string;
       locale: 'de' | 'en';
     };
     try {
@@ -100,6 +119,12 @@ const labels = {
         open: 'Benachrichtigungen öffnen',
         markRead: 'Als gelesen markieren',
         unread: 'ungelesen',
+        pushEnable: 'Push aktivieren',
+        pushDisable: 'Push deaktivieren',
+        pushActive: 'Push aktiv',
+        pushDenied: 'Benachrichtigungen sind im Browser blockiert.',
+        pushUnsupported: 'Dieser Browser unterstützt kein Web Push.',
+        pushError: 'Push konnte nicht eingerichtet werden.',
         locale: 'de',
       };
     }
@@ -233,7 +258,101 @@ const labels = {
       if (event.key === 'Escape' && !panel.hidden) close();
     });
 
+    let pushSubscription: PushSubscription | null = null;
+    let pushPublicKey: string | null = null;
+
+    const urlBase64ToUint8Array = (value: string): Uint8Array<ArrayBuffer> => {
+      const padding = '='.repeat((4 - (value.length % 4)) % 4);
+      const base64 = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+      const raw = window.atob(base64);
+      const bytes = new Uint8Array(new ArrayBuffer(raw.length));
+      for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i);
+      return bytes;
+    };
+
+    const updatePushUi = (): void => {
+      if (!pushButton || !pushState) return;
+      if (pushSubscription) {
+        pushButton.textContent = labels.pushDisable;
+        pushState.textContent = labels.pushActive;
+      } else {
+        pushButton.textContent = labels.pushEnable;
+        pushState.textContent = '';
+      }
+    };
+
+    const setupPush = async (): Promise<void> => {
+      if (!pushWrap || !pushButton || !pushState) return;
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        pushWrap.hidden = false;
+        pushButton.hidden = true;
+        pushState.textContent = labels.pushUnsupported;
+        return;
+      }
+      try {
+        const response = await fetch('/api/notifications/push');
+        if (!response.ok) return;
+        const data = (await response.json()) as { enabled?: boolean; publicKey?: string | null };
+        if (!data.enabled || !data.publicKey) return;
+        pushPublicKey = data.publicKey;
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        pushSubscription = await registration.pushManager.getSubscription();
+        pushWrap.hidden = false;
+        updatePushUi();
+        if (Notification.permission === 'denied') {
+          pushButton.hidden = true;
+          pushState.textContent = labels.pushDenied;
+        }
+        pushButton.addEventListener('click', async () => {
+          if (!pushPublicKey) return;
+          pushButton.disabled = true;
+          try {
+            if (pushSubscription) {
+              const endpoint = pushSubscription.endpoint;
+              await pushSubscription.unsubscribe();
+              await fetch('/api/notifications/unsubscribe', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ endpoint }),
+              }).catch(() => undefined);
+              pushSubscription = null;
+            } else {
+              const permission = await Notification.requestPermission();
+              if (permission !== 'granted') {
+                pushButton.hidden = true;
+                pushState.textContent = labels.pushDenied;
+                return;
+              }
+              const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(pushPublicKey),
+              });
+              const json = subscription.toJSON();
+              if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) throw new Error('subscription');
+              const saved = await fetch('/api/notifications/subscribe', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ subscription: json }),
+              });
+              if (!saved.ok) throw new Error('subscribe');
+              pushSubscription = subscription;
+            }
+            updatePushUi();
+          } catch {
+            pushState.textContent = labels.pushError;
+          } finally {
+            pushButton.disabled = false;
+          }
+        });
+      } catch {
+        pushWrap.hidden = false;
+        pushButton.hidden = true;
+        pushState.textContent = labels.pushError;
+      }
+    };
+
     void load();
+    void setupPush();
     window.setInterval(() => {
       if (document.visibilityState === 'visible') void load();
     }, 60_000);
@@ -412,6 +531,34 @@ const labels = {
 
   .notifications__empty[hidden] {
     display: none;
+  }
+
+  .notifications__foot {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--line);
+  }
+
+  .notifications__push {
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: var(--accent-strong);
+    font-size: 0.625rem;
+    font-weight: var(--weight-medium);
+    white-space: nowrap;
+  }
+
+  .notifications__push:hover {
+    color: var(--accent);
+  }
+
+  .notifications__push-state {
+    color: var(--faint);
+    font-size: 0.5625rem;
+    line-height: 1.3;
   }
 
   @media (max-width: 480px) {

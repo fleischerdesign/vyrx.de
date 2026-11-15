@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { isSameOrigin } from '../../../lib/http.ts';
 import { canRequest4k } from '../../../lib/media-permissions.ts';
+import { notifyOwner } from '../../../lib/web-push.ts';
 import { resolveMediaUser, type MediaUserFailure, type MediaUserSuccess } from '../../../lib/media-users.ts';
 import { mediaTitle, ownRequests, requestMedia, seerrQuota, SeerrError } from '../../../lib/seerr.ts';
 import { readSession, type Session } from '../../../lib/session.ts';
@@ -8,7 +9,6 @@ import {
   consumeMediaProposal,
   countRecentMediaProposals,
   createMediaProposal,
-  createNotification,
   finishMediaProposal,
   mediaProposalOf,
   recordAction,
@@ -189,11 +189,12 @@ const execute = async (
   finishMediaProposal(proposal.id, outcome, { requestId });
   if (outcome === 'accepted') {
     try {
-      createNotification(
+      notifyOwner(
         proposal.actor,
         'request',
         locale === 'de' ? 'Anfrage übergeben' : 'Request submitted',
         proposal.payload.title,
+        locale === 'de' ? '/overview/' : '/en/overview/',
       );
     } catch {
       // Die Anfrage ist bereits raus; eine Benachrichtigung darf sie nicht kippen.
