@@ -125,9 +125,9 @@ test('watch events are idempotent per owner/key/event and owner-scoped', () => {
 });
 
 test('notification copy is localized and points to the workspace overview', () => {
-  assert.equal(notificationForWatch('available', 'de', 'Dune').title, 'Jetzt verfügbar');
-  assert.equal(notificationForWatch('available', 'en', 'Dune').title, 'Now available');
-  assert.equal(notificationForWatch('available', 'de', 'Dune').href, '/overview/');
+  assert.equal(notificationForWatch('available', 'de', 'Dune', 'movie', 438631).title, 'Jetzt verfügbar');
+  assert.equal(notificationForWatch('available', 'en', 'Dune', 'movie', 438631).title, 'Now available');
+  assert.equal(notificationForWatch('available', 'de', 'Dune', 'movie', 438631).href, '/overview/?media=movie:438631');
 });
 
 test('a scan emits one notification per transition and deactivates when available', async () => {

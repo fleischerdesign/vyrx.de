@@ -209,7 +209,7 @@ const execute = async (
         'request',
         locale === 'de' ? 'Anfrage übergeben' : 'Request submitted',
         proposal.payload.title,
-        locale === 'de' ? '/overview/' : '/en/overview/',
+        `${locale === 'de' ? '/overview/' : '/en/overview/'}?media=${proposal.payload.mediaType}:${proposal.payload.tmdbId}`,
       );
     } catch {
       // Die Anfrage ist bereits raus; eine Benachrichtigung darf sie nicht kippen.

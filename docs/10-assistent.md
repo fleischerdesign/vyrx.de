@@ -325,9 +325,21 @@ Tastatur erreichbar.
 - **Thread-Deep-Link:** `/overview/?thread=<id>` öffnet den passenden
   Assistant-Thread direkt. Der Query-Parameter wird nach dem Laden entfernt,
   damit ein Reload nicht erneut springt.
-- **Noch offen:** Medien-Deep-Link in den konkreten Titel; dafür braucht es
-  einen Detail-Endpunkt und das Öffnen des bestehenden Medien-Modals aus
-  einem Query-Parameter.
+- **Medien-Deep-Link:** `/overview/?media=movie:<tmdbId>` bzw.
+  `?media=tv:<tmdbId>` öffnet das bestehende Medien-Modal über
+  `GET /api/media/title`. Scan- und Request-Benachrichtigungen tragen diesen
+  Link; der Query-Parameter wird nach dem Öffnen entfernt.
+
+## N — Medien-Deep-Links (2026-11-15)
+
+- `notificationForWatch` und die Accepted-Request-Benachrichtigung verlinken
+  jetzt auf `/overview/?media=<type>:<tmdbId>` (bzw. die englische Route).
+- Der Client liest den Parameter, holt den serverseitig geprüften Media-Block
+  über `GET /api/media/title` und öffnet das vorhandene Medien-Modal.
+- Der Parameter wird danach aus der URL entfernt; ein Reload springt nicht
+  erneut.
+- Push-, In-App- und Thread-Links bleiben interne Pfade; es gibt keinen
+  externen Redirect.
 
 ## Nicht Teil dieses Plans
 

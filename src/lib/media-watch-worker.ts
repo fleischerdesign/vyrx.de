@@ -124,7 +124,7 @@ export async function runMediaWatchScan(
 
         const observation = observeWatch(watch, matching);
         if (observation.event && recordMediaWatchEvent(watch, observation.event)) {
-          const notification = notificationForWatch(observation.event, watch.locale, watch.title);
+          const notification = notificationForWatch(observation.event, watch.locale, watch.title, watch.mediaType, watch.tmdbId);
           try {
             notifyOwner(watch.owner, 'request', notification.title, notification.body, notification.href, {
               deferPush: true,

@@ -471,169 +471,6 @@ const labels = {
       }
     };
 
-    const renderUi = (turn: HTMLElement, nodes: readonly AssistantBlock[]): void => {
-      if (!Array.isArray(nodes) || nodes.length === 0) return;
-      const pruneMediaForConfirm = (): void => {
-        if (!turn.querySelector('.ui-confirm')) return;
-        for (const media of turn.querySelectorAll('.ui-media')) media.remove();
-        for (const grid of turn.querySelectorAll('.ui-media-grid')) grid.remove();
-        for (const chips of turn.querySelectorAll('.ui-chips')) chips.remove();
-      };
-      pruneMediaForConfirm();
-      const wrap = document.createElement('div');
-      wrap.className = 'assistant__ui';
-      const seen = new Set<string>();
-
-      const renderInlineWithBreaks = (parent: HTMLElement, value: string): void => {
-        value.split('\n').forEach((line, index) => {
-          if (index > 0) parent.append(document.createElement('br'));
-          renderInline(parent, line);
-        });
-      };
-
-      const isRowType = (node: AssistantBlock): boolean =>
-        node.type === 'summary' ||
-        node.type === 'status' ||
-        node.type === 'service' ||
-        node.type === 'article' ||
-        node.type === 'maintenance';
-
-      const renderRows = (parent: HTMLElement, rows: readonly AssistantBlock[]): void => {
-        if (!Array.isArray(rows) || rows.length === 0) return;
-        const container = document.createElement('div');
-        container.className = 'ui-rows';
-        let start = 0;
-
-        if (rows[0]?.type === 'summary') {
-          const summary = rows[0];
-          const href = safeHref(summary.href);
-          const head = document.createElement(href ? 'a' : 'div');
-          head.className = 'ui-rows__head';
-          head.dataset.state = summary.tone === 'ok' ? 'up' : summary.tone === 'warn' ? 'down' : 'unknown';
-          if (href) (head as HTMLAnchorElement).href = href;
-          const dot = document.createElement('span');
-          dot.className = 'assistant-card__dot';
-          dot.setAttribute('aria-hidden', 'true');
-          const body = document.createElement('span');
-          body.className = 'ui-rows__body';
-          const title = document.createElement('strong');
-          title.textContent = summary.title;
-          const text = document.createElement('small');
-          text.textContent = [summary.text, summary.asOf ? formatTime(summary.asOf) : ''].filter(Boolean).join(' · ');
-          body.append(title, text);
-          head.append(dot, body);
-          if (href) {
-            const arrow = document.createElement('span');
-            arrow.className = 'ui-rows__arrow';
-            arrow.textContent = '→';
-            head.append(arrow);
-          }
-          container.append(head);
-          start = 1;
-        }
-
-        for (let index = start; index < rows.length; index += 1) {
-          const row = rows[index];
-          if (!row) continue;
-
-          if (row.type === 'status') {
-            const href = safeHref(row.href);
-            if (!href) continue;
-            const link = document.createElement('a');
-            link.className = 'ui-row ui-row--status';
-            link.href = href;
-            link.dataset.state = row.state;
-            const dot = document.createElement('span');
-            dot.className = 'assistant-card__dot';
-            dot.setAttribute('aria-hidden', 'true');
-            const body = document.createElement('span');
-            body.className = 'ui-row__body';
-            const name = document.createElement('strong');
-            name.textContent = row.name;
-            const meta = document.createElement('small');
-            meta.textContent = [row.stateText, row.asOf ? formatTime(row.asOf) : ''].filter(Boolean).join(' · ');
-            body.append(name, meta);
-            const arrow = document.createElement('span');
-            arrow.className = 'ui-rows__arrow';
-            arrow.textContent = '→';
-            link.append(dot, body, arrow);
-            container.append(link);
-            continue;
-          }
-
-          if (row.type === 'service') {
-            const href = safeHref(row.href);
-            if (!href) continue;
-            const link = document.createElement('a');
-            link.className = 'ui-row ui-row--service';
-            link.href = href;
-            const body = document.createElement('span');
-            body.className = 'ui-row__body';
-            const name = document.createElement('strong');
-            name.textContent = row.name;
-            const summary = document.createElement('small');
-            summary.textContent = row.summary;
-            const meta = document.createElement('small');
-            meta.className = 'ui-row__meta';
-            meta.textContent = [row.stateText, row.asOf ? formatTime(row.asOf) : ''].filter(Boolean).join(' · ');
-            body.append(name, summary, meta);
-            const arrow = document.createElement('span');
-            arrow.className = 'ui-rows__arrow';
-            arrow.textContent = '→';
-            link.append(body, arrow);
-            container.append(link);
-            continue;
-          }
-
-          if (row.type === 'article') {
-            const href = safeHref(row.href);
-            if (!href) continue;
-            const link = document.createElement('a');
-            link.className = 'ui-row ui-row--article';
-            link.href = href;
-            const body = document.createElement('span');
-            body.className = 'ui-row__body';
-            const kind = document.createElement('span');
-            kind.className = 'ui-row__kind';
-            kind.textContent = row.kindText || row.kind || '';
-            const title = document.createElement('strong');
-            title.textContent = row.title;
-            const summary = document.createElement('small');
-            summary.textContent = row.summary;
-            body.append(kind, title, summary);
-            const arrow = document.createElement('span');
-            arrow.className = 'ui-rows__arrow';
-            arrow.textContent = '→';
-            link.append(body, arrow);
-            container.append(link);
-            continue;
-          }
-
-          if (row.type === 'maintenance') {
-            const item = document.createElement('div');
-            item.className = 'ui-row ui-row--maintenance';
-            const body = document.createElement('span');
-            body.className = 'ui-row__body';
-            const name = document.createElement('strong');
-            name.textContent = row.serviceName ?? (locale === 'de' ? 'Alle Angebote' : 'All applications');
-            const time = document.createElement('small');
-            time.textContent = `${formatTime(Date.parse(row.startsAt))} – ${formatTime(Date.parse(row.endsAt))}`;
-            body.append(name, time);
-            if (row.note) {
-              const note = document.createElement('small');
-              note.textContent = row.note;
-              body.append(note);
-            }
-            item.append(body);
-            container.append(item);
-          }
-        }
-
-        if (container.childElementCount > 0) parent.append(container);
-      };
-
-      const isMediaType = (node: AssistantBlock): boolean => node.type === 'media';
-
       let mediaDialogSeq = 0;
 
       const mediaFallback = (): HTMLSpanElement => {
@@ -1058,6 +895,174 @@ const labels = {
           })();
         }
       };
+
+
+    (window as unknown as { __vyrxOpenMedia?: (block: AssistantBlock) => void }).__vyrxOpenMedia = (block) => {
+      if (block.type === 'media') openMediaDialog(block, fab ?? document.body);
+    };
+
+    const renderUi = (turn: HTMLElement, nodes: readonly AssistantBlock[]): void => {
+      if (!Array.isArray(nodes) || nodes.length === 0) return;
+      const pruneMediaForConfirm = (): void => {
+        if (!turn.querySelector('.ui-confirm')) return;
+        for (const media of turn.querySelectorAll('.ui-media')) media.remove();
+        for (const grid of turn.querySelectorAll('.ui-media-grid')) grid.remove();
+        for (const chips of turn.querySelectorAll('.ui-chips')) chips.remove();
+      };
+      pruneMediaForConfirm();
+      const wrap = document.createElement('div');
+      wrap.className = 'assistant__ui';
+      const seen = new Set<string>();
+
+      const renderInlineWithBreaks = (parent: HTMLElement, value: string): void => {
+        value.split('\n').forEach((line, index) => {
+          if (index > 0) parent.append(document.createElement('br'));
+          renderInline(parent, line);
+        });
+      };
+
+      const isRowType = (node: AssistantBlock): boolean =>
+        node.type === 'summary' ||
+        node.type === 'status' ||
+        node.type === 'service' ||
+        node.type === 'article' ||
+        node.type === 'maintenance';
+
+      const renderRows = (parent: HTMLElement, rows: readonly AssistantBlock[]): void => {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        const container = document.createElement('div');
+        container.className = 'ui-rows';
+        let start = 0;
+
+        if (rows[0]?.type === 'summary') {
+          const summary = rows[0];
+          const href = safeHref(summary.href);
+          const head = document.createElement(href ? 'a' : 'div');
+          head.className = 'ui-rows__head';
+          head.dataset.state = summary.tone === 'ok' ? 'up' : summary.tone === 'warn' ? 'down' : 'unknown';
+          if (href) (head as HTMLAnchorElement).href = href;
+          const dot = document.createElement('span');
+          dot.className = 'assistant-card__dot';
+          dot.setAttribute('aria-hidden', 'true');
+          const body = document.createElement('span');
+          body.className = 'ui-rows__body';
+          const title = document.createElement('strong');
+          title.textContent = summary.title;
+          const text = document.createElement('small');
+          text.textContent = [summary.text, summary.asOf ? formatTime(summary.asOf) : ''].filter(Boolean).join(' · ');
+          body.append(title, text);
+          head.append(dot, body);
+          if (href) {
+            const arrow = document.createElement('span');
+            arrow.className = 'ui-rows__arrow';
+            arrow.textContent = '→';
+            head.append(arrow);
+          }
+          container.append(head);
+          start = 1;
+        }
+
+        for (let index = start; index < rows.length; index += 1) {
+          const row = rows[index];
+          if (!row) continue;
+
+          if (row.type === 'status') {
+            const href = safeHref(row.href);
+            if (!href) continue;
+            const link = document.createElement('a');
+            link.className = 'ui-row ui-row--status';
+            link.href = href;
+            link.dataset.state = row.state;
+            const dot = document.createElement('span');
+            dot.className = 'assistant-card__dot';
+            dot.setAttribute('aria-hidden', 'true');
+            const body = document.createElement('span');
+            body.className = 'ui-row__body';
+            const name = document.createElement('strong');
+            name.textContent = row.name;
+            const meta = document.createElement('small');
+            meta.textContent = [row.stateText, row.asOf ? formatTime(row.asOf) : ''].filter(Boolean).join(' · ');
+            body.append(name, meta);
+            const arrow = document.createElement('span');
+            arrow.className = 'ui-rows__arrow';
+            arrow.textContent = '→';
+            link.append(dot, body, arrow);
+            container.append(link);
+            continue;
+          }
+
+          if (row.type === 'service') {
+            const href = safeHref(row.href);
+            if (!href) continue;
+            const link = document.createElement('a');
+            link.className = 'ui-row ui-row--service';
+            link.href = href;
+            const body = document.createElement('span');
+            body.className = 'ui-row__body';
+            const name = document.createElement('strong');
+            name.textContent = row.name;
+            const summary = document.createElement('small');
+            summary.textContent = row.summary;
+            const meta = document.createElement('small');
+            meta.className = 'ui-row__meta';
+            meta.textContent = [row.stateText, row.asOf ? formatTime(row.asOf) : ''].filter(Boolean).join(' · ');
+            body.append(name, summary, meta);
+            const arrow = document.createElement('span');
+            arrow.className = 'ui-rows__arrow';
+            arrow.textContent = '→';
+            link.append(body, arrow);
+            container.append(link);
+            continue;
+          }
+
+          if (row.type === 'article') {
+            const href = safeHref(row.href);
+            if (!href) continue;
+            const link = document.createElement('a');
+            link.className = 'ui-row ui-row--article';
+            link.href = href;
+            const body = document.createElement('span');
+            body.className = 'ui-row__body';
+            const kind = document.createElement('span');
+            kind.className = 'ui-row__kind';
+            kind.textContent = row.kindText || row.kind || '';
+            const title = document.createElement('strong');
+            title.textContent = row.title;
+            const summary = document.createElement('small');
+            summary.textContent = row.summary;
+            body.append(kind, title, summary);
+            const arrow = document.createElement('span');
+            arrow.className = 'ui-rows__arrow';
+            arrow.textContent = '→';
+            link.append(body, arrow);
+            container.append(link);
+            continue;
+          }
+
+          if (row.type === 'maintenance') {
+            const item = document.createElement('div');
+            item.className = 'ui-row ui-row--maintenance';
+            const body = document.createElement('span');
+            body.className = 'ui-row__body';
+            const name = document.createElement('strong');
+            name.textContent = row.serviceName ?? (locale === 'de' ? 'Alle Angebote' : 'All applications');
+            const time = document.createElement('small');
+            time.textContent = `${formatTime(Date.parse(row.startsAt))} – ${formatTime(Date.parse(row.endsAt))}`;
+            body.append(name, time);
+            if (row.note) {
+              const note = document.createElement('small');
+              note.textContent = row.note;
+              body.append(note);
+            }
+            item.append(body);
+            container.append(item);
+          }
+        }
+
+        if (container.childElementCount > 0) parent.append(container);
+      };
+
+      const isMediaType = (node: AssistantBlock): boolean => node.type === 'media';
 
       const renderMediaCard = (
         parent: HTMLElement,
@@ -2934,6 +2939,30 @@ const labels = {
       });
 
     threadsReady = initializeThreads();
+
+    const deepMedia = /^(movie|tv):(\d+)$/.exec(new URLSearchParams(window.location.search).get('media') ?? '');
+    if (deepMedia) {
+      void (async () => {
+        try {
+          const mediaType = deepMedia[1] as 'movie' | 'tv';
+          const tmdbId = Number(deepMedia[2]);
+          const response = await fetch(
+            `/api/media/title?mediaType=${mediaType}&tmdbId=${tmdbId}&locale=${locale}`,
+            { cache: 'no-store' },
+          );
+          if (!response.ok) return;
+          const data = (await response.json()) as { item?: AssistantBlock };
+          if (data.item?.type !== 'media') return;
+          const openMedia = (window as unknown as { __vyrxOpenMedia?: (block: AssistantBlock) => void }).__vyrxOpenMedia;
+          openMedia?.(data.item);
+          const url = new URL(window.location.href);
+          url.searchParams.delete('media');
+          window.history.replaceState({}, '', url);
+        } catch {
+          // Kein Modal, aber die Übersicht bleibt nutzbar.
+        }
+      })();
+    }
 
     const deepThreadId = new URLSearchParams(window.location.search).get('thread');
     if (deepThreadId && /^[A-Za-z0-9_-]{16,64}$/.test(deepThreadId)) {

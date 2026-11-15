@@ -143,6 +143,8 @@ export function notificationForWatch(
   event: WatchEvent,
   locale: 'de' | 'en',
   mediaTitle: string,
+  mediaType: 'movie' | 'tv',
+  tmdbId: number,
 ): WatchNotification {
   const de = locale === 'de';
   const title =
@@ -168,7 +170,7 @@ export function notificationForWatch(
   return {
     title,
     body: mediaTitle,
-    href: de ? '/overview/' : '/en/overview/',
+    href: `${de ? '/overview/' : '/en/overview/'}?media=${mediaType}:${tmdbId}`,
   };
 }
 
