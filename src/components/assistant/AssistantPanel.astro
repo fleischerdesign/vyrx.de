@@ -2934,6 +2934,19 @@ const labels = {
       });
 
     threadsReady = initializeThreads();
+
+    const deepThreadId = new URLSearchParams(window.location.search).get('thread');
+    if (deepThreadId && /^[A-Za-z0-9_-]{16,64}$/.test(deepThreadId)) {
+      void (async () => {
+        await threadsReady;
+        await loadThread(deepThreadId);
+        if (currentThreadId !== deepThreadId) return;
+        open();
+        const url = new URL(window.location.href);
+        url.searchParams.delete('thread');
+        window.history.replaceState({}, '', url);
+      })();
+    }
   }
 </script>
 

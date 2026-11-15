@@ -13,7 +13,7 @@ import {
   type MediaWatch,
 } from './store.ts';
 import type { Session } from './session.ts';
-import { notifyOwner } from './web-push.ts';
+import { flushPushDigest, notifyOwner, type PushPayload } from './web-push.ts';
 
 export interface MediaWatchScanStats {
   readonly owners: number;
@@ -107,6 +107,7 @@ export async function runMediaWatchScan(
         else byKey.set(key, [request]);
       }
 
+      const digest: PushPayload[] = [];
       for (const watch of ownerWatches) {
         const matching = byKey.get(keyOf(watch.mediaType, watch.tmdbId, watch.is4k)) ?? [];
         if (matching.length === 0) {
@@ -125,7 +126,10 @@ export async function runMediaWatchScan(
         if (observation.event && recordMediaWatchEvent(watch, observation.event)) {
           const notification = notificationForWatch(observation.event, watch.locale, watch.title);
           try {
-            notifyOwner(watch.owner, 'request', notification.title, notification.body, notification.href);
+            notifyOwner(watch.owner, 'request', notification.title, notification.body, notification.href, {
+              deferPush: true,
+            });
+            digest.push({ ...notification, locale: watch.locale });
             stats.events += 1;
           } catch {
             stats.errors += 1;
@@ -139,6 +143,12 @@ export async function runMediaWatchScan(
           misses: 0,
           failures: 0,
         });
+      }
+
+      try {
+        await flushPushDigest(owner, 'request', digest);
+      } catch {
+        stats.errors += 1;
       }
 
       if (!mediaScanBackfilled(owner)) {

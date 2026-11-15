@@ -316,6 +316,19 @@ Tastatur erreichbar.
 - **Nicht Teil dieses Schritts:** ein Altersfilter für Suche/Empfehlungen.
   Die Anzeige ist die verlässliche Grundlage; der Filter kann darauf aufbauen.
 
+## M — Push-Digest und Thread-Deep-Links (2026-11-15)
+
+- **Push-Digest:** Der Media-Watch-Scanner legt In-App-Einträge weiterhin
+  pro Titel an, bündelt aber die Push-Zustellung pro Owner und Scan. Ein
+  Ereignis bleibt eine normale Push; mehrere werden zu „3 Medien-Updates“
+  mit den Titelnamen. Ruhezeit, Kategorie und Abo gelten unverändert.
+- **Thread-Deep-Link:** `/overview/?thread=<id>` öffnet den passenden
+  Assistant-Thread direkt. Der Query-Parameter wird nach dem Laden entfernt,
+  damit ein Reload nicht erneut springt.
+- **Noch offen:** Medien-Deep-Link in den konkreten Titel; dafür braucht es
+  einen Detail-Endpunkt und das Öffnen des bestehenden Medien-Modals aus
+  einem Query-Parameter.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.

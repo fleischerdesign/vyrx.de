@@ -55,6 +55,7 @@ export interface PushPayload {
   readonly title: string;
   readonly body: string | null;
   readonly href: string | null;
+  readonly locale?: 'de' | 'en';
 }
 
 export async function pushOwner(owner: string, kind: string, payload: PushPayload): Promise<void> {
@@ -83,18 +84,44 @@ export async function pushOwner(owner: string, kind: string, payload: PushPayloa
   );
 }
 
+export async function flushPushDigest(
+  owner: string,
+  kind: string,
+  entries: readonly PushPayload[],
+): Promise<void> {
+  if (entries.length === 0) return;
+  if (entries.length === 1) {
+    const entry = entries[0];
+    if (entry) await pushOwner(owner, kind, entry);
+    return;
+  }
+  const locale = entries[0]?.locale ?? 'de';
+  const titles = entries.slice(0, 5).map((entry) => entry.body ?? entry.title).filter(Boolean);
+  const title = locale === 'de' ? `${entries.length} Medien-Updates` : `${entries.length} media updates`;
+  const body =
+    locale === 'de'
+      ? `${titles.join(', ')}${entries.length > titles.length ? ' …' : ''}`
+      : `${titles.join(', ')}${entries.length > titles.length ? ' …' : ''}`;
+  await pushOwner(owner, kind, { title, body, href: entries[0]?.href ?? null, locale });
+}
+
 /** In-App-Eintrag plus best-effort Push; ein Push-Fehler kippt den Aufrufer nie. */
+export interface NotifyOptions {
+  readonly deferPush?: boolean;
+}
+
 export function notifyOwner(
   owner: string,
   kind: string,
   title: string,
   body: string | null = null,
   href: string | null = null,
+  options: NotifyOptions = {},
 ): number {
   const preferences = notificationPreferencesOf(owner);
   if (kind === 'request' && !preferences.request) return 0;
   if (kind === 'routine' && !preferences.routine) return 0;
   const id = createNotification(owner, kind, title, body, href);
-  void pushOwner(owner, kind, { title, body, href }).catch(() => undefined);
+  if (!options.deferPush) void pushOwner(owner, kind, { title, body, href }).catch(() => undefined);
   return id;
 }
