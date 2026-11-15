@@ -27,4 +27,5 @@ export const mediaBlock = (item: MediaItem, can4k = false): AssistantBlock => ({
   status: item.status,
   statusText: item.statusText,
   requestable: item.requestable,
+  certification: item.certification ?? null,
 });

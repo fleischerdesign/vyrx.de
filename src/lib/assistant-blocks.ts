@@ -77,6 +77,7 @@ export type AssistantBlock =
       readonly status: 'available' | 'requested' | 'processing' | 'partial' | 'unknown' | 'blocklisted';
       readonly statusText: string;
       readonly requestable: boolean;
+      readonly certification: string | null;
     }
   | {
       readonly type: 'maintenance';

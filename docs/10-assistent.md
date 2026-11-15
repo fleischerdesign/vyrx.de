@@ -303,6 +303,19 @@ Tastatur erreichbar.
 - **Grenze:** noch keine Routine-Verwaltungsoberfläche; Aktivierung ist
   Code plus Kategorie-Schalter.
 
+## L — Batch-Staffeln und Altersfreigaben (2026-11-15)
+
+- **Batch mit Staffelauswahl:** Serien im Batch-Dialog zeigen ihre regulären
+  Staffeln als Checkboxen, standardmäßig alle aktiv. Die Auswahl wird pro
+  Titel an `/api/media/request` übergeben; eine leere Auswahl blockiert nur
+  diesen Titel und meldet „Bitte Staffel wählen“. Filme bleiben unverändert.
+- **Altersfreigabe:** Seerr liefert für Filme `releases` und für Serien
+  `contentRatings`. Das Portal liest die deutsche Freigabe (DE) und zeigt
+  sie als `FSK 12` / `FSK 16` in Karte, Detail-Modal und Batch-Zeile.
+  Fehlt eine DE-Freigabe, bleibt das Feld leer; es wird nichts geraten.
+- **Nicht Teil dieses Schritts:** ein Altersfilter für Suche/Empfehlungen.
+  Die Anzeige ist die verlässliche Grundlage; der Filter kann darauf aufbauen.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
@@ -340,7 +353,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 100
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 101
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

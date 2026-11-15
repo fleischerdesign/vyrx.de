@@ -76,6 +76,8 @@ export interface MediaItem {
   readonly status: MediaStatusKey;
   readonly statusText: string;
   readonly requestable: boolean;
+  /** Deutsche Freigabe, z. B. FSK 12; null wenn nicht vorhanden. */
+  readonly certification?: string | null;
 }
 
 interface RawMedia {
@@ -100,6 +102,8 @@ interface RawMedia {
   numberOfEpisodes?: unknown;
   seasons?: unknown;
   relatedVideos?: unknown;
+  releases?: unknown;
+  contentRatings?: unknown;
   mediaInfo?: { status?: unknown; status4k?: unknown; requests?: unknown } | null;
 }
 
@@ -264,6 +268,35 @@ const statusOf = (mediaInfo: RawMedia['mediaInfo']): MediaStatusKey => {
   return 'unknown';
 };
 
+const certificationOf = (row: RawMedia, mediaType: 'movie' | 'tv'): string | null => {
+  if (mediaType === 'movie') {
+    const results = row.releases && typeof row.releases === 'object' ? (row.releases as { results?: unknown }).results : null;
+    if (!Array.isArray(results)) return null;
+    const germany = results.find(
+      (entry) =>
+        entry !== null &&
+        typeof entry === 'object' &&
+        (entry as { iso_3166_1?: unknown }).iso_3166_1 === 'DE',
+    ) as { release_dates?: unknown } | undefined;
+    const dates = Array.isArray(germany?.release_dates) ? germany.release_dates : [];
+    for (const entry of dates) {
+      if (entry === null || typeof entry !== 'object') continue;
+      const certification = stringOrNull((entry as { certification?: unknown }).certification);
+      if (certification) return certification;
+    }
+    return null;
+  }
+  const results = row.contentRatings && typeof row.contentRatings === 'object' ? (row.contentRatings as { results?: unknown }).results : null;
+  if (!Array.isArray(results)) return null;
+  const germany = results.find(
+    (entry) =>
+      entry !== null &&
+      typeof entry === 'object' &&
+      (entry as { iso_3166_1?: unknown }).iso_3166_1 === 'DE',
+  ) as { rating?: unknown } | undefined;
+  return stringOrNull(germany?.rating);
+};
+
 const mediaFromRaw = (
   value: unknown,
   locale: Locale,
@@ -372,6 +405,7 @@ const mediaFromRaw = (
     status,
     statusText: mediaStatusText(status, locale),
     requestable: status === 'unknown',
+    certification: certificationOf(row, mediaType),
   };
 };
 

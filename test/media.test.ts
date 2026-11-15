@@ -393,3 +393,26 @@ test('ownRequests exposes media status, 4K status and season states', async () =
     delete process.env.PORTAL_SEERR_API_KEY;
   }
 });
+
+test('media detail exposes the German age rating for movies and series', async () => {
+  process.env.PORTAL_SEERR_API_KEY = 'test-key';
+  const original = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    new Response(
+      JSON.stringify({
+        id: 438631,
+        mediaType: 'movie',
+        title: 'Dune',
+        releaseDate: '2021-09-15',
+        releases: { results: [{ iso_3166_1: 'DE', release_dates: [{ certification: '12' }] }] },
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    )) as typeof fetch;
+  try {
+    const item = await mediaTitle(baseSession(), 2, 'movie', 438631, 'de');
+    assert.equal(item?.certification, '12');
+  } finally {
+    globalThis.fetch = original;
+    delete process.env.PORTAL_SEERR_API_KEY;
+  }
+});

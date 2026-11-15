@@ -711,6 +711,7 @@ const labels = {
             item.year,
             item.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie' : 'Series',
             runtimeText(item.runtime),
+            item.certification ? `FSK ${item.certification}` : '',
             item.rating !== null ? `★ ${item.rating.toFixed(1)}` : '',
           ]
             .filter(Boolean)
@@ -1102,6 +1103,7 @@ const labels = {
         meta.textContent = [
           block.year,
           block.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie' : 'Series',
+          block.certification ? `FSK ${block.certification}` : '',
           block.rating !== null ? `★ ${block.rating.toFixed(1)}` : '',
         ]
           .filter(Boolean)
@@ -1152,6 +1154,7 @@ const labels = {
         const list = document.createElement('div');
         list.className = 'ui-batch-dialog__list';
         const rows = new Map<string, HTMLElement>();
+        const seasonChoices = new Map<string, number[]>();
         for (const item of items) {
           if (item.block.type !== 'media') continue;
           const row = document.createElement('div');
@@ -1177,7 +1180,8 @@ const labels = {
           const meta = document.createElement('span');
           meta.textContent = [
             item.block.year,
-            item.block.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie · alle Staffeln' : 'Series · all seasons',
+            item.block.mediaType === 'movie' ? (locale === 'de' ? 'Film' : 'Film') : locale === 'de' ? 'Serie · Staffelauswahl' : 'Series · season selection',
+            item.block.certification ? `FSK ${item.block.certification}` : '',
           ]
             .filter(Boolean)
             .join(' · ');
@@ -1185,9 +1189,43 @@ const labels = {
           result.className = 'ui-batch-dialog__result';
           result.textContent = locale === 'de' ? 'Bereit' : 'Ready';
           info.append(mediaTitle, meta);
+          const seasonKey = `${item.block.mediaType}:${item.block.tmdbId}`;
+          const regularSeasons =
+            item.block.mediaType === 'tv' ? item.block.seasons.filter((season) => season.seasonNumber > 0) : [];
+          if (regularSeasons.length > 0) {
+            const seasons = document.createElement('div');
+            seasons.className = 'ui-batch-dialog__seasons';
+            const seasonTitle = document.createElement('span');
+            seasonTitle.className = 'ui-batch-dialog__seasons-title';
+            seasonTitle.textContent = locale === 'de' ? 'Staffeln' : 'Seasons';
+            seasons.append(seasonTitle);
+            const inputs: HTMLInputElement[] = [];
+            for (const season of regularSeasons) {
+              const label = document.createElement('label');
+              label.className = 'ui-batch-dialog__season';
+              const input = document.createElement('input');
+              input.type = 'checkbox';
+              input.value = String(season.seasonNumber);
+              input.checked = true;
+              const name = document.createElement('span');
+              name.textContent = season.name;
+              label.append(input, name);
+              seasons.append(label);
+              inputs.push(input);
+            }
+            const sync = (): void => {
+              seasonChoices.set(
+                seasonKey,
+                inputs.filter((input) => input.checked).map((input) => Number(input.value)),
+              );
+            };
+            sync();
+            for (const input of inputs) input.addEventListener('change', sync);
+            info.append(seasons);
+          }
           row.append(poster, info, result);
           list.append(row);
-          rows.set(`${item.block.mediaType}:${item.block.tmdbId}`, result);
+          rows.set(seasonKey, result);
         }
         const actions = document.createElement('div');
         actions.className = 'ui-batch-dialog__actions';
@@ -1217,12 +1255,26 @@ const labels = {
             if (item.block.type !== 'media') continue;
             const key = `${item.block.mediaType}:${item.block.tmdbId}`;
             const rowResult = rows.get(key);
+            const selectedSeasons = seasonChoices.get(key) ?? [];
+            if (item.block.mediaType === 'tv' && seasonChoices.has(key) && selectedSeasons.length === 0) {
+              failed += 1;
+              if (rowResult) {
+                rowResult.textContent = locale === 'de' ? 'Bitte Staffel wählen' : 'Select a season';
+                rowResult.dataset.tone = 'bad';
+              }
+              continue;
+            }
             if (rowResult) rowResult.textContent = locale === 'de' ? 'Wird angefragt …' : 'Requesting …';
             try {
               const response = await fetch('/api/media/request', {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
-                body: JSON.stringify({ mediaType: item.block.mediaType, tmdbId: item.block.tmdbId, locale }),
+                body: JSON.stringify({
+                  mediaType: item.block.mediaType,
+                  tmdbId: item.block.tmdbId,
+                  ...(item.block.mediaType === 'tv' && selectedSeasons.length > 0 ? { seasons: selectedSeasons } : {}),
+                  locale,
+                }),
               });
               const data = (await response.json()) as { outcome?: string; message?: string };
               const ok = data.outcome === 'accepted' || data.outcome === 'already';
@@ -4513,6 +4565,37 @@ const labels = {
     font-size: 0.5625rem;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .ui-batch-dialog__seasons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin-top: 4px;
+  }
+
+  .ui-batch-dialog__seasons-title {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .ui-batch-dialog__season {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--muted);
+    font-size: 0.5625rem;
+  }
+
+  .ui-batch-dialog__season input {
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    accent-color: var(--accent);
   }
 
   .ui-batch-dialog__result {
