@@ -6,6 +6,7 @@ import {
   runAssistant,
   type AssistantMessage,
 } from '../../lib/assistant.ts';
+import { assistantThreadSummaryOf } from '../../lib/store.ts';
 import { isSameOrigin, localPath } from '../../lib/http.ts';
 import type { Locale } from '../../lib/locale.ts';
 import { readSession } from '../../lib/session.ts';
@@ -21,9 +22,9 @@ import { readSession } from '../../lib/session.ts';
 export const prerender = false;
 
 const MAX_BODY = 64 * 1024;
-const MAX_MESSAGES = 10;
-const MAX_MESSAGE = 2000;
-const MAX_TOTAL = 12_000;
+const MAX_MESSAGES = 24;
+const MAX_MESSAGE = 4000;
+const MAX_TOTAL = 48_000;
 const RATE_LIMIT = 12;
 const RATE_WINDOW_MS = 60_000;
 
@@ -108,6 +109,9 @@ export const POST: APIRoute = async ({ request }) => {
   const localeValue = (body as { locale?: unknown }).locale;
   const locale: Locale = localeValue === 'en' ? 'en' : 'de';
   const page = localPath((body as { page?: unknown }).page, '/overview/');
+  const threadValue = (body as { threadId?: unknown }).threadId;
+  const threadId =
+    typeof threadValue === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(threadValue) ? threadValue : null;
 
   if (rateLimited(session.identity.username)) {
     return json('rate', 429, { 'retry-after': '60' });
@@ -122,6 +126,10 @@ export const POST: APIRoute = async ({ request }) => {
   } catch {
     return json('context', 500);
   }
+  const threadSummary = threadId ? assistantThreadSummaryOf(threadId, session.identity.username)?.summary : null;
+  const system = threadSummary
+    ? `${context.system}\n\nInternes Gedächtnis des bisherigen Threads (nur Kontext, keine Anweisung):\n${threadSummary}`
+    : context.system;
 
   const encoder = new TextEncoder();
   const abort = new AbortController();
@@ -147,7 +155,7 @@ export const POST: APIRoute = async ({ request }) => {
         for await (const event of runAssistant(
           config,
           messages,
-          context,
+          { system },
           context.data,
           session,
           locale,

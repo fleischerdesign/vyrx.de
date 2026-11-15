@@ -205,6 +205,8 @@ const labels = {
 
   interface ThreadDetail extends ThreadSummary {
     readonly messages: readonly Message[];
+    readonly summary: string | null;
+    readonly summaryUntilId: number | null;
   }
 
   const dialog = document.getElementById('assistant') as HTMLDialogElement | null;
@@ -2182,6 +2184,21 @@ const labels = {
       }
     };
 
+    const modelMessages = (): readonly Message[] => messages.slice(-16);
+
+    const compactThread = async (): Promise<void> => {
+      if (!currentThreadId || messages.length <= 16) return;
+      try {
+        await fetch(`/api/assistant/threads/${encodeURIComponent(currentThreadId)}/compact`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ locale }),
+        });
+      } catch {
+        // Der Thread bleibt nutzbar; der nächste Turn versucht es erneut.
+      }
+    };
+
     const renderConversation = (stored: readonly Message[]): void => {
       messages = [...stored];
       intro.hidden = true;
@@ -2220,6 +2237,7 @@ const labels = {
         currentThreadId = data.thread.id;
         storeThreadId(currentThreadId);
         renderConversation(data.thread.messages as readonly Message[]);
+        void compactThread();
       } catch {
         // Der letzte lokale Stand bleibt sichtbar.
       }
@@ -2532,7 +2550,7 @@ const labels = {
         const response = await fetch('/api/assistant', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ messages, locale, page }),
+          body: JSON.stringify({ messages: modelMessages(), threadId: currentThreadId, locale, page }),
           signal: controller.signal,
         });
 
@@ -2605,7 +2623,7 @@ const labels = {
           const assistantMessage: Message = { role: 'assistant', content: streamed.trim(), sources, ui: uiNodes, navigations };
           messages.push(assistantMessage);
           save();
-          void persistMessages([assistantMessage], turnThreadId);
+          void persistMessages([assistantMessage], turnThreadId).then(() => compactThread());
         } else if (uiNodes.length > 0 || navigations.length > 0) {
           answer.remove();
           renderUi(turn, uiNodes);
@@ -2614,7 +2632,7 @@ const labels = {
           const assistantMessage: Message = { role: 'assistant', content: '', sources, ui: uiNodes, navigations };
           messages.push(assistantMessage);
           save();
-          void persistMessages([assistantMessage], turnThreadId);
+          void persistMessages([assistantMessage], turnThreadId).then(() => compactThread());
         } else {
           renderMarkdown(answer, labels.empty ?? '', false);
         }

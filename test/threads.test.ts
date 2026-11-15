@@ -8,6 +8,7 @@ import {
   assistantThreadOf,
   assistantThreadsOf,
   closeStore,
+  setAssistantThreadSummary,
   createAssistantThread,
   deleteAssistantThread,
   pinAssistantThread,
@@ -72,4 +73,19 @@ test('messages cannot be appended to another owner thread', () => {
   const thread = createAssistantThread('alice', 'Privat');
   assert.equal(appendAssistantMessages(thread.id, 'bob', [{ role: 'user', content: 'Hallo' }]), false);
   assert.equal(assistantThreadOf(thread.id, 'alice')?.messages.length, 0);
+});
+
+test('a thread stores a compaction summary without touching its messages', () => {
+  const thread = createAssistantThread('alice', 'Langer Thread');
+  appendAssistantMessages(thread.id, 'alice', [
+    { role: 'user', content: 'Alte Frage' },
+    { role: 'assistant', content: 'Alte Antwort' },
+  ]);
+  const before = assistantThreadOf(thread.id, 'alice');
+  assert.equal(before?.summary, null);
+  assert.equal(setAssistantThreadSummary(thread.id, 'alice', 'Die Person fragte nach Dune.', before!.messages[1]!.id), true);
+  const after = assistantThreadOf(thread.id, 'alice');
+  assert.equal(after?.summary, 'Die Person fragte nach Dune.');
+  assert.equal(after?.summaryUntilId, before!.messages[1]!.id);
+  assert.equal(after?.messages.length, 2);
 });

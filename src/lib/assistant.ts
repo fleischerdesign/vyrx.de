@@ -8,9 +8,8 @@
  * bei jeder Seite.
  */
 
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { activeAnnouncements, announcementText } from './announcements.ts';
+import type { AssistantConfig } from './assistant-config.ts';
 import type { AssistantBlock } from './assistant-blocks.ts';
 import { ASSISTANT_TOOLS, executeTool, intentBlocks, navigationFor, type ToolDefinition } from './assistant-tools.ts';
 import {
@@ -26,18 +25,12 @@ import { favoritesOf, maintenanceFrom } from './store.ts';
 import { SseParser } from './sse.ts';
 import type { Session } from './session.ts';
 
-export interface AssistantConfig {
-  readonly baseUrl: string;
-  readonly model: string;
-  readonly apiKey: string;
-  readonly maxTokens: number;
-  readonly timeoutMs: number;
-}
-
 export interface AssistantMessage {
   readonly role: 'user' | 'assistant';
   readonly content: string;
 }
+
+export { assistantConfig, type AssistantConfig } from './assistant-config.ts';
 
 export class AssistantProviderError extends Error {
   readonly status: number;
@@ -47,39 +40,6 @@ export class AssistantProviderError extends Error {
     this.status = status;
     this.name = 'AssistantProviderError';
   }
-}
-
-const number = (value: string | undefined, fallback: number, min: number, max: number): number => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.min(max, Math.max(min, Math.trunc(parsed))) : fallback;
-};
-
-function keyFromFile(): string | null {
-  const explicit = process.env.PORTAL_ASSISTANT_API_KEY_FILE?.trim();
-  const credentials = process.env.CREDENTIALS_DIRECTORY?.trim();
-  const path = explicit || (credentials ? resolve(credentials, 'assistant-key') : null);
-  if (!path) return null;
-  try {
-    return readFileSync(path, 'utf8').trim() || null;
-  } catch {
-    return null;
-  }
-}
-
-/** `null` heißt: für diesen Bau ist kein Anbieter eingerichtet. */
-export function assistantConfig(): AssistantConfig | null {
-  const baseUrl = process.env.PORTAL_ASSISTANT_BASE_URL?.trim();
-  const model = process.env.PORTAL_ASSISTANT_MODEL?.trim();
-  const apiKey = process.env.PORTAL_ASSISTANT_API_KEY?.trim() || keyFromFile();
-  if (!baseUrl || !model || !apiKey) return null;
-
-  return {
-    baseUrl: baseUrl.replace(/\/+$/, ''),
-    model,
-    apiKey,
-    maxTokens: number(process.env.PORTAL_ASSISTANT_MAX_TOKENS, 1500, 100, 2000),
-    timeoutMs: number(process.env.PORTAL_ASSISTANT_TIMEOUT_MS, 30_000, 5_000, 60_000),
-  };
 }
 
 /**

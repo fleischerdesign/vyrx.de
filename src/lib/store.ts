@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 export interface Report {
   readonly id: number;
@@ -295,6 +295,17 @@ function migrate(db: DatabaseSync): void {
         owner         TEXT PRIMARY KEY,
         backfilled_at TEXT NOT NULL
       );
+    `);
+  }
+
+  if (current < 12) {
+    // Compaction: ältere Turns werden zu einem geprüften Summary verdichtet,
+    // die letzten Nachrichten bleiben vollständig. Der Client schickt nie den
+    // gesamten Thread an das Modell.
+    db.exec(`
+      ALTER TABLE assistant_thread ADD COLUMN summary TEXT;
+      ALTER TABLE assistant_thread ADD COLUMN summary_until_id INTEGER;
+      ALTER TABLE assistant_thread ADD COLUMN summary_updated_at TEXT;
     `);
   }
 
@@ -632,6 +643,8 @@ export interface AssistantThreadMessage {
 
 export interface AssistantThreadDetail extends AssistantThreadSummary {
   readonly messages: readonly AssistantThreadMessage[];
+  readonly summary: string | null;
+  readonly summaryUntilId: number | null;
 }
 
 const cleanTitle = (value: string): string => {
@@ -728,9 +741,17 @@ export function assistantThreadsOf(owner: string, limit = 50, query = ''): reado
 export function assistantThreadOf(id: string, owner: string): AssistantThreadDetail | null {
   const db = open();
   const row = db
-    .prepare('SELECT id, title, pinned, created_at, updated_at FROM assistant_thread WHERE id = ? AND owner = ?')
+    .prepare('SELECT id, title, pinned, created_at, updated_at, summary, summary_until_id FROM assistant_thread WHERE id = ? AND owner = ?')
     .get(id, owner) as
-    | { id: string; title: string; pinned: number; created_at: string; updated_at: string }
+    | {
+        id: string;
+        title: string;
+        pinned: number;
+        created_at: string;
+        updated_at: string;
+        summary: string | null;
+        summary_until_id: number | null;
+      }
     | undefined;
   if (!row) return null;
   const messages = db
@@ -750,6 +771,8 @@ export function assistantThreadOf(id: string, owner: string): AssistantThreadDet
   const preview = messages.at(-1)?.content ?? '';
   return {
     ...summaryFromRow({ ...row, preview }),
+    summary: row.summary,
+    summaryUntilId: row.summary_until_id,
     messages: messages.map((message) => ({
       id: message.id,
       role: message.role === 'user' ? 'user' : 'assistant',
@@ -760,6 +783,32 @@ export function assistantThreadOf(id: string, owner: string): AssistantThreadDet
       createdAt: message.created_at,
     })),
   };
+}
+
+export interface AssistantThreadSummaryState {
+  readonly summary: string | null;
+  readonly summaryUntilId: number | null;
+}
+
+export function assistantThreadSummaryOf(id: string, owner: string): AssistantThreadSummaryState | null {
+  const row = open()
+    .prepare('SELECT summary, summary_until_id FROM assistant_thread WHERE id = ? AND owner = ?')
+    .get(id, owner) as { summary: string | null; summary_until_id: number | null } | undefined;
+  return row ? { summary: row.summary, summaryUntilId: row.summary_until_id } : null;
+}
+
+export function setAssistantThreadSummary(
+  id: string,
+  owner: string,
+  summary: string,
+  untilId: number,
+): boolean {
+  const changed = open()
+    .prepare(
+      'UPDATE assistant_thread SET summary = ?, summary_until_id = ?, summary_updated_at = ? WHERE id = ? AND owner = ?',
+    )
+    .run(summary.slice(0, 6000), untilId, now(), id, owner);
+  return Number(changed.changes) === 1;
 }
 
 export function renameAssistantThread(id: string, owner: string, title: string): boolean {

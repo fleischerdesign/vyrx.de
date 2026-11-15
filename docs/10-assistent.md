@@ -269,6 +269,21 @@ Tastatur erreichbar.
 - **Grenzen:** Kein Offline-Modus; keine stillen Vordergrund-Reloads; iOS-Push
   nur als installierte PWA.
 
+## J — Context-Compaction (2026-11-15)
+
+- Der Thread speichert weiterhin alle Nachrichten; das Modell sieht aber nur
+  die letzten 16 Nachrichten plus ein gespeichertes Summary.
+- Ab 17 Nachrichten verdichtet das Portal die älteren Turns (mindestens vier)
+  über DeepSeek zu einem faktischen Summary: Entscheidungen, Präferenzen,
+  offene Aufgaben, Fakten. Die letzten 12–16 Nachrichten bleiben vollständig.
+- Das Summary liegt in `assistant_thread.summary` / `summary_until_id`;
+  der Client schickt `threadId` und nur das kurze Fenster.
+- Der Server lädt das Summary owner-scoped und hängt es als klar markierten
+  Kontext an den Systemprompt. Der Client kann es nicht unterschieben.
+- Schlägt die Zusammenfassung fehl, bleibt der Thread nutzbar; der nächste
+  Turn versucht es erneut. Kein harter 10-Nachrichten-Fehler mehr.
+- API-Grenzen: 24 Nachrichten / 48.000 Zeichen; das Fenster bleibt darunter.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
@@ -306,7 +321,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 96
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 98
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
