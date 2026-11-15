@@ -342,6 +342,19 @@ Tastatur erreichbar.
 - Push-, In-App- und Thread-Links bleiben interne Pfade; es gibt keinen
   externen Redirect.
 
+## O — Altersfilter für Medien (2026-11-16)
+
+- `media_search` und `media_discover` akzeptieren `maxAge` (0, 6, 12, 16, 18).
+- Das Modell setzt ihn bei Fragen nach FSK, Kinder- oder Jugendfreigabe.
+- Das Portal lädt für die ersten zwölf Kandidaten die deutsche Freigabe über
+  den bestehenden Detailendpunkt nach, gedrosselt auf drei parallele Abfragen
+  und eine Stunde gecacht.
+- Titel ohne belastbare DE-Freigabe werden bei aktivem Filter ausgeschlossen;
+  es wird nichts geschätzt. Bei leerem Ergebnis meldet das Werkzeug das
+  ausdrücklich.
+- Es gibt noch keinen separaten Filter-Button; der Einstieg ist die
+  natürliche Sprache im Assistant.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
@@ -379,7 +392,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 102
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 103
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

@@ -10,6 +10,7 @@
 
 import type { AssistantBlock } from './assistant-blocks.ts';
 import { validateUiNodes } from './assistant-ui.ts';
+import { filterMediaByAge, isAgeLimit } from './media-age.ts';
 import { mediaBlock } from './media-blocks.ts';
 import { genreIdFor, genresFor } from './media-genres.ts';
 import { canRequest4k } from './media-permissions.ts';
@@ -122,10 +123,13 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
     function: {
       name: 'media_search',
       description:
-        'Search Seerr for movies and series. Returns native media cards with availability; read-only. Use for title lookups and "is X already there?".',
+        'Search Seerr for movies and series. Returns native media cards with availability; read-only. Use for title lookups and "is X already there?". Set maxAge for German FSK age limits.',
       parameters: {
         type: 'object',
-        properties: { query: { type: 'string' } },
+        properties: {
+          query: { type: 'string' },
+          maxAge: { type: 'number', enum: [0, 6, 12, 16, 18], description: 'German FSK ceiling; only set when the person asks for an age limit.' },
+        },
         required: ['query'],
         additionalProperties: false,
       },
@@ -146,6 +150,7 @@ export const ASSISTANT_TOOLS: readonly ToolDefinition[] = [
           genre: { type: 'string', description: 'Genre name for kind=genre, e.g. Horror, Thriller, Komödie.' },
           sortBy: { type: 'string', enum: ['popularity', 'rating', 'newest'] },
           recent: { type: 'boolean', description: 'Only titles released or first aired in the last two years; use for "zur Zeit".' },
+          maxAge: { type: 'number', enum: [0, 6, 12, 16, 18], description: 'German FSK ceiling; only set when the person asks for an age limit.' },
         },
         required: ['kind', 'mediaType'],
         additionalProperties: false,
@@ -762,6 +767,8 @@ export async function executeTool(
       case 'media_search': {
         const query = asString(args.query, 200);
         if (!query) return { content: { error: 'invalid_query' } };
+        const maxAge = args.maxAge === undefined ? null : args.maxAge;
+        if (maxAge !== null && !isAgeLimit(maxAge)) return { content: { error: 'invalid_age' } };
         const mediaUser = await resolveMediaUser(session);
         if ('reason' in mediaUser) {
           return { content: mediaFailure(mediaUser.reason, locale) };
@@ -783,8 +790,16 @@ export async function executeTool(
               }
             }
           }
+          if (maxAge !== null) items = await filterMediaByAge(session, mediaUser.user.id, items, maxAge);
           return {
-            content: { query, results: mediaSummary(items) },
+            content: {
+              query,
+              ...(maxAge !== null ? { maxAge } : {}),
+              ...(maxAge !== null && items.length === 0
+                ? { message: locale === 'de' ? `Keine Titel mit FSK bis ${maxAge} gefunden.` : `No titles with a German rating up to ${maxAge} found.` }
+                : {}),
+              results: mediaSummary(items),
+            },
             blocks: [
               ...items.slice(0, 6).map((item) => mediaBlock(item, canRequest4k(mediaUser.user.permissions, item.mediaType))),
               ...mediaSuggestions(items[0]?.title, locale),
@@ -809,6 +824,8 @@ export async function executeTool(
         }
         const sortBy = args.sortBy === 'rating' || args.sortBy === 'newest' ? args.sortBy : 'popularity';
         const recent = args.recent === true;
+        const maxAge = args.maxAge === undefined ? null : args.maxAge;
+        if (maxAge !== null && !isAgeLimit(maxAge)) return { content: { error: 'invalid_age' } };
         let genreId: number | undefined;
         if (kind === 'genre') {
           const genre = asString(args.genre, 80);
@@ -840,11 +857,16 @@ export async function executeTool(
             }
             fallback = items.length > 0;
           }
+          if (maxAge !== null) items = await filterMediaByAge(session, mediaUser.user.id, items, maxAge);
           return {
             content: {
               kind,
               mediaType,
               ...(kind === 'genre' ? { genre: asString(args.genre, 80), sortBy, recent, fallback } : {}),
+              ...(maxAge !== null ? { maxAge } : {}),
+              ...(maxAge !== null && items.length === 0
+                ? { message: locale === 'de' ? `Keine Titel mit FSK bis ${maxAge} gefunden.` : `No titles with a German rating up to ${maxAge} found.` }
+                : {}),
               results: mediaSummary(items),
             },
             blocks: [
