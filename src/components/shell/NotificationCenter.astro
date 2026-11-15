@@ -423,7 +423,9 @@ const labels = {
         const data = (await response.json()) as { enabled?: boolean; publicKey?: string | null };
         if (!data.enabled || !data.publicKey) return;
         pushPublicKey = data.publicKey;
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        const registration =
+          (await navigator.serviceWorker.getRegistration()) ??
+          (await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }));
         pushSubscription = await registration.pushManager.getSubscription();
         pushWrap.hidden = false;
         updatePushUi();

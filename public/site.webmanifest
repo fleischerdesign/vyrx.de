@@ -2,6 +2,7 @@
   "name": "VYRX",
   "short_name": "VYRX",
   "lang": "de",
+  "description": "Privater digitaler Raum für Familie und Freunde.",
   "start_url": "/outpost.goauthentik.io/start?rd=/overview/",
   "id": "/",
   "scope": "/",

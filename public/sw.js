@@ -8,6 +8,11 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+/* Netzwerk-only: kein App-Shell-Cache, keine veralteten Antworten. Der
+ * Listener existiert bewusst, damit die installierbare PWA einen fetch-Handler
+ * besitzt; respondWith wird nicht aufgerufen. */
+self.addEventListener('fetch', () => {});
+
 self.addEventListener('push', (event) => {
   let payload = { title: 'VYRX', body: '', href: '/' };
   try {
