@@ -1001,9 +1001,24 @@ export function savePushSubscription(
 }
 
 export function pushSubscriptionsOf(owner: string): readonly PushSubscriptionRecord[] {
-  return open()
+  const rows = open()
     .prepare('SELECT endpoint, owner, p256dh, auth, created_at, user_agent FROM push_subscription WHERE owner = ?')
-    .all(owner) as unknown as PushSubscriptionRecord[];
+    .all(owner) as unknown as {
+    endpoint: string;
+    owner: string;
+    p256dh: string;
+    auth: string;
+    created_at: string;
+    user_agent: string | null;
+  }[];
+  return rows.map((row) => ({
+    endpoint: row.endpoint,
+    owner: row.owner,
+    p256dh: row.p256dh,
+    auth: row.auth,
+    createdAt: row.created_at,
+    userAgent: row.user_agent,
+  }));
 }
 
 export function removePushSubscription(owner: string, endpoint: string): boolean {

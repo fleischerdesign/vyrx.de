@@ -30,6 +30,11 @@ const labels = {
   quietHint: t('notificationsQuietHint'),
   saved: t('notificationsSaved'),
   saveError: t('notificationsSaveError'),
+  devices: t('notificationsDevices'),
+  noDevices: t('notificationsNoDevices'),
+  removeDevice: t('notificationsRemoveDevice'),
+  thisDevice: t('notificationsThisDevice'),
+  unknownDevice: t('notificationsUnknownDevice'),
 };
 ---
 
@@ -81,6 +86,11 @@ const labels = {
       </div>
       <p class="notifications__setting-hint">{labels.quietHint}</p>
       <p class="notifications__setting-status" data-notifications-settings-status role="status"></p>
+      <div class="notifications__devices">
+        <span class="notifications__devices-title">{labels.devices}</span>
+        <div class="notifications__devices-list" data-notifications-devices></div>
+        <p class="notifications__devices-empty" data-notifications-devices-empty>{labels.noDevices}</p>
+      </div>
     </div>
   </section>
 </div>
@@ -120,6 +130,8 @@ const labels = {
   const quietStart = document.querySelector<HTMLInputElement>('[data-notifications-quiet-start]');
   const quietEnd = document.querySelector<HTMLInputElement>('[data-notifications-quiet-end]');
   const settingsStatus = document.querySelector<HTMLElement>('[data-notifications-settings-status]');
+  const devicesList = document.querySelector<HTMLElement>('[data-notifications-devices]');
+  const devicesEmpty = document.querySelector<HTMLElement>('[data-notifications-devices-empty]');
 
   if (root && trigger && panel && list && empty && readAll && badge && labelsNode) {
     let labels: {
@@ -143,6 +155,11 @@ const labels = {
       quietHint: string;
       saved: string;
       saveError: string;
+      devices: string;
+      noDevices: string;
+      removeDevice: string;
+      thisDevice: string;
+      unknownDevice: string;
       locale: 'de' | 'en';
     };
     try {
@@ -169,6 +186,11 @@ const labels = {
         quietHint: 'Push wird während der Ruhezeit nicht gesendet.',
         saved: 'Gespeichert.',
         saveError: 'Speichern fehlgeschlagen.',
+        devices: 'Push-Geräte',
+        noDevices: 'Keine Push-Geräte.',
+        removeDevice: 'Entfernen',
+        thisDevice: 'Dieses Gerät',
+        unknownDevice: 'Unbekanntes Gerät',
         locale: 'de',
       };
     }
@@ -382,6 +404,7 @@ const labels = {
       if (view === 'settings') {
         setPreferencesBusy(!preferencesLoaded);
         void loadPreferences().finally(() => setPreferencesBusy(false));
+        void loadDevices();
         requestToggle?.focus();
       }
     };
@@ -409,6 +432,65 @@ const labels = {
       }
     };
 
+    interface Device {
+      endpoint: string;
+      label: string;
+      createdAt: string;
+    }
+
+    async function loadDevices(): Promise<void> {
+      if (!devicesList || !devicesEmpty) return;
+      try {
+        const response = await fetch('/api/notifications/subscriptions');
+        if (!response.ok) throw new Error('devices');
+        const data = (await response.json()) as { subscriptions?: Device[] };
+        const devices = data.subscriptions ?? [];
+        devicesList.replaceChildren();
+        devicesEmpty.hidden = devices.length > 0;
+        for (const device of devices) {
+          const row = document.createElement('div');
+          row.className = 'notifications__device';
+          const info = document.createElement('span');
+          info.className = 'notifications__device-info';
+          const name = document.createElement('strong');
+          name.textContent = device.label || labels.unknownDevice;
+          const meta = document.createElement('span');
+          const date = new Date(device.createdAt);
+          meta.textContent = [
+            pushSubscription?.endpoint === device.endpoint ? labels.thisDevice : '',
+            Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString(labels.locale),
+          ]
+            .filter(Boolean)
+            .join(' · ');
+          info.append(name, meta);
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'notifications__device-remove';
+          remove.textContent = labels.removeDevice;
+          remove.addEventListener('click', async () => {
+            remove.disabled = true;
+            await fetch('/api/notifications/unsubscribe', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ endpoint: device.endpoint }),
+            }).catch(() => undefined);
+            if (pushSubscription?.endpoint === device.endpoint) {
+              await pushSubscription.unsubscribe().catch(() => undefined);
+              pushSubscription = null;
+              updatePushUi();
+            }
+            await loadDevices();
+          });
+          row.append(info, remove);
+          devicesList.append(row);
+        }
+      } catch {
+        devicesList.replaceChildren();
+        devicesEmpty.hidden = false;
+        devicesEmpty.textContent = labels.noDevices;
+      }
+    }
+
     const setupPush = async (): Promise<void> => {
       if (!pushWrap || !pushButton || !pushState) return;
       if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
@@ -429,6 +511,7 @@ const labels = {
         pushSubscription = await registration.pushManager.getSubscription();
         pushWrap.hidden = false;
         updatePushUi();
+        if (panel.dataset.view === 'settings') void loadDevices();
         if (Notification.permission === 'denied') {
           pushButton.hidden = true;
           pushState.textContent = labels.pushDenied;
@@ -665,6 +748,88 @@ const labels = {
     background: var(--surface);
     color: var(--ink);
     font-size: var(--text-xs);
+  }
+
+  .notifications__devices {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--line);
+  }
+
+  .notifications__devices-title {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
+  }
+
+  .notifications__devices-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .notifications__device {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.35rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .notifications__device:last-child {
+    border-bottom: 0;
+  }
+
+  .notifications__device-info {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .notifications__device-info strong {
+    overflow: hidden;
+    color: var(--ink-2);
+    font-size: 0.625rem;
+    font-weight: var(--weight-medium);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .notifications__device-info span {
+    color: var(--faint);
+    font-size: 0.5rem;
+  }
+
+  .notifications__device-remove {
+    flex: none;
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: var(--bad);
+    font-size: 0.5625rem;
+  }
+
+  .notifications__device-remove:hover {
+    color: var(--ink);
+  }
+
+  .notifications__device-remove:disabled {
+    opacity: 0.5;
+  }
+
+  .notifications__devices-empty {
+    margin: 0;
+    color: var(--faint);
+    font-size: 0.5625rem;
+  }
+
+  .notifications__devices-empty[hidden] {
+    display: none;
   }
 
   .notifications__setting-hint,

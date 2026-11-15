@@ -11,6 +11,7 @@ import '@fontsource-variable/dm-sans';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '@fontsource/ibm-plex-mono/600.css';
+import { buildId } from '@/lib/build';
 import { switchLocale, type Locale } from '@/lib/locale';
 import { THEME_KEY } from '@/lib/theme';
 
@@ -53,6 +54,7 @@ const other: Locale = locale === 'de' ? 'en' : 'de';
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
+    <meta name="vyrx-build" content={buildId} />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="VYRX" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />

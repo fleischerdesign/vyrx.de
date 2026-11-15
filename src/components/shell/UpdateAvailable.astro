@@ -1,0 +1,84 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  readonly locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+const label = t('updateAvailable');
+const reload = t('updateReload');
+---
+
+<button
+  type="button"
+  class="update-available"
+  data-update-available
+  aria-label={`${label} · ${reload}`}
+  title={`${label} · ${reload}`}
+  hidden
+>
+  <Icon name="activity" size="0.95rem" />
+  <span>{reload}</span>
+</button>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>('[data-update-available]');
+  const meta = document.querySelector<HTMLMetaElement>('meta[name="vyrx-build"]');
+  if (button && meta) {
+    const current = meta.content;
+    let checking = false;
+
+    const check = async (): Promise<void> => {
+      if (checking || document.visibilityState === 'hidden') return;
+      checking = true;
+      try {
+        const response = await fetch('/api/version', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = (await response.json()) as { version?: string };
+        if (data.version && data.version !== current) button.hidden = false;
+      } catch {
+        // Offline oder noch keine Sitzung: kein Update-Hinweis.
+      } finally {
+        checking = false;
+      }
+    };
+
+    button.addEventListener('click', () => window.location.reload());
+    window.addEventListener('focus', () => void check());
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') void check();
+    });
+    window.setInterval(() => void check(), 5 * 60_000);
+    void check();
+  }
+</script>
+
+<style>
+  .update-available {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-height: 2rem;
+    padding: 0 0.55rem;
+    border: 1px solid var(--accent-soft-line);
+    border-radius: var(--radius-pill);
+    background: var(--accent-weak);
+    color: var(--accent-strong);
+    font-size: 0.625rem;
+    font-weight: var(--weight-medium);
+    white-space: nowrap;
+  }
+
+  .update-available:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .update-available[hidden] {
+    display: none;
+  }
+</style>

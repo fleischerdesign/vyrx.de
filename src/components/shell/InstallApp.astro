@@ -1,0 +1,83 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import type { Locale } from '@/lib/locale';
+
+interface Props {
+  readonly locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = useTranslations(locale);
+---
+
+<button
+  type="button"
+  class="install-app"
+  data-install-app
+  aria-label={t('installApp')}
+  title={t('installApp')}
+  hidden
+>
+  <Icon name="download" size="1.05rem" />
+</button>
+
+<script>
+  interface InstallPromptEvent extends Event {
+    prompt: () => Promise<void>;
+    userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+  }
+
+  const button = document.querySelector<HTMLButtonElement>('[data-install-app]');
+  if (button) {
+    let prompt: InstallPromptEvent | null = null;
+    const standalone = window.matchMedia('(display-mode: standalone)').matches;
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      prompt = event as InstallPromptEvent;
+      if (!standalone) button.hidden = false;
+    });
+
+    button.addEventListener('click', async () => {
+      if (!prompt) return;
+      button.disabled = true;
+      try {
+        await prompt.prompt();
+        await prompt.userChoice;
+      } finally {
+        prompt = null;
+        button.hidden = true;
+        button.disabled = false;
+      }
+    });
+
+    window.addEventListener('appinstalled', () => {
+      prompt = null;
+      button.hidden = true;
+    });
+  }
+</script>
+
+<style>
+  .install-app {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
+    color: var(--muted);
+  }
+
+  .install-app:hover {
+    border-color: var(--line);
+    background: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .install-app[hidden] {
+    display: none;
+  }
+</style>

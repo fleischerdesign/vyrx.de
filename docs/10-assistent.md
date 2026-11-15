@@ -235,6 +235,26 @@ Tastatur erreichbar.
 - **Benachrichtigungen:** laufen über `notifyOwner`; Kategorie, Ruhezeit und
   Push-Abonnement gelten unverändert.
 
+## I — PWA, Service Worker und Geräte (2026-11-15)
+
+- **Registrierung:** `Base.astro` registriert `/sw.js` auf jeder Seite,
+  mit `updateViaCache: 'none'`; Update-Check bei Laden, Fokus und
+  Sichtbarkeit. Ein neuer Worker nutzt `skipWaiting`/`clients.claim`; eine
+  bereits kontrollierte Seite lädt einmal neu. Kein App-Shell-Cache.
+- **Installierbarkeit:** Manifest, 192/512/maskable Icons, Standalone,
+  Scope und Start-URL; Chromium meldet keine Installability-Fehler.
+  Ein eigener Installations-Button erscheint nur, wenn
+  `beforeinstallprompt` verfügbar ist; iOS bleibt beim Share-Menü.
+- **App-Update:** `meta[name="vyrx-build"]` und `GET /api/version` liefern
+  die Deployment-ID. Bei einer neuen Version erscheint ein ruhiger
+  „Neu laden“-Button; kein automatischer Reload mitten im Tippen.
+- **Geräte:** `GET /api/notifications/subscriptions` listet Push-Geräte des
+  Owners mit Browser/Plattform und Datum; Entfernen nutzt den bestehenden
+  Unsubscribe-Endpunkt. Das aktuelle Gerät wird markiert, wenn die
+  Browser-Subscription vorhanden ist.
+- **Grenzen:** Kein Offline-Modus; keine stillen Vordergrund-Reloads; iOS-Push
+  nur als installierte PWA.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
@@ -272,7 +292,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 94
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 95
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

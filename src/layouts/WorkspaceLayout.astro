@@ -8,6 +8,8 @@ import Base from './Base.astro';
 import SkipLink from '@/components/shell/SkipLink.astro';
 import ThemeToggle from '@/components/shell/ThemeToggle.astro';
 import NotificationCenter from '@/components/shell/NotificationCenter.astro';
+import InstallApp from '@/components/shell/InstallApp.astro';
+import UpdateAvailable from '@/components/shell/UpdateAvailable.astro';
 import LocaleSwitch from '@/components/shell/LocaleSwitch.astro';
 import WorkspaceNav from '@/components/shell/WorkspaceNav.astro';
 import MobileDock from '@/components/shell/MobileDock.astro';
@@ -119,6 +121,8 @@ const palette: PaletteItem[] = [
         </nav>
         <div class="topbar__actions">
           <span class="palette-slot"><CommandPalette locale={locale} items={palette} /></span>
+          <InstallApp locale={locale} />
+          <UpdateAvailable locale={locale} />
           <NotificationCenter locale={locale} />
           <LocaleSwitch locale={locale} class="topbar__locale" />
           <ThemeToggle locale={locale} />

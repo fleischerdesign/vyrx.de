@@ -15,6 +15,9 @@ export const de = {
   themeSwitch: 'Darstellung',
   back: 'Zurück',
   cancel: 'Abbrechen',
+  updateAvailable: 'Neue Version',
+  updateReload: 'Neu laden',
+  installApp: 'App installieren',
   save: 'Speichern',
 
   // Öffentliche Navigation
@@ -163,6 +166,11 @@ export const de = {
   notificationsQuietHint: 'Push wird während der Ruhezeit nicht gesendet.',
   notificationsSaved: 'Gespeichert.',
   notificationsSaveError: 'Speichern fehlgeschlagen.',
+  notificationsDevices: 'Push-Geräte',
+  notificationsNoDevices: 'Keine Push-Geräte.',
+  notificationsRemoveDevice: 'Entfernen',
+  notificationsThisDevice: 'Dieses Gerät',
+  notificationsUnknownDevice: 'Unbekanntes Gerät',
   notificationsPushEnable: 'Push aktivieren',
   notificationsPushDisable: 'Push deaktivieren',
   notificationsPushActive: 'Push aktiv',
