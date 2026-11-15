@@ -84,8 +84,10 @@ Die schreibende Strecke ist implementiert und über
 - Die `confirm`-Karte enthält die kompakte Filmvorschau (Poster, Titel,
   Jahr, Typ, Bewertung, Status und bei Serien die Staffelanzahl) und ersetzt
   die Trefferliste. Keine zusätzliche Konto-Zeile.
-- Medien-Grids mit mehreren Treffern bieten „Mehrere auswählen“: bis zu drei
-  Titel werden gesammelt und im Batch-Dialog nacheinander direkt angefragt.
+- Medien-Grids mit mehreren Treffern bieten „Mehrere auswählen“: alle Karten
+  der Trefferliste (aktuell maximal sechs) können gesammelt und im Batch-Dialog
+  nacheinander direkt angefragt werden. Ein künstlicher 3er-Deckel existiert
+  nicht mehr.
   Jede Zeile zeigt ihr eigenes Ergebnis; es gibt kein Alles-oder-nichts.
 - Das Detail-Modal führt „Anfragen“ direkt über `POST /api/media/request`
   (Direktmodus) aus. Das Modal ist die Bestätigung; es gibt keinen weiteren
@@ -111,7 +113,9 @@ Die schreibende Strecke ist implementiert und über
   `{mediaType:'tv', mediaId, seasons:[…], is4k:false}`.
 - 409/403/429/Timeout: kein blinder Retry; nach Timeout werden die eigenen
   Requests geprüft, sonst „unklar“.
-- Audit und Rate Limit (3/Minute, 20/Tag) sind eingebaut.
+- Audit und Server-Rate-Limit (Standard 20/Minute, 200/Tag; über
+  `PORTAL_MEDIA_RATE_PER_MINUTE` und `PORTAL_MEDIA_RATE_PER_DAY` anpassbar)
+  sind eingebaut.
 - Mit einem Mock-Seerr end-to-end geprüft: Confirm → POST → 201, Header
   `X-Api-User: 2`, Body `mediaId: 438631`; kein echter Schreibzugriff.
 - **74 Tests** und der vollständige Build sind grün.
@@ -449,7 +453,8 @@ fehlende Mappings werden protokolliert.
 - Medienaktion nur mit `media-users` **und** Mapping.
 - Same-Origin + `Origin`/`Sec-Fetch-Site` + JSON-Content-Type am Action-Endpunkt.
 - Proposal: 128 Bit, Actor-gebunden, 10 Minuten, einmalig.
-- Rate Limit: 3 Anfragen/Minute und 20/Tag pro Person.
+- Rate Limit: Standard 20 Anfragen/Minute und 200/Tag pro Person
+  (`PORTAL_MEDIA_RATE_PER_MINUTE`, `PORTAL_MEDIA_RATE_PER_DAY`).
 - Vor dem Schreiben: Status prüfen; `available`/`pending`/`processing` nicht
   doppelt anfragen. Seerr-409 wird als „bereits angefragt“ gezeigt.
 - Kein blinder Retry nach Timeout: zuerst eigene Requests für die TMDB-ID

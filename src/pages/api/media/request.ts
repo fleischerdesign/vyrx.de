@@ -113,9 +113,19 @@ const failureText = (reason: MediaUserFailure, locale: Locale): string => {
   }
 };
 
+const envLimit = (name: string, fallback: number, maximum: number): number => {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value) && value > 0 ? Math.min(Math.trunc(value), maximum) : fallback;
+};
+
+// Die Batch-Oberfläche hat keinen eigenen Deckel; dieses Serverlimit ist die
+// Sicherheitsbremse gegen versehentliche oder missbräuchliche Massenanfragen.
+const RATE_PER_MINUTE = envLimit('PORTAL_MEDIA_RATE_PER_MINUTE', 20, 120);
+const RATE_PER_DAY = envLimit('PORTAL_MEDIA_RATE_PER_DAY', 200, 1000);
+
 const tooMany = (actor: string): boolean =>
-  countRecentMediaProposals(actor, new Date(Date.now() - 60_000).toISOString()) >= 3 ||
-  countRecentMediaProposals(actor, new Date(Date.now() - 86_400_000).toISOString()) >= 20;
+  countRecentMediaProposals(actor, new Date(Date.now() - 60_000).toISOString()) >= RATE_PER_MINUTE ||
+  countRecentMediaProposals(actor, new Date(Date.now() - 86_400_000).toISOString()) >= RATE_PER_DAY;
 
 const execute = async (
   session: Session,

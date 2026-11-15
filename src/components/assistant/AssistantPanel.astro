@@ -1078,8 +1078,8 @@ const labels = {
         hint.className = 'ui-batch-dialog__hint';
         hint.textContent =
           locale === 'de'
-            ? 'Die Anfragen werden nacheinander gesendet, maximal drei pro Minute.'
-            : 'The requests are sent one after another, at most three per minute.';
+            ? 'Die Anfragen werden nacheinander gesendet; bei zu vielen Anfragen greift das Serverlimit.'
+            : 'The requests are sent one after another; the server rate limit protects against bulk requests.';
         const list = document.createElement('div');
         list.className = 'ui-batch-dialog__list';
         const rows = new Map<string, HTMLElement>();
@@ -1274,10 +1274,6 @@ const labels = {
           const key = keyOf(block);
           if (selected.has(key)) {
             selected.delete(key);
-          } else if (selected.size >= 3) {
-            barHint.textContent = locale === 'de' ? 'Maximal 3 pro Vorgang.' : 'At most 3 per batch.';
-            window.setTimeout(() => { barHint.textContent = ''; }, 2500);
-            return;
           } else {
             selected.set(key, { block, card });
           }
