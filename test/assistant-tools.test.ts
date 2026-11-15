@@ -186,3 +186,9 @@ test('a service status question narrows to that service', () => {
   assert.equal(blocks[0]?.type, 'status');
   assert.equal(blocks[0]?.type === 'status' ? blocks[0].serviceId : '', 'files');
 });
+
+test('an application-list question yields service rows without a model tool call', () => {
+  const blocks = intentBlocks('Welche Anwendungen sind für mich freigegeben?', data, 'de');
+  assert.equal(blocks.length, 2);
+  assert.equal(blocks.every((block) => block.type === 'service'), true);
+});

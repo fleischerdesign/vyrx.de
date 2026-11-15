@@ -27,6 +27,13 @@ einem Weg — einem Link, einer Karte oder dem nächsten Schritt.
   Historie, Wissen, Wartung).
 - **Jede Antwort endet mit einem Weg.** Ein Link, eine Dienst-Karte, ein
   nächster Schritt — nicht nur ein Absatz.
+- **Anwendungslisten sind deterministisch.** Fragen nach freigegebenen
+  Anwendungen/Angeboten erzeugen die Service-Zeilen serverseitig und werden
+  ohne Modellwerkzeug beantwortet. Das verhindert lange Tool-Aufrufe,
+  Token-Abschneidung und rohe Tool-Syntax im Text.
+- **Antwortbudget:** 2.000 Tokens statt 700; UI-Karten erlauben 24 statt 12
+  direkte Kinder. Ein Provider-Abbruch mit `length` ist damit kein
+  Normalfall mehr.
 - **Teilantworten bleiben stehen.** Bricht der Provider-Stream nach bereits
   gestreamtem Text ab, wird die Antwort nicht mehr gelöscht: der sichtbare
   Teil bleibt, darunter stehen ein knapper Unterbrechungstext und
@@ -299,7 +306,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 95
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 96
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

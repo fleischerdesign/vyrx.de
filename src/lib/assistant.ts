@@ -77,7 +77,7 @@ export function assistantConfig(): AssistantConfig | null {
     baseUrl: baseUrl.replace(/\/+$/, ''),
     model,
     apiKey,
-    maxTokens: number(process.env.PORTAL_ASSISTANT_MAX_TOKENS, 700, 100, 2000),
+    maxTokens: number(process.env.PORTAL_ASSISTANT_MAX_TOKENS, 1500, 100, 2000),
     timeoutMs: number(process.env.PORTAL_ASSISTANT_TIMEOUT_MS, 30_000, 5_000, 60_000),
   };
 }
@@ -437,10 +437,22 @@ export async function* runAssistant(
   };
 
   const intent = takeBlocks(intentBlocks(lastUser, data, locale), true);
+  const intentHasServices = intent.some((block) => block.type === 'service');
   if (intent.length > 0) yield { type: 'ui', nodes: intent };
+  if (intentHasServices) {
+    const count = data.services.length;
+    yield {
+      type: 'text',
+      text:
+        locale === 'de'
+          ? `Für dich sind ${count} ${count === 1 ? 'Angebot' : 'Angebote'} freigegeben. Die Liste zeigt sie; die Details stehen in den Karten.`
+          : `${count} ${count === 1 ? 'application is' : 'applications are'} available to you. The list shows them; the cards hold the details.`,
+    };
+    return;
+  }
 
   for (let round = 0; round <= MAX_TOOL_ROUNDS; round++) {
-    const allowTools = round < MAX_TOOL_ROUNDS;
+    const allowTools = round < MAX_TOOL_ROUNDS && !intentHasServices;
     const iterator = streamTurn(config, provider, allowTools ? ASSISTANT_TOOLS : null, signal);
     let step = await iterator.next();
     while (!step.done) {

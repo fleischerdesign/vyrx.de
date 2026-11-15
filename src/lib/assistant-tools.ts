@@ -552,7 +552,16 @@ export function intentBlocks(query: string, data: AssistantData, locale: Locale)
     has('läuft') ||
     has('zustand') ||
     has('los');
-  if (!statusIntent) return [];
+  if (!statusIntent) {
+    const applicationIntent =
+      lower.includes('anwendung') ||
+      lower.includes('angebot') ||
+      lower.includes('freigegeben') ||
+      lower.includes('sichtbar') ||
+      lower.includes('zugriff');
+    if (!applicationIntent || data.services.length === 0) return [];
+    return data.services.map((service) => serviceBlock(service, locale));
+  }
 
   const matched = data.services.find((service) => lower.includes(localized(service, locale).toLocaleLowerCase('de')));
   if (matched) return [statusBlock(matched, locale)];

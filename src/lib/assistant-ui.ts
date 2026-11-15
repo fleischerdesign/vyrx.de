@@ -26,7 +26,7 @@ export interface UiValidationResult {
 
 const MAX_NODES = 80;
 const MAX_DEPTH = 6;
-const MAX_CHILDREN = 12;
+const MAX_CHILDREN = 24;
 
 const TONES: readonly UiTone[] = ['neutral', 'accent', 'ok', 'warn', 'bad', 'unknown'];
 const GAPS: readonly UiGap[] = ['none', 'xs', 'sm', 'md', 'lg'];
