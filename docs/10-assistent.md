@@ -298,8 +298,9 @@ Tastatur erreichbar.
 - **Ausführung:** der bestehende 5-Minuten-Scan ruft `runDueRoutines()` auf.
   Kein neuer Timer, kein neuer Dienst.
 - **Ergebnis:** `notifyOwner(..., 'routine', ...)`; Kategorie, Ruhezeit und
-  Push gelten. Die erste Routine ist der wöchentliche Medien-Digest
-  (Sonntag 18:00) mit verfügbaren und offenen Anfragen.
+  Push gelten. Zwei Routinen sind aktiv: der wöchentliche Medien-Digest
+  (Sonntag 18:00) und die Filmabend-Ideen (Freitag 18:00, drei lesende
+  Seerr-Discover-Vorschläge).
 - **Grenze:** noch keine Routine-Verwaltungsoberfläche; Aktivierung ist
   Code plus Kategorie-Schalter.
 
@@ -378,7 +379,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 101
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 102
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
