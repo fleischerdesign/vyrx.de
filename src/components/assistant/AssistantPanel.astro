@@ -162,6 +162,7 @@ const labels = {
 
 <script>
   import type { AssistantBlock } from '@/lib/assistant-blocks.ts';
+  import { sanitizeAssistantText } from '@/lib/assistant-text.ts';
   import { SseParser } from '@/lib/sse.ts';
 
   interface Config {
@@ -2662,6 +2663,7 @@ const labels = {
 
         if (streamError) throw new Error(streamError);
         if (id !== run) return;
+        streamed = sanitizeAssistantText(streamed, locale).text;
         if (streamFrame) {
           cancelAnimationFrame(streamFrame);
           streamFrame = 0;
@@ -2700,6 +2702,7 @@ const labels = {
           stopped.textContent = labels.stopped ?? '';
           log.append(stopped);
         } else if (streamed.trim() || uiNodes.length > 0 || navigations.length > 0) {
+          streamed = sanitizeAssistantText(streamed, locale).text;
           if (streamFrame) {
             cancelAnimationFrame(streamFrame);
             streamFrame = 0;

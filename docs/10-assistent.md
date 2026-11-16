@@ -396,6 +396,18 @@ Tastatur erreichbar.
 - Die Statusabfrage ist auf 300 ms begrenzt, damit der Collector die Seite
   nicht blockiert.
 
+## R — Assistant-Protokoll-Härtung (2026-11-16)
+
+- Der Client bereinigt abgeschlossene Assistant-Antworten mit
+  `sanitizeAssistantText`: rohe `<render_ui>`-, `<tool_call>`-,
+  `<function_call>`-Blöcke und Tool-JSON-Codezäune werden entfernt.
+- Bleibt nur rohe Syntax übrig, erscheint eine lokalisierte Fallback-Meldung
+  statt eines leeren oder kaputten Turns.
+- Normale Prosa und gewöhnliche Codeblöcke bleiben unverändert.
+- Der Systemprompt verbietet rohe Werkzeug-Syntax zusätzlich ausdrücklich.
+- Die Bereinigung läuft vor dem Rendern und vor dem Persistieren; alte
+  gespeicherte Turns können weiterhin roh sein.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
@@ -433,7 +445,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 105
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 108
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px
