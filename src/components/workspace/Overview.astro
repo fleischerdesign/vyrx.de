@@ -2,13 +2,17 @@
 import AssistantPrompt from '@/components/assistant/AssistantPrompt.astro';
 import ServiceRow from '@/components/services/ServiceRow.astro';
 import Onboarding from '@/components/onboarding/Onboarding.astro';
+import ForYou from '@/components/workspace/ForYou.astro';
 import PageHeader from '@/components/ui/PageHeader.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
 import Icon from '@/components/ui/Icon.astro';
 import { useTranslations } from '@/i18n';
 import { pathFor, type Locale } from '@/lib/locale';
 import type { Session } from '@/lib/session';
-import { favoritesOf, notificationPreferencesOf, onboardingStateOf } from '@/lib/store';
+import { favoritesOf, mediaWatchesOf, notificationPreferencesOf, onboardingStateOf, routineStateOf } from '@/lib/store';
+import { ROUTINES } from '@/lib/routines/index.ts';
+import { nextRoutineRun } from '@/lib/routines/schedule.ts';
+import { loadStatus, stateOf } from '@/lib/status';
 import { activeAnnouncements, announcementText } from '@/lib/announcements';
 
 interface Props {
@@ -27,6 +31,38 @@ const saved = services.filter((service) => favorites.includes(service.id));
 const shown = saved.length > 0 ? saved : services;
 const news = session.identity ? activeAnnouncements(session.identity.groups) : [];
 const onboardingState = owner ? onboardingStateOf(owner) : null;
+const showForYou = legacyOnboarded || Boolean(onboardingState?.completedAt || onboardingState?.dismissedAt);
+const watches = owner ? mediaWatchesOf(owner) : [];
+const availableSince = Date.now() - 21 * 86_400_000;
+const available = watches.filter((watch) => {
+  const changed = Date.parse(watch.updatedAt);
+  return watch.lastStatus === 'available' && Number.isFinite(changed) && changed >= availableSince;
+}).length;
+const openRequests = watches.filter(
+  (watch) =>
+    watch.active &&
+    watch.lastStatus !== 'available' &&
+    watch.lastStatus !== 'declined' &&
+    watch.lastStatus !== 'failed' &&
+    watch.lastStatus !== 'blocklisted',
+).length;
+const now = new Date();
+const nextRoutine = showForYou && owner
+  ? ROUTINES.map((routine) => {
+      const state = routineStateOf(owner, routine.id);
+      const at = state ? new Date(state.nextRunAt) : nextRoutineRun(routine.schedule, now);
+      return Number.isFinite(at.getTime()) ? { title: routine.title, at: at.toISOString() } : null;
+    })
+      .filter((entry): entry is { title: string; at: string } => entry !== null)
+      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0] ?? null
+  : null;
+const statusSnapshot = showForYou
+  ? await Promise.race([
+      loadStatus(services.map((service) => service.id)),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 300)),
+    ])
+  : null;
+const degraded = statusSnapshot ? services.filter((service) => stateOf(service, statusSnapshot).state === 'down').length : 0;
 const notificationPreferences = owner
   ? notificationPreferencesOf(owner)
   : { push: true, quietStart: null, quietEnd: null, request: true, routine: true };
@@ -47,6 +83,17 @@ const notificationPreferences = owner
   name={name}
   preferences={notificationPreferences}
 />
+
+{showForYou && (
+  <ForYou
+    locale={locale}
+    openRequests={openRequests}
+    available={available}
+    nextRoutine={nextRoutine}
+    degraded={degraded}
+    statusKnown={Boolean(statusSnapshot)}
+  />
+)}
 
 <AssistantPrompt
   locale={locale}

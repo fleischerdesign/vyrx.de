@@ -1,0 +1,168 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { pathFor, type Locale } from '@/lib/locale';
+
+interface RoutinePreview {
+  readonly title: string;
+  readonly at: string;
+}
+
+interface Props {
+  readonly locale: Locale;
+  readonly openRequests: number;
+  readonly available: number;
+  readonly nextRoutine: RoutinePreview | null;
+  readonly degraded: number;
+  readonly statusKnown: boolean;
+}
+
+const { locale, openRequests, available, nextRoutine, degraded, statusKnown } = Astro.props;
+const t = useTranslations(locale);
+const requestCount = openRequests + available;
+const routineTime = nextRoutine
+  ? new Intl.DateTimeFormat(locale === 'de' ? 'de-DE' : 'en-GB', {
+      weekday: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date(nextRoutine.at))
+  : '';
+---
+
+<section class="for-you" aria-labelledby="for-you-title">
+  <div class="for-you__head">
+    <h2 id="for-you-title">{t('forYouTitle')}</h2>
+  </div>
+  <div class="for-you__grid">
+    <a class="for-you__card" href={pathFor(locale, 'services')}>
+      <span class="for-you__icon"><Icon name="play" size="1.05rem" /></span>
+      <span class="for-you__copy">
+        <strong>{t('forYouRequests')}</strong>
+        {requestCount > 0 ? (
+          <small>
+            {[
+              openRequests > 0 ? t('forYouOpen', { count: openRequests }) : '',
+              available > 0 ? t('forYouAvailable', { count: available }) : '',
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </small>
+        ) : (
+          <small>{t('forYouNoRequests')}</small>
+        )}
+      </span>
+      <Icon name="arrowRight" size="0.9rem" />
+    </a>
+
+    {
+      nextRoutine && (
+        <div class="for-you__card">
+          <span class="for-you__icon"><Icon name="sparkles" size="1.05rem" /></span>
+          <span class="for-you__copy">
+            <strong>{t('forYouNextRoutine')}</strong>
+            <small>{nextRoutine.title} · {routineTime}</small>
+          </span>
+        </div>
+      )
+    }
+
+    <a class="for-you__card" href={pathFor(locale, 'status')}>
+      <span class="for-you__icon"><Icon name="activity" size="1.05rem" /></span>
+      <span class="for-you__copy">
+        <strong>{t('forYouStatus')}</strong>
+        <small>
+          {!statusKnown
+            ? t('forYouUnknown')
+            : degraded > 0
+              ? t('forYouDegraded', { count: degraded })
+              : t('forYouAllClear')}
+        </small>
+      </span>
+      <Icon name="arrowRight" size="0.9rem" />
+    </a>
+  </div>
+</section>
+
+<style>
+  .for-you {
+    margin-bottom: var(--space-10);
+  }
+
+  .for-you__head {
+    margin-bottom: var(--space-4);
+  }
+
+  .for-you__head h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+  }
+
+  .for-you__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: var(--space-3);
+  }
+
+  .for-you__card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    color: var(--ink);
+    transition:
+      border-color var(--fast) var(--ease),
+      transform var(--fast) var(--ease);
+  }
+
+  a.for-you__card:hover {
+    border-color: var(--accent-soft-line);
+    transform: translateY(-1px);
+  }
+
+  .for-you__icon {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    flex: none;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+  }
+
+  .for-you__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .for-you__copy strong {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .for-you__copy small {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: var(--text-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .for-you__card > :global(svg:last-child) {
+    margin-inline-start: auto;
+    flex: none;
+    color: var(--faint);
+  }
+
+  @media (max-width: 620px) {
+    .for-you__grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

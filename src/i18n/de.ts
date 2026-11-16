@@ -235,6 +235,17 @@ export const de = {
   personalSpace: 'Persönlicher Bereich',
 
   // Übersicht
+  forYouTitle: 'Für dich jetzt',
+  forYouRequests: 'Medienanfragen',
+  forYouOpen: '{count} offen',
+  forYouAvailable: '{count} verfügbar',
+  forYouNoRequests: 'Keine offenen Anfragen.',
+  forYouNextRoutine: 'Nächste Routine',
+  forYouStatus: 'Status',
+  forYouAllClear: 'Alles ruhig.',
+  forYouDegraded: '{count} gestört',
+  forYouUnknown: 'Nicht geprüft.',
+  forYouView: 'Ansehen',
   overviewEyebrow: 'Dein Workspace / Übersicht',
   overviewGreeting: 'Willkommen zurück, {name}.',
   overviewIntro: 'Hier findest du, was du regelmäßig brauchst.',

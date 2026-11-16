@@ -382,6 +382,20 @@ Tastatur erreichbar.
   erneut behelligt; der Cookie wird nur noch als Legacy-Signal gelesen.
 - Benachrichtigungen und PWA-Installation bleiben Phase 2.
 
+## Q — Für dich jetzt (2026-11-16)
+
+- Nach abgeschlossenem oder übersprungenem Onboarding zeigt die Übersicht
+  eine kompakte Statusleiste „Für dich jetzt“.
+- Drei Karten:
+  - Medienanfragen: aktive offene Anfragen plus verfügbare Titel der letzten
+    21 Tage
+  - nächste Routine: frühester geplanter Lauf aus `routine_state` bzw.
+    nächster Termin aus dem Code-Zeitplan
+  - Status: Anzahl sichtbarer gestörter Dienste; ohne Messung „Nicht geprüft“
+- Neue Konten sehen stattdessen weiterhin die Onboarding-Karte.
+- Die Statusabfrage ist auf 300 ms begrenzt, damit der Collector die Seite
+  nicht blockiert.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
