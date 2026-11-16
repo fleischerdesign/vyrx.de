@@ -9,9 +9,10 @@ interface Props {
   locale: Locale;
   service: FleetService;
   live: Live;
+  since?: string | null;
 }
 
-const { locale, service, live } = Astro.props;
+const { locale, service, live, since = null } = Astro.props;
 const t = useTranslations(locale);
 const label =
   live.state === 'up'
@@ -28,6 +29,7 @@ const time = live.asOf ? new Date(live.asOf).toLocaleTimeString(locale, { hour: 
   <span class="status-row__name">
     <strong>{text(service.name, locale)}</strong>
     <small>{text(service.summary, locale)}</small>
+    {since && <small class="status-row__since">{t('statusSince', { time: since })}</small>}
   </span>
   <span class="status-row__time mono" data-asof>{time}</span>
   <StateDot state={live.state} label={label} />
@@ -56,6 +58,13 @@ const time = live.asOf ? new Date(live.asOf).toLocaleTimeString(locale, { hour: 
     color: var(--muted);
     font-size: var(--text-xs);
     margin-top: 2px;
+  }
+
+  .status-row__since {
+    color: var(--accent-strong);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    margin-top: 3px;
   }
 
   .status-row__time {

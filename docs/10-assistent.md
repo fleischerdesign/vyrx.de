@@ -408,6 +408,18 @@ Tastatur erreichbar.
 - Die Bereinigung läuft vor dem Rendern und vor dem Persistieren; alte
   gespeicherte Turns können weiterhin roh sein.
 
+## S — Status-Historie (2026-11-16)
+
+- Die Statusseite lädt zusätzlich zur aktuellen Messung die 24-Stunden-Historie
+  über `loadHistory`.
+- Jede Statuszeile zeigt bei bekannten Zuständen „seit …“ aus dem letzten
+  passenden Zustandswechsel.
+- Unter der Liste stehen die letzten acht Zustandswechsel mit Dienst, Zustand
+  und Zeitpunkt; ohne Wechsel erscheint ein leerer Zustand.
+- Die laufende Browser-Aktualisierung aktualisiert weiterhin die aktuelle
+  Messung; „seit“ und Historie sind serverseitig geladen.
+- Mobil klappt die Historienzeile auf zwei Spalten/Zeilen um.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.

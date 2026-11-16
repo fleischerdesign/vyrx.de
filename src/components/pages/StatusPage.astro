@@ -9,16 +9,17 @@ import { visibleCategories } from '@/lib/authz';
 import { text } from '@/lib/fleet';
 import { pathFor, type Locale } from '@/lib/locale';
 import type { Session } from '@/lib/session';
-import { stateOf, type StatusSnapshot } from '@/lib/status';
+import { stateOf, type StateChange, type StatusSnapshot } from '@/lib/status';
 import { maintenanceFrom } from '@/lib/store';
 
 interface Props {
   locale: Locale;
   session: Session;
   snapshot: StatusSnapshot | null;
+  history: ReadonlyMap<string, readonly StateChange[]>;
 }
 
-const { locale, session, snapshot } = Astro.props;
+const { locale, session, snapshot, history } = Astro.props;
 const t = useTranslations(locale);
 const services = session.services;
 const states = services.map((service) => stateOf(service, snapshot));
@@ -36,6 +37,19 @@ const categories = session.fleet ? visibleCategories(session.fleet, services) : 
 const wanted = Astro.url.searchParams.get('group');
 const shownCategories = wanted ? categories.filter((category) => category.id === wanted) : categories;
 const live = new Map(services.map((service, index) => [service.id, states[index]]));
+const changeTime = (at: number): string =>
+  new Date(at).toLocaleString(locale, { dateStyle: 'short', timeStyle: 'short' });
+const sinceOf = (serviceId: string, state: string): string | null => {
+  if (state !== 'up' && state !== 'down') return null;
+  const changes = history.get(serviceId) ?? [];
+  const changed = [...changes].reverse().find((change) => change.state === state);
+  return changed ? changeTime(changed.at) : null;
+};
+const historyChanges = [...history.values()]
+  .flat()
+  .filter((change) => live.has(change.serviceId))
+  .sort((left, right) => right.at - left.at)
+  .slice(0, 8);
 const measuredSome = services.some((service) => service.monitored !== false);
 const unreachable = measuredSome && snapshot === null;
 
@@ -143,6 +157,7 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
                   service={service}
                   locale={locale}
                   live={live.get(service.id) ?? { state: 'unknown', asOf: null }}
+                  since={sinceOf(service.id, live.get(service.id)?.state ?? 'unknown')}
                 />
                 <a class="row-wrap__link" href={`${locale === 'en' ? '/en' : ''}/services/${service.id}/`}>
                   {t('serviceGuides')}
@@ -155,6 +170,32 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
     </section>
   )
 }
+
+<section class="history" aria-labelledby="status-history-heading">
+  <div class="history__head">
+    <h2 id="status-history-heading">{t('statusChangesTitle')}</h2>
+    <span>{t('statusChangesWindow')}</span>
+  </div>
+  {
+    historyChanges.length === 0 ? (
+      <p class="history__empty">{t('statusChangesEmpty')}</p>
+    ) : (
+      <ul class="history__list">
+        {historyChanges.map((change) => {
+          const service = services.find((entry) => entry.id === change.serviceId);
+          return (
+            <li>
+              <span class="history__dot" data-state={change.state} aria-hidden="true" />
+              <strong>{service ? text(service.name, locale) : change.serviceId}</strong>
+              <span>{change.state === 'up' ? t('stateUp') : t('stateDown')}</span>
+              <time datetime={new Date(change.at).toISOString()}>{changeTime(change.at)}</time>
+            </li>
+          );
+        })}
+      </ul>
+    )
+  }
+</section>
 
 <section class="report">
   <h2>{t('reportTitle')}</h2>
@@ -417,6 +458,84 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
     gap: var(--space-3);
   }
 
+  .history {
+    margin-top: var(--space-10);
+  }
+
+  .history__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+  }
+
+  .history__head h2 {
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+  }
+
+  .history__head > span {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .history__empty {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .history__list {
+    display: grid;
+    gap: 1px;
+    list-style: none;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--line);
+    overflow: hidden;
+  }
+
+  .history__list li {
+    display: grid;
+    grid-template-columns: 0.55rem minmax(0, 1fr) auto 10rem;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--surface);
+    font-size: var(--text-sm);
+  }
+
+  .history__dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--ok);
+  }
+
+  .history__dot[data-state='down'] {
+    background: var(--bad);
+  }
+
+  .history__list strong {
+    overflow: hidden;
+    font-weight: var(--weight-medium);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .history__list span:not(.history__dot) {
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .history__list time {
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-align: right;
+  }
+
   .report {
     margin-top: var(--space-12);
     max-width: 40rem;
@@ -512,6 +631,16 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
       margin-inline-start: 0;
       text-align: left;
       max-width: none;
+    }
+  }
+  @media (max-width: 560px) {
+    .history__list li {
+      grid-template-columns: 0.55rem minmax(0, 1fr) auto;
+    }
+
+    .history__list time {
+      grid-column: 2 / -1;
+      text-align: left;
     }
   }
 </style>

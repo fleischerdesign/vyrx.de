@@ -344,6 +344,10 @@ export const de = {
   knowledgeNotFoundBody: 'Vielleicht ist die Adresse falsch, oder der Artikel ist nicht freigegeben.',
 
   // Status
+  statusSince: 'seit {time}',
+  statusChangesTitle: 'Letzte Zustandswechsel',
+  statusChangesEmpty: 'Keine Zustandswechsel in den letzten 24 Stunden.',
+  statusChangesWindow: 'Letzte 24 Stunden',
   statusEyebrow: 'Dein Workspace / Status',
   statusTitle: 'Was funktioniert gerade?',
   statusIntro: 'Erst die Wirkung für dich, danach technische Einzelheiten.',
