@@ -45,6 +45,11 @@ const sinceOf = (serviceId: string, state: string): string | null => {
   const changed = [...changes].reverse().find((change) => change.state === state);
   return changed ? changeTime(changed.at) : null;
 };
+const reportService = Astro.url.searchParams.get('reportService') ?? '';
+const activeIncidents = services.flatMap((service, index) => {
+  const liveState = states[index];
+  return liveState?.state === 'down' ? [{ service, since: sinceOf(service.id, 'down') }] : [];
+});
 const historyChanges = [...history.values()]
   .flat()
   .filter((change) => live.has(change.serviceId))
@@ -125,6 +130,33 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
   )
 }
 
+{activeIncidents.length > 0 && (
+  <section class="incidents" aria-labelledby="active-incidents-heading">
+    <div class="incidents__head">
+      <h2 id="active-incidents-heading">{t('activeIncidentsTitle')}</h2>
+      <span>{activeIncidents.length}</span>
+    </div>
+    <div class="incidents__list">
+      {activeIncidents.map(({ service, since }) => (
+        <article class="incident" id={`incident-${service.id}`}>
+          <span class="incident__icon" aria-hidden="true"><Icon name="alert" size="1rem" /></span>
+          <div class="incident__copy">
+            <h3>
+              <a href={pathFor(locale, 'service', service.id)}>{text(service.name, locale)}</a>
+            </h3>
+            <p>{since ? t('incidentSince', { time: since }) : t('incidentSinceUnknown')}</p>
+          </div>
+          <div class="incident__actions">
+            <a href="#status-history">{t('incidentHistory')}</a>
+            <a href={pathFor(locale, 'service', service.id)}>{t('incidentGuide')}</a>
+            <a href={`${Astro.url.pathname}?reportService=${encodeURIComponent(service.id)}#report`}>{t('incidentReport')}</a>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+)}
+
 {
   services.length === 0 ? (
     <EmptyState title={t('servicesEmptyAccess')} text={t('overviewEmptyHint')} icon="lock" />
@@ -171,7 +203,7 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
   )
 }
 
-<section class="history" aria-labelledby="status-history-heading">
+<section class="history" id="status-history" aria-labelledby="status-history-heading">
   <div class="history__head">
     <h2 id="status-history-heading">{t('statusChangesTitle')}</h2>
     <span>{t('statusChangesWindow')}</span>
@@ -186,7 +218,11 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
           return (
             <li>
               <span class="history__dot" data-state={change.state} aria-hidden="true" />
-              <strong>{service ? text(service.name, locale) : change.serviceId}</strong>
+              {service ? (
+                <a href={pathFor(locale, 'service', service.id)}>{text(service.name, locale)}</a>
+              ) : (
+                <strong>{change.serviceId}</strong>
+              )}
               <span>{change.state === 'up' ? t('stateUp') : t('stateDown')}</span>
               <time datetime={new Date(change.at).toISOString()}>{changeTime(change.at)}</time>
             </li>
@@ -197,7 +233,7 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
   }
 </section>
 
-<section class="report">
+<section class="report" id="report">
   <h2>{t('reportTitle')}</h2>
   <p class="report__lead">{t('reportLead')}</p>
   {notice === 'sent' && <p class="report__ok" role="status">{t('reportSent')}</p>}
@@ -209,7 +245,9 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
     <label for="report-service">{t('reportForService')}</label>
     <select id="report-service" name="service">
       <option value="">{t('reportNoService')}</option>
-      {services.map((service) => <option value={service.id}>{text(service.name, locale)}</option>)}
+      {services.map((service) => (
+        <option value={service.id} selected={reportService === service.id}>{text(service.name, locale)}</option>
+      ))}
     </select>
     <button type="submit" class="report__submit">{t('reportSubmit')}</button>
   </form>
@@ -458,6 +496,114 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
     gap: var(--space-3);
   }
 
+  .incidents {
+    margin-bottom: var(--space-8);
+    padding: var(--space-5);
+    border: 1px solid var(--bad-line);
+    border-radius: var(--radius-md);
+    background: var(--bad-soft);
+  }
+
+  .incidents__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+
+  .incidents__head h2 {
+    color: var(--bad);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+  }
+
+  .incidents__head > span {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    border-radius: 999px;
+    background: var(--bad);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .incidents__list {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .incident {
+    display: grid;
+    grid-template-columns: 1.8rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid color-mix(in srgb, var(--bad-line) 80%, transparent);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--surface) 75%, transparent);
+  }
+
+  .incident__icon {
+    display: grid;
+    place-items: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bad) 12%, transparent);
+    color: var(--bad);
+  }
+
+  .incident__copy h3 {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .incident__copy h3 a {
+    color: var(--ink);
+  }
+
+  .incident__copy h3 a:hover {
+    color: var(--bad);
+  }
+
+  .incident__copy p {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .incident__actions {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .incident__actions a {
+    color: var(--bad);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .history__list a {
+    color: var(--ink);
+    font-weight: var(--weight-medium);
+  }
+
+  .history__list a:hover {
+    color: var(--accent);
+  }
+
+  #status-history,
+  #report {
+    scroll-margin-top: 5.5rem;
+  }
+
   .history {
     margin-top: var(--space-10);
   }
@@ -633,6 +779,17 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
       max-width: none;
     }
   }
+  @media (max-width: 560px) {
+    .incident {
+      grid-template-columns: 1.8rem minmax(0, 1fr);
+    }
+
+    .incident__actions {
+      grid-column: 2;
+      justify-content: flex-start;
+    }
+  }
+
   @media (max-width: 560px) {
     .history__list li {
       grid-template-columns: 0.55rem minmax(0, 1fr) auto;

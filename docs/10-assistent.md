@@ -420,6 +420,19 @@ Tastatur erreichbar.
   Messung; „seit“ und Historie sind serverseitig geladen.
 - Mobil klappt die Historienzeile auf zwei Spalten/Zeilen um.
 
+## T — Incident-Verknüpfung (2026-11-16)
+
+- Die Statusseite zeigt aktive Störungen als eigene Karten mit Anzahl,
+  Dienstname, „seit“-Zeitpunkt und drei Aktionen:
+  - Verlauf: springt zur 24-Stunden-Historie
+  - Anleitung: öffnet die Dienstseite
+  - Melden: springt zum Berichtsformular und wählt den Dienst vor
+- Historien-Einträge verlinken den Dienstnamen auf die Dienstseite.
+- Das Berichtsformular akzeptiert `?reportService=<id>#report` und setzt die
+  Auswahl serverseitig; kein Client-JavaScript nötig.
+- Anker `#status-history` und `#report` haben Scroll-Abstand zur Topbar.
+- Mobile Incident-Karten brechen Aktionen in eine zweite Zeile um.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
