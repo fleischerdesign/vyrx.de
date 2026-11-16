@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 15;
+const SCHEMA_VERSION = 16;
 
 export interface Report {
   readonly id: number;
@@ -345,6 +345,10 @@ function migrate(db: DatabaseSync): void {
 
   if (current < 15) {
     db.exec('ALTER TABLE onboarding_state ADD COLUMN notifications_done_at TEXT;');
+  }
+
+  if (current < 16) {
+    db.exec('ALTER TABLE onboarding_state ADD COLUMN install_done_at TEXT;');
   }
 
   // Kein Platzhalter möglich: PRAGMA kennt keine Parameter. Der Wert ist eine Konstante.
@@ -1482,6 +1486,7 @@ export interface OnboardingState {
   readonly welcomeSeenAt: string | null;
   readonly favoritesDoneAt: string | null;
   readonly notificationsDoneAt: string | null;
+  readonly installDoneAt: string | null;
   readonly assistantDoneAt: string | null;
   readonly dismissedAt: string | null;
   readonly completedAt: string | null;
@@ -1490,7 +1495,7 @@ export interface OnboardingState {
 export function onboardingStateOf(owner: string): OnboardingState | null {
   const row = open()
     .prepare(
-      'SELECT owner, welcome_seen_at, favorites_done_at, notifications_done_at, assistant_done_at, dismissed_at, completed_at FROM onboarding_state WHERE owner = ?',
+      'SELECT owner, welcome_seen_at, favorites_done_at, notifications_done_at, install_done_at, assistant_done_at, dismissed_at, completed_at FROM onboarding_state WHERE owner = ?',
     )
     .get(owner) as
     | {
@@ -1498,6 +1503,7 @@ export function onboardingStateOf(owner: string): OnboardingState | null {
         welcome_seen_at: string | null;
         favorites_done_at: string | null;
         notifications_done_at: string | null;
+        install_done_at: string | null;
         assistant_done_at: string | null;
         dismissed_at: string | null;
         completed_at: string | null;
@@ -1509,6 +1515,7 @@ export function onboardingStateOf(owner: string): OnboardingState | null {
         welcomeSeenAt: row.welcome_seen_at,
         favoritesDoneAt: row.favorites_done_at,
         notificationsDoneAt: row.notifications_done_at,
+        installDoneAt: row.install_done_at,
         assistantDoneAt: row.assistant_done_at,
         dismissedAt: row.dismissed_at,
         completedAt: row.completed_at,
@@ -1527,13 +1534,21 @@ const ensureOnboarding = (owner: string): void => {
 
 export function markOnboarding(
   owner: string,
-  field: 'welcomeSeenAt' | 'favoritesDoneAt' | 'notificationsDoneAt' | 'assistantDoneAt' | 'dismissedAt' | 'completedAt',
+  field:
+    | 'welcomeSeenAt'
+    | 'favoritesDoneAt'
+    | 'notificationsDoneAt'
+    | 'installDoneAt'
+    | 'assistantDoneAt'
+    | 'dismissedAt'
+    | 'completedAt',
 ): OnboardingState {
   ensureOnboarding(owner);
   const column = {
     welcomeSeenAt: 'welcome_seen_at',
     favoritesDoneAt: 'favorites_done_at',
     notificationsDoneAt: 'notifications_done_at',
+    installDoneAt: 'install_done_at',
     assistantDoneAt: 'assistant_done_at',
     dismissedAt: 'dismissed_at',
     completedAt: 'completed_at',

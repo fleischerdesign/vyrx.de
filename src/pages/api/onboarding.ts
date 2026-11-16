@@ -15,6 +15,7 @@ const publicState = (state: OnboardingState | null): Record<string, unknown> => 
   welcomeSeen: Boolean(state?.welcomeSeenAt),
   favoritesDone: Boolean(state?.favoritesDoneAt),
   notificationsDone: Boolean(state?.notificationsDoneAt),
+  installDone: Boolean(state?.installDoneAt),
   assistantDone: Boolean(state?.assistantDoneAt),
   dismissed: Boolean(state?.dismissedAt),
   completed: Boolean(state?.completedAt),
@@ -54,6 +55,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   const fields = {
     welcome: 'welcomeSeenAt',
     notifications: 'notificationsDoneAt',
+    install: 'installDoneAt',
     assistant: 'assistantDoneAt',
     dismiss: 'dismissedAt',
     complete: 'completedAt',

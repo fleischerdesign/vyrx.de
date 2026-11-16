@@ -21,6 +21,7 @@ const t = useTranslations(locale);
 const favoriteDone = Boolean(state?.favoritesDoneAt) || favorites.length > 0;
 const notificationsDone = Boolean(state?.notificationsDoneAt);
 const assistantDone = Boolean(state?.assistantDoneAt);
+const installDone = Boolean(state?.installDoneAt);
 const done = favoriteDone && notificationsDone && assistantDone;
 const showCard = !legacyOnboarded && !state?.dismissedAt && !state?.completedAt;
 const showWelcome =
@@ -94,6 +95,22 @@ const progress = Number(favoriteDone) + Number(notificationsDone) + Number(assis
                 disabled={notificationsDone}
               >
                 {notificationsDone ? t('onboardingNotificationsDone') : t('onboardingNotificationsAction')}
+              </button>
+            </li>
+
+            <li
+              class="onboarding__step onboarding__step--optional"
+              data-onboarding-step-install
+              data-install-done={installDone ? 'true' : undefined}
+              hidden
+            >
+              <span class="onboarding__number" aria-hidden="true"><Icon name="download" size="0.95rem" /></span>
+              <div class="onboarding__step-copy">
+                <strong>{t('onboardingInstallTitle')} <small class="onboarding__optional">{t('onboardingInstallOptional')}</small></strong>
+                <p>{t('onboardingInstallLead')}</p>
+              </div>
+              <button type="button" class="onboarding__secondary" data-onboarding-install>
+                {t('onboardingInstallAction')}
               </button>
             </li>
 
@@ -356,6 +373,44 @@ const progress = Number(favoriteDone) + Number(notificationsDone) + Number(assis
         document.dispatchEvent(new CustomEvent('vyrx:assistant-open'));
       });
 
+      interface InstallPromptEvent extends Event {
+        prompt: () => Promise<void>;
+        userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+      }
+
+      const installStep = document.querySelector<HTMLElement>('[data-onboarding-step-install]');
+      const installButton = document.querySelector<HTMLButtonElement>('[data-onboarding-install]');
+      let installPrompt: InstallPromptEvent | null = null;
+      const standalone = window.matchMedia('(display-mode: standalone)').matches;
+
+      if (installStep && !standalone && installStep.dataset.installDone !== 'true') {
+        window.addEventListener('beforeinstallprompt', (event) => {
+          event.preventDefault();
+          installPrompt = event as InstallPromptEvent;
+          installStep.hidden = false;
+        });
+      }
+
+      installButton?.addEventListener('click', async () => {
+        if (!installPrompt || !installStep) return;
+        installButton.disabled = true;
+        try {
+          await installPrompt.prompt();
+          const choice = await installPrompt.userChoice;
+          if (choice.outcome === 'accepted' && (await post('install'))) {
+            installStep.hidden = true;
+          }
+        } finally {
+          installPrompt = null;
+          installButton.disabled = false;
+        }
+      });
+
+      window.addEventListener('appinstalled', () => {
+        void post('install');
+        if (installStep) installStep.hidden = true;
+      });
+
       document.querySelector('[data-onboarding-skip]')?.addEventListener('click', async () => {
         if (await post('dismiss')) hide();
       });
@@ -425,6 +480,20 @@ const progress = Number(favoriteDone) + Number(notificationsDone) + Number(assis
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--surface) 75%, transparent);
+  }
+
+  .onboarding__step--optional {
+    border-style: dashed;
+  }
+
+  .onboarding__optional {
+    margin-inline-start: 4px;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: 0.5rem;
+    font-weight: var(--weight-regular);
+    letter-spacing: var(--tracking-wide);
+    text-transform: uppercase;
   }
 
   .onboarding__step.is-done {

@@ -374,6 +374,10 @@ Tastatur erreichbar.
   beim Glocken-Menü (Browser-Berechtigung nur nach ausdrücklichem Klick).
 - `reset` im Konto löscht den Onboarding-Zustand und das Legacy-Cookie;
   danach erscheint der Willkommensdialog erneut.
+- Der PWA-Schritt ist optional und nur sichtbar, wenn der Browser
+  `beforeinstallprompt` liefert und die App nicht bereits im Standalone-Modus
+  läuft. Er zählt nicht zum Pflichtfortschritt; eine erfolgreiche Installation
+  wird in `install_done_at` vermerkt.
 - Bestehende Konten mit dem alten `vyrx_onboarded`-Cookie werden nicht
   erneut behelligt; der Cookie wird nur noch als Legacy-Signal gelesen.
 - Benachrichtigungen und PWA-Installation bleiben Phase 2.

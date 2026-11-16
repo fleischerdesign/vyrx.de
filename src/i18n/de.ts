@@ -352,6 +352,11 @@ export const de = {
 
   // Konto
   accountEyebrow: 'Dein Workspace / Konto',
+  onboardingInstallTitle: 'App installieren',
+  onboardingInstallLead: 'VYRX als App auf dem Home-Bildschirm.',
+  onboardingInstallAction: 'Installieren',
+  onboardingInstallDone: 'Installiert',
+  onboardingInstallOptional: 'Optional',
   onboardingNotificationsTitle: 'Soll ich dich informieren?',
   onboardingNotificationsLead: 'Anfrage-Status und Routinen — sonst nichts.',
   onboardingNotificationsAction: 'Benachrichtigungen',
