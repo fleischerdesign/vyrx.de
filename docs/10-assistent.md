@@ -361,13 +361,19 @@ Tastatur erreichbar.
   `welcome_seen_at`, `favorites_done_at`, `assistant_done_at`,
   `dismissed_at`, `completed_at`.
 - Neue Konten sehen einen einmaligen Willkommensdialog und danach eine
-  Aufgabenkarte mit zwei Schritten: Favoriten wählen und Assistant öffnen.
+  Aufgabenkarte mit drei Schritten: Favoriten wählen, Benachrichtigungen
+  entscheiden und Assistant öffnen.
 - Favoriten werden über `POST /api/onboarding` validiert (nur sichtbare
   Dienste, maximal drei) und ersetzen die bisherige Auswahl atomar.
 - Der Assistant-Schritt öffnet den vorhandenen Assistant und markiert den
   Schritt serverseitig.
 - Überspringen setzt `dismissed_at`; Abschließen setzt `completed_at`.
   Danach erscheint das Onboarding nicht wieder.
+- Der Benachrichtigungsschritt speichert Request-/Routine-Kategorien über die
+  bestehende Preferences-API und markiert den Schritt. Push selbst bleibt
+  beim Glocken-Menü (Browser-Berechtigung nur nach ausdrücklichem Klick).
+- `reset` im Konto löscht den Onboarding-Zustand und das Legacy-Cookie;
+  danach erscheint der Willkommensdialog erneut.
 - Bestehende Konten mit dem alten `vyrx_onboarded`-Cookie werden nicht
   erneut behelligt; der Cookie wird nur noch als Legacy-Signal gelesen.
 - Benachrichtigungen und PWA-Installation bleiben Phase 2.

@@ -8,6 +8,7 @@ import {
   favoritesOf,
   markOnboarding,
   onboardingStateOf,
+  resetOnboarding,
   setFavorites,
 } from '../src/lib/store.ts';
 
@@ -30,11 +31,15 @@ test('onboarding state is per owner and survives a reload', () => {
   assert.equal(onboardingStateOf('alice'), null);
   markOnboarding('alice', 'welcomeSeenAt');
   markOnboarding('alice', 'favoritesDoneAt');
+  markOnboarding('alice', 'notificationsDoneAt');
   const state = onboardingStateOf('alice');
   assert.ok(state?.welcomeSeenAt);
   assert.ok(state?.favoritesDoneAt);
+  assert.ok(state?.notificationsDoneAt);
   assert.equal(state?.assistantDoneAt, null);
   assert.equal(onboardingStateOf('bob'), null);
+  resetOnboarding('alice');
+  assert.equal(onboardingStateOf('alice'), null);
 });
 
 test('favorite selection replaces the previous set atomically', () => {

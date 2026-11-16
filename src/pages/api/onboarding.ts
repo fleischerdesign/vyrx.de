@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { isSameOrigin } from '../../lib/http.ts';
 import { readSession } from '../../lib/session.ts';
-import { markOnboarding, onboardingStateOf, setFavorites, type OnboardingState } from '../../lib/store.ts';
+import { markOnboarding, onboardingStateOf, resetOnboarding, setFavorites, type OnboardingState } from '../../lib/store.ts';
 
 export const prerender = false;
 
@@ -14,12 +14,13 @@ const reply = (status: number, body: Record<string, unknown>): Response =>
 const publicState = (state: OnboardingState | null): Record<string, unknown> => ({
   welcomeSeen: Boolean(state?.welcomeSeenAt),
   favoritesDone: Boolean(state?.favoritesDoneAt),
+  notificationsDone: Boolean(state?.notificationsDoneAt),
   assistantDone: Boolean(state?.assistantDoneAt),
   dismissed: Boolean(state?.dismissedAt),
   completed: Boolean(state?.completedAt),
 });
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, cookies }) => {
   if (!isSameOrigin(request)) return reply(403, { error: 'forbidden' });
   const session = readSession(request);
   const owner = session.identity?.username;
@@ -33,6 +34,11 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const action = typeof body.action === 'string' ? body.action : '';
+  if (action === 'reset') {
+    resetOnboarding(owner);
+    cookies.delete('vyrx_onboarded', { path: '/' });
+    return reply(200, { state: publicState(null) });
+  }
   if (action === 'favorites') {
     if (!Array.isArray(body.favorites) || body.favorites.length > 3) {
       return reply(400, { error: 'invalid_favorites' });
@@ -47,6 +53,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const fields = {
     welcome: 'welcomeSeenAt',
+    notifications: 'notificationsDoneAt',
     assistant: 'assistantDoneAt',
     dismiss: 'dismissedAt',
     complete: 'completedAt',

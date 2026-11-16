@@ -8,7 +8,7 @@ import Icon from '@/components/ui/Icon.astro';
 import { useTranslations } from '@/i18n';
 import { pathFor, type Locale } from '@/lib/locale';
 import type { Session } from '@/lib/session';
-import { favoritesOf, onboardingStateOf } from '@/lib/store';
+import { favoritesOf, notificationPreferencesOf, onboardingStateOf } from '@/lib/store';
 import { activeAnnouncements, announcementText } from '@/lib/announcements';
 
 interface Props {
@@ -27,6 +27,9 @@ const saved = services.filter((service) => favorites.includes(service.id));
 const shown = saved.length > 0 ? saved : services;
 const news = session.identity ? activeAnnouncements(session.identity.groups) : [];
 const onboardingState = owner ? onboardingStateOf(owner) : null;
+const notificationPreferences = owner
+  ? notificationPreferencesOf(owner)
+  : { push: true, quietStart: null, quietEnd: null, request: true, routine: true };
 ---
 
 <PageHeader
@@ -42,6 +45,7 @@ const onboardingState = owner ? onboardingStateOf(owner) : null;
   state={onboardingState}
   legacyOnboarded={legacyOnboarded}
   name={name}
+  preferences={notificationPreferences}
 />
 
 <AssistantPrompt

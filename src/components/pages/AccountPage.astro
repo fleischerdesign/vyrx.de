@@ -57,6 +57,13 @@ const day = (iso: string): string => iso.slice(0, 10);
       <span>{t('languageSwitch')}</span>
       <LocaleSwitch locale={locale} />
     </div>
+    <div class="account-setting account-setting--restart">
+      <span>
+        <strong>{t('onboardingRestart')}</strong>
+        <small>{t('onboardingRestartHint')}</small>
+      </span>
+      <button type="button" class="account-restart" data-onboarding-restart>{t('onboardingRestart')}</button>
+    </div>
   </div>
 </section>
 
@@ -151,7 +158,63 @@ const day = (iso: string): string => iso.slice(0, 10);
   </a>
 </section>
 
+<script>
+  const restart = document.querySelector<HTMLButtonElement>('[data-onboarding-restart]');
+  const de = document.documentElement.lang.toLocaleLowerCase('de').startsWith('de');
+  restart?.addEventListener('click', async () => {
+    if (!window.confirm(de ? 'Onboarding wirklich erneut starten?' : 'Restart onboarding?')) return;
+    restart.disabled = true;
+    try {
+      const response = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'reset' }),
+      });
+      if (!response.ok) throw new Error('reset');
+      window.location.assign(de ? '/overview/' : '/en/overview/');
+    } catch {
+      restart.disabled = false;
+    }
+  });
+</script>
+
 <style>
+  .account-setting--restart {
+    align-items: flex-start;
+  }
+
+  .account-setting--restart strong {
+    display: block;
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+  }
+
+  .account-setting--restart small {
+    display: block;
+    max-width: 18rem;
+    margin-top: 2px;
+    color: var(--faint);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  .account-restart {
+    flex: none;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .account-restart:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
   .account-settings {
     display: grid;
     gap: var(--space-2);

@@ -3,7 +3,7 @@ import Icon from '@/components/ui/Icon.astro';
 import { useTranslations } from '@/i18n';
 import { text } from '@/lib/fleet';
 import type { Locale } from '@/lib/locale';
-import type { OnboardingState } from '@/lib/store';
+import type { NotificationPreferences, OnboardingState } from '@/lib/store';
 import type { FleetService } from '@/lib/fleet';
 
 interface Props {
@@ -13,17 +13,19 @@ interface Props {
   state: OnboardingState | null;
   legacyOnboarded: boolean;
   name: string;
+  preferences: NotificationPreferences;
 }
 
-const { locale, services, favorites, state, legacyOnboarded, name } = Astro.props;
+const { locale, services, favorites, state, legacyOnboarded, name, preferences } = Astro.props;
 const t = useTranslations(locale);
 const favoriteDone = Boolean(state?.favoritesDoneAt) || favorites.length > 0;
+const notificationsDone = Boolean(state?.notificationsDoneAt);
 const assistantDone = Boolean(state?.assistantDoneAt);
-const done = favoriteDone && assistantDone;
+const done = favoriteDone && notificationsDone && assistantDone;
 const showCard = !legacyOnboarded && !state?.dismissedAt && !state?.completedAt;
 const showWelcome =
   !legacyOnboarded && !state?.welcomeSeenAt && !state?.dismissedAt && !state?.completedAt;
-const progress = Number(favoriteDone) + Number(assistantDone);
+const progress = Number(favoriteDone) + Number(notificationsDone) + Number(assistantDone);
 ---
 
 {
@@ -34,6 +36,7 @@ const progress = Number(favoriteDone) + Number(assistantDone);
       data-onboarding-error={t('onboardingError')}
       data-onboarding-limit={t('onboardingFavoritesLimit')}
       data-onboarding-assistant-done={t('onboardingAssistantDone')}
+      data-onboarding-notifications-done={t('onboardingNotificationsDone')}
       aria-labelledby="onboarding-title"
     >
       {done ? (
@@ -54,7 +57,7 @@ const progress = Number(favoriteDone) + Number(assistantDone);
               <p class="onboarding__eyebrow">{t('onboardingStartTitle')}</p>
               <h2 id="onboarding-title">{t('onboardingStartLead')}</h2>
             </div>
-            <span class="onboarding__progress">{t('onboardingProgress', { done: progress, total: 2 })}</span>
+            <span class="onboarding__progress">{t('onboardingProgress', { done: progress, total: 3 })}</span>
           </div>
 
           <ol class="onboarding__steps">
@@ -76,9 +79,27 @@ const progress = Number(favoriteDone) + Number(assistantDone);
               </button>
             </li>
 
+            <li class:list={['onboarding__step', notificationsDone && 'is-done']} data-onboarding-step-notifications>
+              <span class="onboarding__number" aria-hidden="true">
+                {notificationsDone ? <Icon name="check" size="0.95rem" /> : '02'}
+              </span>
+              <div class="onboarding__step-copy">
+                <strong>{t('onboardingNotificationsTitle')}</strong>
+                <p>{t('onboardingNotificationsLead')}</p>
+              </div>
+              <button
+                type="button"
+                class="onboarding__secondary"
+                data-onboarding-notifications-open
+                disabled={notificationsDone}
+              >
+                {notificationsDone ? t('onboardingNotificationsDone') : t('onboardingNotificationsAction')}
+              </button>
+            </li>
+
             <li class:list={['onboarding__step', assistantDone && 'is-done']} data-onboarding-step-assistant>
               <span class="onboarding__number" aria-hidden="true">
-                {assistantDone ? <Icon name="check" size="0.95rem" /> : '02'}
+                {assistantDone ? <Icon name="check" size="0.95rem" /> : '03'}
               </span>
               <div class="onboarding__step-copy">
                 <strong>{t('onboardingAssistantTitle')}</strong>
@@ -168,13 +189,47 @@ const progress = Number(favoriteDone) + Number(assistantDone);
   </div>
 </dialog>
 
+<dialog class="onboarding-dialog" data-onboarding-notifications aria-labelledby="onboarding-notifications-title">
+  <div class="onboarding-dialog__panel">
+    <button type="button" class="onboarding-dialog__close" data-onboarding-notifications-close aria-label={t('close')}>
+      ×
+    </button>
+    <p class="onboarding-dialog__eyebrow">{t('onboardingStartTitle')}</p>
+    <h2 id="onboarding-notifications-title">{t('onboardingNotificationsTitle')}</h2>
+    <p class="onboarding-dialog__lead">{t('onboardingNotificationsLead')}</p>
+    <div class="onboarding-preferences">
+      <label class="onboarding-setting">
+        <span>{t('notificationsRequestCategory')}</span>
+        <input type="checkbox" data-onboarding-notification-request checked={preferences.request} />
+      </label>
+      <label class="onboarding-setting">
+        <span>{t('notificationsRoutineCategory')}</span>
+        <input type="checkbox" data-onboarding-notification-routine checked={preferences.routine} />
+      </label>
+    </div>
+    <p class="onboarding-dialog__feedback" data-onboarding-notifications-feedback role="status" aria-live="polite">
+      {t('onboardingNotificationsHint')}
+    </p>
+    <div class="onboarding-dialog__actions">
+      <button type="button" class="onboarding__primary" data-onboarding-notifications-save>
+        {t('onboardingNotificationsSave')}
+      </button>
+      <button type="button" class="onboarding__secondary" data-onboarding-notifications-later>
+        {t('onboardingNotificationsLater')}
+      </button>
+    </div>
+  </div>
+</dialog>
+
 {
   showCard && (
     <script>
       const root = document.querySelector<HTMLElement>('[data-onboarding]');
       const welcome = document.querySelector<HTMLDialogElement>('[data-onboarding-welcome]');
       const favoritesDialog = document.querySelector<HTMLDialogElement>('[data-onboarding-favorites]');
+      const notificationsDialog = document.querySelector<HTMLDialogElement>('[data-onboarding-notifications]');
       const feedback = document.querySelector<HTMLElement>('[data-onboarding-favorites-feedback]');
+      const notificationsFeedback = document.querySelector<HTMLElement>('[data-onboarding-notifications-feedback]');
       const assistantStep = document.querySelector<HTMLElement>('[data-onboarding-step-assistant]');
       const welcomeAuto = welcome?.hasAttribute('data-autopen') === true;
 
@@ -257,6 +312,35 @@ const progress = Number(favoriteDone) + Number(assistantDone);
         } else if (feedback) {
           feedback.textContent = labels.error;
           feedback.dataset.tone = 'bad';
+        }
+      });
+
+      document.querySelector('[data-onboarding-notifications-open]')?.addEventListener('click', () => {
+        notificationsDialog?.showModal();
+      });
+      document.querySelector('[data-onboarding-notifications-close]')?.addEventListener('click', () => closeDialog(notificationsDialog));
+      document.querySelector('[data-onboarding-notifications-later]')?.addEventListener('click', () => closeDialog(notificationsDialog));
+
+      document.querySelector('[data-onboarding-notifications-save]')?.addEventListener('click', async () => {
+        const requestInput = document.querySelector<HTMLInputElement>('[data-onboarding-notification-request]');
+        const routineInput = document.querySelector<HTMLInputElement>('[data-onboarding-notification-routine]');
+        try {
+          const response = await fetch('/api/notifications/preferences', {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ request: requestInput?.checked === true, routine: routineInput?.checked === true }),
+          });
+          if (!response.ok) throw new Error('preferences');
+          if (await post('notifications')) {
+            window.location.reload();
+            return;
+          }
+          throw new Error('onboarding');
+        } catch {
+          if (notificationsFeedback) {
+            notificationsFeedback.textContent = labels.error;
+            notificationsFeedback.dataset.tone = 'bad';
+          }
         }
       });
 
@@ -524,6 +608,31 @@ const progress = Number(favoriteDone) + Number(assistantDone);
 
   .onboarding-dialog__feedback[data-tone='bad'] {
     color: var(--bad);
+  }
+
+  .onboarding-preferences {
+    display: grid;
+    gap: var(--space-2);
+    margin-top: var(--space-5);
+  }
+
+  .onboarding-setting {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    color: var(--ink-2);
+    font-size: var(--text-sm);
+  }
+
+  .onboarding-setting input {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--accent);
   }
 
   .onboarding-services {
