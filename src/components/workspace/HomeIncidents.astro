@@ -1,0 +1,121 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { pathFor, type Locale } from '@/lib/locale';
+
+export interface HomeIncident {
+  readonly name: string;
+  readonly href: string;
+  readonly sinceAt: number | null;
+}
+
+interface Props {
+  readonly locale: Locale;
+  readonly incidents: readonly HomeIncident[];
+}
+
+const { locale, incidents } = Astro.props;
+const t = useTranslations(locale);
+const since = (at: number): string =>
+  new Date(at).toLocaleString(locale === 'de' ? 'de-DE' : 'en-GB', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  });
+---
+
+{
+  incidents.length > 0 && (
+    <section class="home-incidents" aria-labelledby="home-incidents-title">
+      <span class="home-incidents__icon" aria-hidden="true"><Icon name="alert" size="1.1rem" /></span>
+      <div class="home-incidents__copy">
+        <h2 id="home-incidents-title">
+          {incidents.length === 1
+            ? t('homeIncidentsOne')
+            : t('homeIncidentsMany', { count: incidents.length })}
+        </h2>
+        <ul>
+          {incidents.map((incident) => (
+            <li>
+              <a href={incident.href}>{incident.name}</a>
+              {incident.sinceAt !== null && <span> · {t('statusSince', { time: since(incident.sinceAt) })}</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <a class="home-incidents__link" href={pathFor(locale, 'status')}>
+        {t('homeIncidentsOpen')}
+        <Icon name="arrowRight" size="0.85rem" />
+      </a>
+    </section>
+  )
+}
+
+<style>
+  .home-incidents {
+    display: grid;
+    grid-template-columns: 1.8rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-8);
+    padding: var(--space-4) var(--space-5);
+    border: 1px solid var(--bad-line);
+    border-radius: var(--radius-md);
+    background: var(--bad-soft);
+  }
+
+  .home-incidents__icon {
+    display: grid;
+    place-items: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--bad) 12%, transparent);
+    color: var(--bad);
+  }
+
+  .home-incidents__copy h2 {
+    color: var(--bad);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .home-incidents__copy ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px var(--space-3);
+    margin-top: 3px;
+    list-style: none;
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .home-incidents__copy a {
+    color: var(--ink);
+    font-weight: var(--weight-medium);
+  }
+
+  .home-incidents__copy a:hover {
+    color: var(--bad);
+  }
+
+  .home-incidents__link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--bad);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 620px) {
+    .home-incidents {
+      grid-template-columns: 1.8rem minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .home-incidents__link {
+      grid-column: 2;
+    }
+  }
+</style>

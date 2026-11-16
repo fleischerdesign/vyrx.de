@@ -433,6 +433,21 @@ Tastatur erreichbar.
 - Anker `#status-history` und `#report` haben Scroll-Abstand zur Topbar.
 - Mobile Incident-Karten brechen Aktionen in eine zweite Zeile um.
 
+## U — Incidents auf der Startseite (2026-11-16)
+
+- Die Übersicht lädt Status und 24-Stunden-Historie auch außerhalb der
+  Statusseite.
+- Bei mindestens einem nicht erreichbaren Dienst erscheint oberhalb von
+  Onboarding bzw. „Für dich jetzt“ ein kompakter Incident-Streifen:
+  - Anzahl und Dienstname
+  - Link zur Dienstseite
+  - „seit“-Zeitpunkt aus dem letzten Down-Wechsel
+  - Link zur Statusseite
+- Der Streifen erscheint auch für neue Konten, damit eine Störung nicht hinter
+  dem Onboarding verschwindet.
+- Ohne Störung entsteht kein leerer Streifen; unbekannte Zustände zählen nicht
+  als Störung.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.

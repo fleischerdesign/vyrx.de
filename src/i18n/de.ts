@@ -235,6 +235,9 @@ export const de = {
   personalSpace: 'Persönlicher Bereich',
 
   // Übersicht
+  homeIncidentsOne: '1 Dienst ist gestört',
+  homeIncidentsMany: '{count} Dienste sind gestört',
+  homeIncidentsOpen: 'Status öffnen',
   forYouTitle: 'Für dich jetzt',
   forYouRequests: 'Medienanfragen',
   forYouOpen: '{count} offen',

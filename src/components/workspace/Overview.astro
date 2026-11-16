@@ -3,16 +3,18 @@ import AssistantPrompt from '@/components/assistant/AssistantPrompt.astro';
 import ServiceRow from '@/components/services/ServiceRow.astro';
 import Onboarding from '@/components/onboarding/Onboarding.astro';
 import ForYou from '@/components/workspace/ForYou.astro';
+import HomeIncidents from '@/components/workspace/HomeIncidents.astro';
 import PageHeader from '@/components/ui/PageHeader.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
 import Icon from '@/components/ui/Icon.astro';
 import { useTranslations } from '@/i18n';
 import { pathFor, type Locale } from '@/lib/locale';
+import { text } from '@/lib/fleet';
 import type { Session } from '@/lib/session';
 import { favoritesOf, mediaWatchesOf, notificationPreferencesOf, onboardingStateOf, routineStateOf } from '@/lib/store';
 import { ROUTINES } from '@/lib/routines/index.ts';
 import { nextRoutineRun } from '@/lib/routines/schedule.ts';
-import { loadStatus, stateOf } from '@/lib/status';
+import { loadHistory, loadStatus, stateOf, type StateChange } from '@/lib/status';
 import { activeAnnouncements, announcementText } from '@/lib/announcements';
 
 interface Props {
@@ -56,13 +58,33 @@ const nextRoutine = showForYou && owner
       .filter((entry): entry is { title: string; at: string } => entry !== null)
       .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))[0] ?? null
   : null;
-const statusSnapshot = showForYou
+const statusSnapshot = services.length > 0
   ? await Promise.race([
       loadStatus(services.map((service) => service.id)),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 300)),
     ])
   : null;
 const degraded = statusSnapshot ? services.filter((service) => stateOf(service, statusSnapshot).state === 'down').length : 0;
+const incidentServices = statusSnapshot
+  ? services.filter((service) => stateOf(service, statusSnapshot).state === 'down')
+  : [];
+const incidentHistory = incidentServices.length > 0
+  ? await Promise.race([
+      loadHistory(incidentServices.map((service) => service.id)),
+      new Promise<ReadonlyMap<string, readonly StateChange[]>>((resolve) =>
+        setTimeout(() => resolve(new Map()), 300),
+      ),
+    ])
+  : new Map<string, readonly StateChange[]>();
+const activeIncidents = incidentServices.map((service) => {
+  const changes = incidentHistory.get(service.id) ?? [];
+  const changed = [...changes].reverse().find((change) => change.state === 'down');
+  return {
+    name: text(service.name, locale),
+    href: pathFor(locale, 'service', service.id),
+    sinceAt: changed?.at ?? null,
+  };
+});
 const notificationPreferences = owner
   ? notificationPreferencesOf(owner)
   : { push: true, quietStart: null, quietEnd: null, request: true, routine: true };
@@ -73,6 +95,8 @@ const notificationPreferences = owner
   title={t('overviewGreeting', { name })}
   description={t('overviewIntro')}
 />
+
+{activeIncidents.length > 0 && <HomeIncidents locale={locale} incidents={activeIncidents} />}
 
 <Onboarding
   locale={locale}
