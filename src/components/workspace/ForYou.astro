@@ -66,20 +66,23 @@ const routineTime = nextRoutine
       )
     }
 
-    <a class="for-you__card" href={pathFor(locale, 'status')}>
-      <span class="for-you__icon"><Icon name="activity" size="1.05rem" /></span>
-      <span class="for-you__copy">
-        <strong>{t('forYouStatus')}</strong>
-        <small>
-          {!statusKnown
-            ? t('forYouUnknown')
-            : degraded > 0
-              ? t('forYouDegraded', { count: degraded })
-              : t('forYouAllClear')}
-        </small>
-      </span>
-      <Icon name="arrowRight" size="0.9rem" />
-    </a>
+    {degraded === 0 && (
+      <a class="for-you__card" href={pathFor(locale, 'status')}>
+        <span class="for-you__icon"><Icon name="activity" size="1.05rem" /></span>
+        <span class="for-you__copy">
+          <strong>{t('forYouStatus')}</strong>
+          <small>
+            {!statusKnown
+              ? t('forYouUnknown')
+              : degraded > 0
+                ? t('forYouDegraded', { count: degraded })
+                : t('forYouAllClear')}
+          </small>
+        </span>
+        <Icon name="arrowRight" size="0.9rem" />
+      </a>
+    )}
+
   </div>
 </section>
 

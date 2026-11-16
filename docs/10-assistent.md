@@ -422,11 +422,15 @@ Tastatur erreichbar.
 
 ## T — Incident-Verknüpfung (2026-11-16)
 
-- Die Statusseite zeigt aktive Störungen als eigene Karten mit Anzahl,
-  Dienstname, „seit“-Zeitpunkt und drei Aktionen:
+- Die Statusseite integriert aktive Störungen direkt in den Status-Hero:
+  Gesamturteil, Messzeitpunkt, Quelle und Incident-Zeilen bilden eine
+  Einheit. Jede Incident-Zeile zeigt Dienstname, „seit“-Zeitpunkt und drei
+  Aktionen:
   - Verlauf: springt zur 24-Stunden-Historie
   - Anleitung: öffnet die Dienstseite
   - Melden: springt zum Berichtsformular und wählt den Dienst vor
+- Auf der Startseite ersetzt der Incident-Streifen die separate Statuskarte
+  in „Für dich jetzt“, solange eine Störung aktiv ist.
 - Historien-Einträge verlinken den Dienstnamen auf die Dienstseite.
 - Das Berichtsformular akzeptiert `?reportService=<id>#report` und setzt die
   Auswahl serverseitig; kein Client-JavaScript nötig.

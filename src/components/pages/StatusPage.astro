@@ -108,17 +108,49 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
 >
 </div>
 
-<div class="summary" data-tone={tone} id="status-summary">  <span class="summary__icon">
-    <Icon name={tone === 'ok' ? 'check' : tone === 'warn' ? 'alert' : 'info'} size="1.3rem" />
-  </span>
-  <div>
-    <strong id="status-summary-text">{summary}</strong>
-    <span class="summary__note" id="status-asof">
-      {asOf ? t('statusAsOf', { time: asOf }) : t('statusNever')}
+<section class="status-hero" data-tone={tone} id="status-summary" aria-labelledby="status-summary-text">
+  <div class="status-hero__top">
+    <span class="status-hero__icon">
+      <Icon name={tone === 'ok' ? 'check' : tone === 'warn' ? 'alert' : 'info'} size="1.3rem" />
     </span>
+    <div class="status-hero__copy">
+      <strong id="status-summary-text">{summary}</strong>
+      <span class="status-hero__note" id="status-asof">
+        {asOf ? t('statusAsOf', { time: asOf }) : t('statusNever')}
+      </span>
+    </div>
+    <span class="status-hero__source">{t('statusSourceNote')}</span>
   </div>
-  <span class="summary__source">{t('statusSourceNote')}</span>
-</div>
+
+  {
+    activeIncidents.length > 0 && (
+      <div class="status-hero__incidents" data-status-incidents>
+        <div class="status-hero__incidents-head">
+          <span>{t('activeIncidentsTitle')}</span>
+          <span class="status-hero__count">{activeIncidents.length}</span>
+        </div>
+        <ul class="status-hero__incident-list">
+          {activeIncidents.map(({ service, since }) => (
+            <li class="incident" id={`incident-${service.id}`}>
+              <span class="incident__icon" aria-hidden="true"><Icon name="alert" size="1rem" /></span>
+              <div class="incident__copy">
+                <h3>
+                  <a href={pathFor(locale, 'service', service.id)}>{text(service.name, locale)}</a>
+                </h3>
+                <p>{since ? t('incidentSince', { time: since }) : t('incidentSinceUnknown')}</p>
+              </div>
+              <div class="incident__actions">
+                <a href="#status-history">{t('incidentHistory')}</a>
+                <a href={pathFor(locale, 'service', service.id)}>{t('incidentGuide')}</a>
+                <a href={`${Astro.url.pathname}?reportService=${encodeURIComponent(service.id)}#report`}>{t('incidentReport')}</a>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+</section>
 
 {
   unreachable && (
@@ -129,33 +161,6 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
     </p>
   )
 }
-
-{activeIncidents.length > 0 && (
-  <section class="incidents" aria-labelledby="active-incidents-heading">
-    <div class="incidents__head">
-      <h2 id="active-incidents-heading">{t('activeIncidentsTitle')}</h2>
-      <span>{activeIncidents.length}</span>
-    </div>
-    <div class="incidents__list">
-      {activeIncidents.map(({ service, since }) => (
-        <article class="incident" id={`incident-${service.id}`}>
-          <span class="incident__icon" aria-hidden="true"><Icon name="alert" size="1rem" /></span>
-          <div class="incident__copy">
-            <h3>
-              <a href={pathFor(locale, 'service', service.id)}>{text(service.name, locale)}</a>
-            </h3>
-            <p>{since ? t('incidentSince', { time: since }) : t('incidentSinceUnknown')}</p>
-          </div>
-          <div class="incident__actions">
-            <a href="#status-history">{t('incidentHistory')}</a>
-            <a href={pathFor(locale, 'service', service.id)}>{t('incidentGuide')}</a>
-            <a href={`${Astro.url.pathname}?reportService=${encodeURIComponent(service.id)}#report`}>{t('incidentReport')}</a>
-          </div>
-        </article>
-      ))}
-    </div>
-  </section>
-)}
 
 {
   services.length === 0 ? (
@@ -273,6 +278,7 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
   const summaryNode = document.getElementById('status-summary');
   const summaryText = document.getElementById('status-summary-text');
   const asOfNode = document.getElementById('status-asof');
+  const incidentsNode = document.querySelector<HTMLElement>('[data-status-incidents]');
 
   type LiveState = 'up' | 'down' | 'unknown' | 'unmonitored';
   interface Payload {
@@ -299,6 +305,7 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
       if (live.state !== 'unknown' && live.state !== 'unmonitored') known = true;
     }
     if (summaryNode) summaryNode.dataset.tone = !known ? 'unknown' : down > 0 ? 'warn' : 'ok';
+    if (incidentsNode) incidentsNode.hidden = down === 0;
     if (summaryText) summaryText.textContent = !known ? summary.unknown : down > 0 ? summary.down : summary.ok;
     if (asOfNode) asOfNode.textContent = payload.asOf ? asOfTemplate.replace('{time}', new Date(payload.asOf).toLocaleString()) : never;
   };
@@ -324,6 +331,101 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
 <style>
   .ask-row {
     margin-bottom: var(--space-6);
+  }
+
+  .status-hero {
+    margin-bottom: var(--space-8);
+    padding: var(--space-5) var(--space-6);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+  }
+
+  .status-hero[data-tone='ok'] {
+    background: var(--ok-soft);
+    border-color: var(--ok-line);
+  }
+
+  .status-hero[data-tone='warn'] {
+    background: var(--warn-soft);
+    border-color: var(--warn-line);
+  }
+
+  .status-hero[data-tone='unknown'] {
+    background: var(--unknown-soft);
+    border-color: var(--unknown-line);
+  }
+
+  .status-hero__top {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-4);
+  }
+
+  .status-hero__icon {
+    margin-top: 2px;
+    color: var(--muted);
+  }
+
+  .status-hero[data-tone='ok'] .status-hero__icon { color: var(--ok); }
+  .status-hero[data-tone='warn'] .status-hero__icon { color: var(--warn); }
+
+  .status-hero__copy strong {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .status-hero__note {
+    display: block;
+    margin-top: var(--space-1);
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .status-hero__source {
+    max-width: 22rem;
+    margin-inline-start: auto;
+    color: var(--faint);
+    font-size: var(--text-xs);
+    text-align: right;
+  }
+
+  .status-hero__incidents {
+    margin-top: var(--space-5);
+    padding-top: var(--space-4);
+    border-top: 1px solid color-mix(in srgb, var(--bad-line) 70%, transparent);
+  }
+
+  .status-hero__incidents-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+    color: var(--bad);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: var(--tracking-wide);
+  }
+
+  .status-hero__count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 999px;
+    background: var(--bad);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    letter-spacing: 0;
+  }
+
+  .status-hero__incident-list {
+    display: grid;
+    gap: var(--space-2);
+    list-style: none;
   }
 
   .summary {
@@ -779,6 +881,22 @@ const windowTime = (iso: string): string => new Date(iso).toLocaleString(locale,
       max-width: none;
     }
   }
+  @media (max-width: 700px) {
+    .status-hero {
+      padding: var(--space-4);
+    }
+
+    .status-hero__top {
+      flex-wrap: wrap;
+    }
+
+    .status-hero__source {
+      width: 100%;
+      margin-inline-start: 0;
+      text-align: left;
+    }
+  }
+
   @media (max-width: 560px) {
     .incident {
       grid-template-columns: 1.8rem minmax(0, 1fr);
