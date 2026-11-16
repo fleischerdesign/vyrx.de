@@ -355,6 +355,23 @@ Tastatur erreichbar.
 - Es gibt noch keinen separaten Filter-Button; der Einstieg ist die
   natürliche Sprache im Assistant.
 
+## P — Onboarding (2026-11-16)
+
+- Schema 14 speichert den Onboarding-Zustand serverseitig pro Owner:
+  `welcome_seen_at`, `favorites_done_at`, `assistant_done_at`,
+  `dismissed_at`, `completed_at`.
+- Neue Konten sehen einen einmaligen Willkommensdialog und danach eine
+  Aufgabenkarte mit zwei Schritten: Favoriten wählen und Assistant öffnen.
+- Favoriten werden über `POST /api/onboarding` validiert (nur sichtbare
+  Dienste, maximal drei) und ersetzen die bisherige Auswahl atomar.
+- Der Assistant-Schritt öffnet den vorhandenen Assistant und markiert den
+  Schritt serverseitig.
+- Überspringen setzt `dismissed_at`; Abschließen setzt `completed_at`.
+  Danach erscheint das Onboarding nicht wieder.
+- Bestehende Konten mit dem alten `vyrx_onboarded`-Cookie werden nicht
+  erneut behelligt; der Cookie wird nur noch als Legacy-Signal gelesen.
+- Benachrichtigungen und PWA-Installation bleiben Phase 2.
+
 ## Nicht Teil dieses Plans
 
 - Kontext-Chips, Kontext entfernen/hinzufügen, Scope-Auswahl.
@@ -392,7 +409,7 @@ Tastatur erreichbar.
 
 ## Belege (2026-11-14)
 
-- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 103
+- `npm run build`: `astro check`, Server-Build, alle Verify-Skripte und 105
   Tests grün.
 - Headless Chromium: 320, 360, 390, 414, 768, 1024, 1280, 1440 und 1920 px
   ohne horizontalen Seiten-Überlauf; Panel 320–414 px vollflächig, ab 768 px

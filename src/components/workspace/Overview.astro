@@ -1,24 +1,23 @@
 ---
 import AssistantPrompt from '@/components/assistant/AssistantPrompt.astro';
 import ServiceRow from '@/components/services/ServiceRow.astro';
-import FirstSteps from '@/components/workspace/FirstSteps.astro';
+import Onboarding from '@/components/onboarding/Onboarding.astro';
 import PageHeader from '@/components/ui/PageHeader.astro';
 import EmptyState from '@/components/ui/EmptyState.astro';
 import Icon from '@/components/ui/Icon.astro';
 import { useTranslations } from '@/i18n';
 import { pathFor, type Locale } from '@/lib/locale';
 import type { Session } from '@/lib/session';
-import { favoritesOf } from '@/lib/store';
+import { favoritesOf, onboardingStateOf } from '@/lib/store';
 import { activeAnnouncements, announcementText } from '@/lib/announcements';
-import { articlesFor, canReadArticle } from '@/lib/knowledge';
 
 interface Props {
   locale: Locale;
   session: Session;
-  firstVisit: boolean;
+  legacyOnboarded: boolean;
 }
 
-const { locale, session, firstVisit } = Astro.props;
+const { locale, session, legacyOnboarded } = Astro.props;
 const t = useTranslations(locale);
 const name = session.identity?.name || session.identity?.username || '';
 const owner = session.identity?.username ?? '';
@@ -27,14 +26,22 @@ const favorites = owner ? favoritesOf(owner) : [];
 const saved = services.filter((service) => favorites.includes(service.id));
 const shown = saved.length > 0 ? saved : services;
 const news = session.identity ? activeAnnouncements(session.identity.groups) : [];
-const guides = (await articlesFor(locale)).filter((article) => canReadArticle(article, session.identity));
-const showFirstSteps = firstVisit && saved.length === 0;
+const onboardingState = owner ? onboardingStateOf(owner) : null;
 ---
 
 <PageHeader
   overline={t('overviewEyebrow')}
   title={t('overviewGreeting', { name })}
   description={t('overviewIntro')}
+/>
+
+<Onboarding
+  locale={locale}
+  services={services}
+  favorites={favorites}
+  state={onboardingState}
+  legacyOnboarded={legacyOnboarded}
+  name={name}
 />
 
 <AssistantPrompt
@@ -83,11 +90,6 @@ const showFirstSteps = firstVisit && saved.length === 0;
   }
 </section>
 
-{showFirstSteps && (
-  <section class="block">
-    <FirstSteps locale={locale} services={services.length} guides={guides.length} />
-  </section>
-)}
 
 <style>
   .block + .block {

@@ -13,12 +13,11 @@ const session = readSession(Astro.request);
 if (!session.identity) return Astro.redirect(loginPathFor(pathFor('de', 'overview')));
 
 const t = useTranslations('de');
-const firstVisit = !Astro.cookies.has('vyrx_onboarded');
-if (firstVisit) {
-  Astro.cookies.set('vyrx_onboarded', '1', { path: '/', maxAge: 31_536_000, sameSite: 'lax' });
-}
+// Bestehende Konten mit dem alten First-Steps-Cookie behalten ihren Zustand.
+// Neue Konten bekommen das serverseitig gespeicherte Onboarding.
+const legacyOnboarded = Astro.cookies.has('vyrx_onboarded');
 ---
 
 <AppShell locale="de" session={session} title={t('navOverview')} description={t('overviewIntro')}>
-  <Overview locale="de" session={session} firstVisit={firstVisit} />
+  <Overview locale="de" session={session} legacyOnboarded={legacyOnboarded} />
 </AppShell>

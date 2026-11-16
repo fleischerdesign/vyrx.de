@@ -1,0 +1,600 @@
+---
+import Icon from '@/components/ui/Icon.astro';
+import { useTranslations } from '@/i18n';
+import { text } from '@/lib/fleet';
+import type { Locale } from '@/lib/locale';
+import type { OnboardingState } from '@/lib/store';
+import type { FleetService } from '@/lib/fleet';
+
+interface Props {
+  locale: Locale;
+  services: readonly FleetService[];
+  favorites: readonly string[];
+  state: OnboardingState | null;
+  legacyOnboarded: boolean;
+  name: string;
+}
+
+const { locale, services, favorites, state, legacyOnboarded, name } = Astro.props;
+const t = useTranslations(locale);
+const favoriteDone = Boolean(state?.favoritesDoneAt) || favorites.length > 0;
+const assistantDone = Boolean(state?.assistantDoneAt);
+const done = favoriteDone && assistantDone;
+const showCard = !legacyOnboarded && !state?.dismissedAt && !state?.completedAt;
+const showWelcome =
+  !legacyOnboarded && !state?.welcomeSeenAt && !state?.dismissedAt && !state?.completedAt;
+const progress = Number(favoriteDone) + Number(assistantDone);
+---
+
+{
+  showCard && (
+    <section
+      class="onboarding"
+      data-onboarding
+      data-onboarding-error={t('onboardingError')}
+      data-onboarding-limit={t('onboardingFavoritesLimit')}
+      data-onboarding-assistant-done={t('onboardingAssistantDone')}
+      aria-labelledby="onboarding-title"
+    >
+      {done ? (
+        <div class="onboarding__done" data-onboarding-done>
+          <span class="onboarding__mark" aria-hidden="true"><Icon name="check" size="1.15rem" /></span>
+          <div>
+            <h2 id="onboarding-title">{t('onboardingDoneTitle')}</h2>
+            <p>{t('onboardingDoneLead')}</p>
+          </div>
+          <button type="button" class="onboarding__primary" data-onboarding-finish>
+            {t('onboardingFinish')}
+          </button>
+        </div>
+      ) : (
+        <>
+          <div class="onboarding__head">
+            <div>
+              <p class="onboarding__eyebrow">{t('onboardingStartTitle')}</p>
+              <h2 id="onboarding-title">{t('onboardingStartLead')}</h2>
+            </div>
+            <span class="onboarding__progress">{t('onboardingProgress', { done: progress, total: 2 })}</span>
+          </div>
+
+          <ol class="onboarding__steps">
+            <li class:list={['onboarding__step', favoriteDone && 'is-done']} data-onboarding-step-favorites>
+              <span class="onboarding__number" aria-hidden="true">
+                {favoriteDone ? <Icon name="check" size="0.95rem" /> : '01'}
+              </span>
+              <div class="onboarding__step-copy">
+                <strong>{t('onboardingFavoritesTitle')}</strong>
+                <p>{t('onboardingFavoritesLead')}</p>
+              </div>
+              <button
+                type="button"
+                class="onboarding__secondary"
+                data-onboarding-favorites-open
+                disabled={favoriteDone}
+              >
+                {favoriteDone ? t('onboardingFavoritesDone') : t('onboardingFavoritesAction')}
+              </button>
+            </li>
+
+            <li class:list={['onboarding__step', assistantDone && 'is-done']} data-onboarding-step-assistant>
+              <span class="onboarding__number" aria-hidden="true">
+                {assistantDone ? <Icon name="check" size="0.95rem" /> : '02'}
+              </span>
+              <div class="onboarding__step-copy">
+                <strong>{t('onboardingAssistantTitle')}</strong>
+                <p>{t('onboardingAssistantLead')}</p>
+              </div>
+              <button
+                type="button"
+                class="onboarding__secondary"
+                data-onboarding-assistant
+                disabled={assistantDone}
+              >
+                {assistantDone ? t('onboardingAssistantDone') : t('onboardingAssistantAction')}
+              </button>
+            </li>
+          </ol>
+
+          <div class="onboarding__foot">
+            <button type="button" class="onboarding__skip" data-onboarding-skip>
+              {t('onboardingSkipAll')}
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
+<dialog
+  class="onboarding-dialog"
+  data-onboarding-welcome
+  data-autopen={showWelcome ? '' : undefined}
+  aria-labelledby="onboarding-welcome-title"
+>
+  <div class="onboarding-dialog__panel">
+    <button type="button" class="onboarding-dialog__close" data-onboarding-welcome-close aria-label={t('close')}>
+      ×
+    </button>
+    <p class="onboarding-dialog__eyebrow">VYRX</p>
+    <h2 id="onboarding-welcome-title">{t('onboardingWelcomeTitle', { name })}</h2>
+    <p class="onboarding-dialog__lead">{t('onboardingWelcomeLead')}</p>
+    <div class="onboarding-dialog__actions">
+      <button type="button" class="onboarding__primary" data-onboarding-welcome-start>
+        {t('onboardingWelcomeStart')}
+      </button>
+      <button type="button" class="onboarding__secondary" data-onboarding-welcome-skip>
+        {t('onboardingWelcomeSkip')}
+      </button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="onboarding-dialog onboarding-dialog--wide" data-onboarding-favorites aria-labelledby="onboarding-favorites-title">
+  <div class="onboarding-dialog__panel">
+    <button type="button" class="onboarding-dialog__close" data-onboarding-favorites-close aria-label={t('close')}>
+      ×
+    </button>
+    <p class="onboarding-dialog__eyebrow">{t('onboardingStartTitle')}</p>
+    <h2 id="onboarding-favorites-title">{t('onboardingFavoritesTitle')}</h2>
+    <p class="onboarding-dialog__lead">{t('onboardingFavoritesLead')}</p>
+    <div class="onboarding-services">
+      {
+        services.map((service) => (
+          <label class="onboarding-service">
+            <input
+              type="checkbox"
+              value={service.id}
+              checked={favorites.includes(service.id)}
+              data-onboarding-service
+            />
+            <span>
+              <strong>{text(service.name, locale)}</strong>
+              <small>{text(service.summary, locale)}</small>
+            </span>
+          </label>
+        ))
+      }
+    </div>
+    <p class="onboarding-dialog__feedback" data-onboarding-favorites-feedback role="status" aria-live="polite"></p>
+    <div class="onboarding-dialog__actions">
+      <button type="button" class="onboarding__primary" data-onboarding-favorites-save>
+        {t('onboardingFavoritesSave')}
+      </button>
+      <button type="button" class="onboarding__secondary" data-onboarding-favorites-later>
+        {t('onboardingFavoritesLater')}
+      </button>
+    </div>
+  </div>
+</dialog>
+
+{
+  showCard && (
+    <script>
+      const root = document.querySelector<HTMLElement>('[data-onboarding]');
+      const welcome = document.querySelector<HTMLDialogElement>('[data-onboarding-welcome]');
+      const favoritesDialog = document.querySelector<HTMLDialogElement>('[data-onboarding-favorites]');
+      const feedback = document.querySelector<HTMLElement>('[data-onboarding-favorites-feedback]');
+      const assistantStep = document.querySelector<HTMLElement>('[data-onboarding-step-assistant]');
+      const welcomeAuto = welcome?.hasAttribute('data-autopen') === true;
+
+      const labels = {
+        error: root?.dataset.onboardingError ?? 'Das hat nicht geklappt.',
+        limit: root?.dataset.onboardingLimit ?? 'Maximal drei Dienste.',
+      };
+
+      const post = async (action: string, payload: Record<string, unknown> = {}): Promise<boolean> => {
+        try {
+          const response = await fetch('/api/onboarding', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ action, ...payload }),
+          });
+          return response.ok;
+        } catch {
+          return false;
+        }
+      };
+
+      const closeDialog = (dialog: HTMLDialogElement | null): void => {
+        if (dialog?.open) dialog.close();
+      };
+
+      const hide = (): void => {
+        if (root) root.hidden = true;
+      };
+
+      if (welcome && welcomeAuto) welcome.showModal();
+      welcome?.addEventListener('close', () => {
+        void post('welcome');
+      });
+
+      document.querySelector('[data-onboarding-welcome-start]')?.addEventListener('click', async () => {
+        await post('welcome');
+        closeDialog(welcome);
+      });
+      document.querySelector('[data-onboarding-welcome-skip]')?.addEventListener('click', async () => {
+        await post('dismiss');
+        closeDialog(welcome);
+        hide();
+      });
+      document.querySelector('[data-onboarding-welcome-close]')?.addEventListener('click', async () => {
+        await post('welcome');
+        closeDialog(welcome);
+      });
+
+      document.querySelector('[data-onboarding-favorites-open]')?.addEventListener('click', () => {
+        favoritesDialog?.showModal();
+      });
+      document.querySelector('[data-onboarding-favorites-close]')?.addEventListener('click', () => closeDialog(favoritesDialog));
+      document.querySelector('[data-onboarding-favorites-later]')?.addEventListener('click', () => closeDialog(favoritesDialog));
+
+      const checkboxes = [...document.querySelectorAll<HTMLInputElement>('[data-onboarding-service]')];
+      const syncLimit = (): void => {
+        const checked = checkboxes.filter((input) => input.checked).length;
+        if (feedback) {
+          feedback.textContent = checked > 3 ? labels.limit : '';
+          feedback.dataset.tone = checked > 3 ? 'bad' : 'neutral';
+        }
+        for (const input of checkboxes) {
+          input.disabled = checked >= 3 && !input.checked;
+        }
+      };
+      for (const input of checkboxes) input.addEventListener('change', syncLimit);
+      syncLimit();
+
+      document.querySelector('[data-onboarding-favorites-save]')?.addEventListener('click', async () => {
+        const ids = checkboxes.filter((input) => input.checked).map((input) => input.value);
+        if (ids.length > 3) {
+          if (feedback) {
+            feedback.textContent = labels.limit;
+            feedback.dataset.tone = 'bad';
+          }
+          return;
+        }
+        if (await post('favorites', { favorites: ids })) {
+          window.location.reload();
+        } else if (feedback) {
+          feedback.textContent = labels.error;
+          feedback.dataset.tone = 'bad';
+        }
+      });
+
+      document.querySelector('[data-onboarding-assistant]')?.addEventListener('click', async () => {
+        const ok = await post('assistant');
+        if (!ok) return;
+        assistantStep?.classList.add('is-done');
+        const button = assistantStep?.querySelector<HTMLButtonElement>('[data-onboarding-assistant]');
+        if (button) {
+          button.disabled = true;
+          button.textContent = root?.dataset.assistantDone ?? button.textContent;
+        }
+        document.dispatchEvent(new CustomEvent('vyrx:assistant-open'));
+      });
+
+      document.querySelector('[data-onboarding-skip]')?.addEventListener('click', async () => {
+        if (await post('dismiss')) hide();
+      });
+      document.querySelector('[data-onboarding-finish]')?.addEventListener('click', async () => {
+        if (await post('complete')) hide();
+      });
+    </script>
+  )
+}
+
+<style>
+  .onboarding {
+    position: relative;
+    margin-bottom: var(--space-10);
+    padding: var(--space-6);
+    border: 1px solid var(--accent-soft-line);
+    border-radius: var(--radius-lg);
+    background:
+      radial-gradient(circle at 100% 0, var(--accent-weaker), transparent 42%),
+      var(--surface);
+  }
+
+  .onboarding__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
+  }
+
+  .onboarding__eyebrow {
+    margin-bottom: var(--space-2);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .onboarding h2 {
+    max-width: var(--measure-narrow);
+    font-size: var(--text-xl);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-snug);
+  }
+
+  .onboarding__progress {
+    flex: none;
+    color: var(--faint);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .onboarding__steps {
+    display: grid;
+    gap: var(--space-2);
+    list-style: none;
+  }
+
+  .onboarding__step {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--surface) 75%, transparent);
+  }
+
+  .onboarding__step.is-done {
+    opacity: 0.7;
+  }
+
+  .onboarding__number,
+  .onboarding__mark {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+  }
+
+  .onboarding__step-copy strong {
+    display: block;
+    margin-bottom: 2px;
+    font-size: var(--text-sm);
+  }
+
+  .onboarding__step-copy p {
+    color: var(--muted);
+    font-size: var(--text-xs);
+    line-height: var(--leading-normal);
+  }
+
+  .onboarding__secondary,
+  .onboarding__primary {
+    min-height: 2.2rem;
+    padding: 0.55rem 0.8rem;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
+  .onboarding__primary {
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .onboarding__primary:hover {
+    background: var(--accent-strong);
+  }
+
+  .onboarding__secondary {
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink-2);
+  }
+
+  .onboarding__secondary:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .onboarding__secondary:disabled {
+    opacity: 0.55;
+  }
+
+  .onboarding__foot {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--space-4);
+  }
+
+  .onboarding__skip {
+    border: 0;
+    background: none;
+    color: var(--faint);
+    font-size: var(--text-xs);
+  }
+
+  .onboarding__skip:hover {
+    color: var(--bad);
+  }
+
+  .onboarding__done {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .onboarding__done > div {
+    flex: 1;
+  }
+
+  .onboarding__done h2 {
+    font-size: var(--text-lg);
+    margin-bottom: 2px;
+  }
+
+  .onboarding__done p {
+    color: var(--muted);
+    font-size: var(--text-sm);
+  }
+
+  .onboarding-dialog {
+    width: min(34rem, calc(100vw - 2rem));
+    max-width: none;
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-lg);
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .onboarding-dialog--wide {
+    width: min(42rem, calc(100vw - 2rem));
+  }
+
+  .onboarding-dialog::backdrop {
+    background: rgb(23 27 38 / 0.38);
+    backdrop-filter: blur(4px);
+  }
+
+  .onboarding-dialog__panel {
+    position: relative;
+    padding: var(--space-8);
+  }
+
+  .onboarding-dialog__close {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-4);
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: var(--text-lg);
+    line-height: 1;
+  }
+
+  .onboarding-dialog__eyebrow {
+    margin-bottom: var(--space-3);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: var(--tracking-wider);
+    text-transform: uppercase;
+  }
+
+  .onboarding-dialog h2 {
+    padding-right: var(--space-6);
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-tight);
+  }
+
+  .onboarding-dialog__lead {
+    margin-top: var(--space-3);
+    color: var(--muted);
+    font-size: var(--text-base);
+  }
+
+  .onboarding-dialog__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    margin-top: var(--space-6);
+  }
+
+  .onboarding-dialog__feedback {
+    min-height: 1.1rem;
+    margin-top: var(--space-3);
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  .onboarding-dialog__feedback[data-tone='bad'] {
+    color: var(--bad);
+  }
+
+  .onboarding-services {
+    display: grid;
+    gap: var(--space-2);
+    max-height: 46vh;
+    margin-top: var(--space-5);
+    overflow: auto;
+  }
+
+  .onboarding-service {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+  }
+
+  .onboarding-service:has(input:checked) {
+    border-color: var(--accent-soft-line);
+    background: var(--accent-weaker);
+  }
+
+  .onboarding-service input {
+    width: 1rem;
+    height: 1rem;
+    margin-top: 2px;
+    accent-color: var(--accent);
+  }
+
+  .onboarding-service strong {
+    display: block;
+    font-size: var(--text-sm);
+  }
+
+  .onboarding-service small {
+    display: block;
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: var(--text-xs);
+  }
+
+  @media (max-width: 640px) {
+    .onboarding {
+      padding: var(--space-4);
+    }
+
+    .onboarding__head {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .onboarding__step {
+      grid-template-columns: 2rem minmax(0, 1fr);
+    }
+
+    .onboarding__step > button {
+      grid-column: 2;
+      justify-self: start;
+    }
+
+    .onboarding-dialog__panel {
+      padding: var(--space-6) var(--space-4) var(--space-4);
+    }
+
+    .onboarding-dialog__actions {
+      align-items: stretch;
+      flex-direction: column;
+    }
+  }
+</style>

@@ -23,7 +23,7 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const SCHEMA_VERSION = 13;
+const SCHEMA_VERSION = 14;
 
 export interface Report {
   readonly id: number;
@@ -322,6 +322,23 @@ function migrate(db: DatabaseSync): void {
         last_status  TEXT,
         last_error   TEXT,
         PRIMARY KEY (owner, routine_id)
+      );
+    `);
+  }
+
+  if (current < 14) {
+    // Onboarding ist ein einmaliger, serverseitig gespeicherter Zustand. Ein
+    // Cookie reicht nicht: derselbe Account kann auf mehreren Geräten öffnen.
+    db.exec(`
+      CREATE TABLE onboarding_state (
+        owner              TEXT PRIMARY KEY,
+        welcome_seen_at    TEXT,
+        favorites_done_at  TEXT,
+        assistant_done_at  TEXT,
+        dismissed_at       TEXT,
+        completed_at       TEXT,
+        created_at         TEXT NOT NULL,
+        updated_at         TEXT NOT NULL
       );
     `);
   }
@@ -1450,6 +1467,91 @@ export function mediaWatchesOf(owner: string): readonly MediaWatch[] {
     .prepare('SELECT * FROM media_watch WHERE owner = ? ORDER BY updated_at DESC')
     .all(owner) as unknown as Parameters<typeof watchFromRow>[0][];
   return rows.map(watchFromRow);
+}
+
+// ------------------------------------------------------------------------------------------------
+// Onboarding
+// ------------------------------------------------------------------------------------------------
+
+export interface OnboardingState {
+  readonly owner: string;
+  readonly welcomeSeenAt: string | null;
+  readonly favoritesDoneAt: string | null;
+  readonly assistantDoneAt: string | null;
+  readonly dismissedAt: string | null;
+  readonly completedAt: string | null;
+}
+
+export function onboardingStateOf(owner: string): OnboardingState | null {
+  const row = open()
+    .prepare(
+      'SELECT owner, welcome_seen_at, favorites_done_at, assistant_done_at, dismissed_at, completed_at FROM onboarding_state WHERE owner = ?',
+    )
+    .get(owner) as
+    | {
+        owner: string;
+        welcome_seen_at: string | null;
+        favorites_done_at: string | null;
+        assistant_done_at: string | null;
+        dismissed_at: string | null;
+        completed_at: string | null;
+      }
+    | undefined;
+  return row
+    ? {
+        owner: row.owner,
+        welcomeSeenAt: row.welcome_seen_at,
+        favoritesDoneAt: row.favorites_done_at,
+        assistantDoneAt: row.assistant_done_at,
+        dismissedAt: row.dismissed_at,
+        completedAt: row.completed_at,
+      }
+    : null;
+}
+
+const ensureOnboarding = (owner: string): void => {
+  const timestamp = now();
+  open()
+    .prepare(
+      'INSERT INTO onboarding_state (owner, created_at, updated_at) VALUES (?, ?, ?) ON CONFLICT(owner) DO NOTHING',
+    )
+    .run(owner, timestamp, timestamp);
+};
+
+export function markOnboarding(
+  owner: string,
+  field: 'welcomeSeenAt' | 'favoritesDoneAt' | 'assistantDoneAt' | 'dismissedAt' | 'completedAt',
+): OnboardingState {
+  ensureOnboarding(owner);
+  const column = {
+    welcomeSeenAt: 'welcome_seen_at',
+    favoritesDoneAt: 'favorites_done_at',
+    assistantDoneAt: 'assistant_done_at',
+    dismissedAt: 'dismissed_at',
+    completedAt: 'completed_at',
+  }[field];
+  const timestamp = now();
+  open()
+    .prepare(`UPDATE onboarding_state SET ${column} = ?, updated_at = ? WHERE owner = ?`)
+    .run(timestamp, timestamp, owner);
+  const state = onboardingStateOf(owner);
+  if (!state) throw new Error('onboarding_state_missing');
+  return state;
+}
+
+export function setFavorites(owner: string, serviceIds: readonly string[]): void {
+  const db = open();
+  const insert = db.prepare('INSERT OR IGNORE INTO favorite (owner, service_id, created_at) VALUES (?, ?, ?)');
+  const timestamp = now();
+  db.exec('BEGIN');
+  try {
+    db.prepare('DELETE FROM favorite WHERE owner = ?').run(owner);
+    for (const id of serviceIds) insert.run(owner, id, timestamp);
+    db.exec('COMMIT');
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
 }
 
 // ------------------------------------------------------------------------------------------------
